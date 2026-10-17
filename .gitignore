@@ -1,0 +1,5 @@
+out/
+voice/raw/
+__pycache__/
+*.pyc
+*.f32
