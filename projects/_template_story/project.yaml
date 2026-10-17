@@ -1,0 +1,68 @@
+# Template for a narrated image story (format: story). Full working example: projects/roshni-airport-story.
+# Copy to projects/<name>/project.yaml, write the script + image prompts, then:
+#   python make.py projects/<name> images voice timing      (spends credits: ~6-10 per image, ~1.5 for the voice)
+#   python make.py projects/<name> masks stills             (check out/still_*.jpg, tune shots/times)
+#   python make.py projects/<name> build                    (render + mix + mux + qa, free)
+format: story
+title: My story
+vo_offset: 0.6                  # narration starts this many seconds into the video
+# duration: 45                  # default: end of narration + 1.5 s
+audio:
+  music: assets/music/house_117bpm.mp3
+  music_align: {track: 51.965, at: {word: [5, walk]}}   # this moment of the track (a drop) lands on this word
+  # music_start: 20.0          # ...or just start the track here
+  music_level: 0.6
+  gain_db: 7.0
+  limit: 0.76
+voice:
+  lines:                        # one entry per story beat; every timing below refers to these line numbers (from 0)
+  - This is Meera. Today is her first day at a new job.
+  - The office is huge. Everyone looks busy.
+  - She feels small... but she smiles anyway.
+  - She says hello to everyone. Even the security uncle.
+  - By lunch, she has five new friends.
+  - Because when you are new... just walk in like you belong.
+  joiner: ' <long pause> '      # between lines in the TTS call (fine in the main narration, never in an ending)
+  style: A warm, expressive storyteller, a young Indian woman with a soft Indian English accent, slow, clear and gentle,
+    with a smile in the voice and quiet confidence on the last line.
+times:                          # named moments; see studio/timeline.py for every expression
+  WALK: {word: [5, walk]}
+  CUT1: {gap: [0, 1]}           # between line 0 and line 1, snapped to the nearest beat
+  CUT2: {gap: [1, 2]}
+  CUT3: {gap: [2, 3]}
+  CUT4: {gap: [3, 4]}
+  CUT5: {gap: [4, 5]}
+shots:                          # each shot lasts until the next one's `from`; zoom/anchor = Ken Burns start -> end
+- {img: s1_intro, from: 0, zoom: [1.3, 1.0], anchor: [[0.5, 0.25], [0.5, 0.45]], parallax: 0.04}
+- {img: s2_office, from: CUT1, zoom: [1.0, 1.15], anchor: [[0.5, 0.3], [0.5, 0.28]], parallax: 0.05}
+- {img: s3_smile, from: CUT2, zoom: [1.05, 1.25], anchor: [[0.45, 0.22], [0.45, 0.2]], parallax: 0.05}
+- {img: s4_hello, from: CUT3, zoom: [1.0, 1.1], anchor: [[0.5, 0.4], [0.5, 0.38]], parallax: 0.03}
+- {img: s5_friends, from: CUT4, zoom: [1.0, 1.15], anchor: [[0.5, 0.3], [0.5, 0.28]], parallax: 0.04}
+- {img: s6_walk, from: WALK, zoom: [1.0, 1.22], anchor: [[0.5, 0.36], [0.5, 0.32]], parallax: 0.06}
+graphics:
+  drop: WALK                    # big punch + flash + riser/impact here
+  boards:                       # optional split-flap boards (lower third). Remove for a cleaner look.
+  - from: 0
+    to: CUT1
+    header: DAY 1
+    entries: [[0.35, MEERA], [{word: [0, new], add: -0.1}, NEW JOB]]
+  captions: {y: 1300, size: 70, stop_at: WALK}
+  kinetic: {y: 1120, words: [[WALK, WALK IN, white], [{word: [5, like]}, LIKE YOU, amber], [{word: [5, belong]}, BELONG., white]]}
+  watermark: {text: divasclub, y: 1720}
+sfx:                            # extra sounds (studio/sfx.py): bell, whoosh, swish, tick, pop, fall, riser, impact, thud, clatter, flyover
+- {sound: bell, at: 0.05, gain: 0.2, args: {freq: 880}}
+images:
+  refs: []                      # reference photos (e.g. refs/face.jpg) for a consistent real person; none = text-to-image
+  resolution: 1K
+  aspect: '9:16'
+  prefix: 'A young Indian woman (late 20s, shoulder-length wavy hair, small gold studs) in a mustard kurta and white
+    palazzos. '
+  suffix: '. Photorealistic editorial photo, soft warm light, vertical 9:16 frame. Leave clear space below her face. No
+    text, no logos, no watermark.'
+  shots:
+    s1_intro: She stands outside a glass office tower in the morning, holding her bag strap, looking up nervously
+    s2_office: She stands in a busy open-plan office while people rush past her as motion blur
+    s3_smile: Close-up, she takes a breath and smiles warmly at the camera
+    s4_hello: She greets a smiling elderly security guard at the office entrance
+    s5_friends: She laughs with three colleagues at a lunch table in a bright canteen
+    s6_walk: Hero shot from a low angle, she walks confidently towards the camera down a long bright corridor

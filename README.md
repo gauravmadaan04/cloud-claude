@@ -1,31 +1,36 @@
-# divasclub reel factory
+# divasclub reel studio
 
-Paper-doll "Types of …" reels: an illustrated model, garment cut-outs flying on and off, Indian English voiceover,
-desi-fusion music, a confusion → "To know what suits you…" ending ready for your CTA, divasclub watermark,
-and a face detector that keeps every graphic off her face.
+Instagram reels made from AI images, an Indian English voiceover, music and code-drawn motion graphics, all rebuilt
+with one command. Different kinds of reels are different **formats**; each reel is a **project** folder.
 
 ## Reels in this repo
-| Reel | Folder | Model |
+| Reel | Project | Format |
 |---|---|---|
-| Types of Skirts | `reels/skirts` | slim, young |
-| Types of Suits | `reels/suits` | 38, North Indian, apple shape |
-| Types of Kurtis | `reels/kurtis` | 38, North Indian, apple shape |
-| Types of Saree Drapes | `reels/saree-drapes` | 38, North Indian, apple shape |
-| Types of Necklines | `reels/necklines` | 38, North Indian, apple shape |
+| Roshni at the airport | `projects/roshni-airport-story` | story |
+| Types of Skirts | `projects/skirts` | paperdoll |
+| Types of Suits | `projects/suits` | paperdoll |
+| Types of Kurtis | `projects/kurtis` | paperdoll |
+| Types of Saree Drapes | `projects/saree-drapes` | paperdoll |
+| Types of Necklines | `projects/necklines` | paperdoll |
 
-Each folder has `reel.yaml` (all settings, script, prompts), `img/` (the model in each look), `pieces/` (cut-outs)
-and `voice/` (final voiceover + timings). Re-rendering any of them costs no credits.
+Re-rendering any of them costs no credits. Formats and how to add one: [docs/FORMATS.md](docs/FORMATS.md).
+Ideas for next reels: [docs/IDEAS.md](docs/IDEAS.md).
 
 ## Everyday use (just ask Claude in a session with this repo)
-- "Make a Types of Jackets reel" → Claude proposes items + script, then runs it.
-- "Change the Kurtis title / re-render the Suits reel" → edit `reel.yaml`, `python make_reel.py reels/kurtis build`.
+- "Make a Types of Jackets reel" → a new paperdoll project.
+- "Make a story reel about a mom's first solo trip" → a new story project.
+- "New idea: right-vs-wrong reels with ✗ and ✓ stamps" → Claude sketches a new format, builds it, makes the first reel.
+- "Make a Hinglish version of the Suits reel" → edit the script, re-voice, rebuild (~1.5 credits).
 
 ## Commands
 ```bash
-python make_reel.py reels/<name> new      # images, cut-outs, voice, preview stills (spends Kie credits)
-python make_reel.py reels/<name> build    # render + sound + final MP4 → reels/<name>/out/<name>.mp4 (free)
-python make_reel.py reels/<name> stills --stills 2 10 40   # quick preview frames
+python make.py --list                                  # formats, projects
+python make.py projects/<name> new                     # first-time stages (images, voice, previews; spends credits)
+python make.py projects/<name> build                   # render + sound + final MP4 + checks (free)
+python make.py projects/<name> stills --stills 2 10 40 # quick preview frames
+python make.py projects/<name> qa --deep               # loudness, face log, contact sheet, transcript vs script
 ```
+Output: `projects/<name>/out/<name>.mp4`.
 
 ## One-time setup
 1. **Cloud environment setup script:** paste the contents of `setup.sh` into your environment's *Setup script*

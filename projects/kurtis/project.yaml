@@ -1,0 +1,122 @@
+# Types Of Kurtis — paper-doll reel config. Edit, then: python make.py projects/kurtis build
+format: paperdoll
+title: TYPES OF KURTIS
+subtitle: AN INDIAN WEAR GUIDE FOR WOMEN
+watermark: divasclub
+vo_offset: 0.5
+items:
+- id: straight
+  label: STRAIGHT
+  hem: 0.735
+  prompt: a mint-green cotton straight-cut kurti, knee length with side slits, three-quarter sleeves and white chikankari
+    embroidery at the neckline, with white straight pants and gold embroidered juttis.
+- id: aline
+  label: A-LINE
+  hem: 0.756
+  prompt: a coral-pink A-line kurti, fitted at the shoulders and bust and gently flaring out to a wider hem just below the
+    knee, three-quarter sleeves, small white thread embroidery at the neckline.
+- id: empire
+  label: EMPIRE
+  hem: 0.742
+  prompt: a royal-blue empire-cut kurti with a seam and a thin gold band just under the bust, then soft gathers flowing loosely
+    down to the knee, three-quarter sleeves.
+- id: kaftan
+  label: KAFTAN
+  hem: 0.757
+  prompt: 'a mustard-and-white printed kaftan kurti: very loose and boxy with wide batwing sleeves falling from the shoulders
+    to the elbows, a deep V-neck with tassels, ending at the knee.'
+- id: shirt
+  label: SHIRT STYLE
+  hem: 0.745
+  prompt: a sky-blue cotton shirt-style kurti with a proper shirt collar, a full front button placket, a chest pocket and
+    rolled-up sleeves, straight and knee length with side slits.
+- id: highlow
+  label: HIGH-LOW
+  hem: 0.78
+  prompt: 'a lavender high-low kurti: short in front ending at the upper thigh, curving down to a much longer back hem that
+    reaches the calves, three-quarter sleeves.'
+- id: frontslit
+  label: FRONT SLIT
+  hem: 0.784
+  prompt: a bottle-green front-slit kurti, calf length, with one long slit running up the front centre to the waist showing
+    the white pants, three-quarter sleeves, gold buttons at the neck.
+- id: peplum
+  label: PEPLUM
+  hem: 0.554
+  prompt: 'a magenta peplum kurti: fitted through the bust and waist, with a short flared peplum frill at the hips ending
+    at the upper thigh, elbow sleeves.'
+- id: asymmetric
+  label: ASYMMETRIC
+  hem: 0.769
+  prompt: a turquoise asymmetric kurti with a dramatic diagonal hem, short on one side at the hip and long on the other side
+    down to the knee, three-quarter sleeves.
+- id: kalidar
+  label: KALIDAR
+  hem: 0.82
+  prompt: a regal ivory-and-gold Kalidar kurti made of many long vertical panels (kalis) that flare out into a very full,
+    swirling hem at the calf, with gold zari borders and a rich embroidered yoke.
+finale:
+  desc: The royal one. Many panels, full of grace.
+  name_words:
+  - kalidar
+layout:
+  outfit_top: 0.205
+  side_h: 470
+  side_y: 1270
+  hook_spacing: 380
+  hook_h: 0.95
+  hook_shift: 0.03
+  orbit_h: 290
+ending:
+  pivot_word: not
+  prime_rows:
+  - - Not
+    - every
+    - style
+    - flatters
+  - - every
+    - body
+    - type.
+audio:
+  music: assets/music/desi_fusion_120bpm.mp3
+  music_start: 74.2
+  gain_db: 7.4
+  limit: 0.76
+voice:
+  lines:
+  - Types of kurtis every woman should know!
+  - Straight cut. Clean and simple. Goes with everything.
+  - A-line. Fitted on top, flares gently at the bottom.
+  - Empire. The seam sits just under the bust, then flows down.
+  - Kaftan. Loose, breezy, and so comfortable.
+  - Shirt style. A collar and buttons. Smart for office.
+  - High-low. Short in front, long at the back.
+  - Front slit. One long slit in the front. Very chic.
+  - Peplum. Fitted at the waist, with a flare at the hips.
+  - Asymmetric. A slanting hem, full of style.
+  - And the royal one... the Kalidar! Many panels, full of grace.
+  style: A cheerful, warm young Indian woman fashion creator with a natural Indian English accent, talking to her Instagram
+    followers like a friendly big sister. Bright and upbeat but clear and easy to understand, say each kurti name with a little
+    emphasis and a tiny pause after it, and proud and dramatic on the finale.
+  ending_text: So many options... so which one is actually right for you? ... Not every style flatters every body type. To
+    know what suits you...
+  ending_style: A warm young Indian woman fashion creator with a natural Indian English accent. Start a little overwhelmed
+    and playfully confused, like there are too many choices, then pause, and become sincere and caring, as if sharing a secret.
+    In the final phrase, say 'To know' clearly as two words, starting with a crisp T, as a statement (not a question), trailing
+    off with gentle curiosity.
+generation:
+  model_image: assets/models/apple_38_north_indian.png
+  base_keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change her outfit to: '
+  keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change ONLY her kurti (the top) to: '
+  end: ' Tasteful and modest. Nothing covering her face. No text, no letters, no watermark.'
+  cutout_prompt: 'Draw ONLY the kurti (the top) this woman is wearing, by itself, as a hand-drawn paper-doll clothing piece:
+    front view, upright, keeping the same size and proportions as on her body and exactly the same cut, length, colours, prints
+    and embroidery, in the same colour-pencil and marker illustration style. Centred on plain white paper with generous empty
+    space around it. No person, no head, no hands, no skin, no feet, no shoes, no hanger, no shadow, no text, no watermark.'
+  cutout_aspect: '3:4'

@@ -1,0 +1,213 @@
+# Roshni at the airport: narrated image story (format: story). Rebuild: python make.py projects/roshni-airport-story build
+# Times are named in `times:` and reused everywhere; see studio/timeline.py for the expression syntax.
+# custom.py adds the one-off boarding-pass end card.
+format: story
+title: Roshni at the airport
+vo_offset: 0.6
+duration: 49.5
+audio:
+  music: assets/music/house_117bpm.mp3
+  music_align: {track: 51.965, at: {word: [7, walk]}}
+  music_level: 0.62
+  fade_out: 1.6
+  duck_release: 380
+  gain_db: 7.6
+  limit: 0.72
+times:
+  WALK: {word: [7, walk]}
+  DROP: WALK
+  D1: {music: 19.975}
+  CUT1: {gap: [0, 1]}
+  CUT2: {gap: [1, 2]}
+  CUT3: {gap: [2, 3]}
+  CUT4: {gap: [3, 4]}
+  CUT5: {gap: [4, 5]}
+  CUT6: {gap: [5, 6]}
+  CUT7: {gap: [6, 7]}
+  CUT_A: {before: [1, everyone]}
+  CUT_SMILE: {word: [2, she, 1], add: -0.12, snap: true}
+  CUT_BAGS: {before: [3, roshni]}
+  CUT_NOW: {before: [5, now]}
+  PASS_IN: 45.75
+  STAMP_AT: 47.55
+  TAG_AT: 48.1
+shots:
+- img: n1_arrive
+  from: 0
+  zoom: [1.45, 1.0]
+  anchor: [[0.57, 0.2], [0.5, 0.5]]
+  parallax: 0.04
+- img: s1_hero_walk
+  from: CUT1
+  zoom: [1.0, 1.12]
+  anchor: [[0.51, 0.45], [0.51, 0.4]]
+  parallax: 0.04
+- img: s2_crowd
+  from: CUT_A
+  zoom: [1.0, 1.25]
+  anchor: [[0.52, 0.22], [0.52, 0.2]]
+  parallax: 0.05
+- img: s3_window
+  from: CUT2
+  zoom: [1.0, 1.06]
+  anchor: [[0.39, 0.32], [0.39, 0.3]]
+  parallax: 0.04
+- {img: s3_window, from: D1, zoom: [1.55, 1.7], anchor: [[0.66, 0.12], [0.7, 0.1]]}
+- img: n2_window_smile
+  from: CUT_SMILE
+  zoom: [1.05, 1.3]
+  anchor: [[0.45, 0.22], [0.45, 0.2]]
+  parallax: 0.05
+- {img: s4_light_bags, from: CUT3, zoom: [1.6, 1.7], anchor: [[0.08, 0.45], [0.18, 0.45]]}
+- img: s4_light_bags
+  from: CUT_BAGS
+  zoom: [1.15, 1.0]
+  anchor: [[0.62, 0.45], [0.55, 0.5]]
+  parallax: 0.04
+- img: s5_happy
+  from: CUT4
+  zoom: [1.0, 1.18]
+  anchor: [[0.57, 0.26], [0.57, 0.24]]
+  parallax: 0.05
+- img: s6_kind
+  from: CUT5
+  zoom: [1.0, 1.08]
+  anchor: [[0.5, 0.4], [0.5, 0.38]]
+  parallax: 0.03
+- {img: s6_kind, from: CUT_NOW, zoom: [1.5, 1.62], anchor: [[0.6, 0.14], [0.6, 0.12]]}
+- img: s7_gate
+  from: CUT6
+  zoom: [1.0, 1.15]
+  anchor: [[0.52, 0.3], [0.52, 0.28]]
+  parallax: 0.05
+- img: s9_look_back
+  from: CUT7
+  zoom: [1.1, 1.3]
+  anchor: [[0.43, 0.2], [0.43, 0.18]]
+  parallax: 0.05
+- img: s8_runway
+  from: DROP
+  zoom: [1.0, 1.22]
+  anchor: [[0.56, 0.36], [0.56, 0.32]]
+  parallax: 0.06
+graphics:
+  drop: DROP
+  board_y: 1075
+  boards:
+  - from: 0
+    to: CUT1
+    header: FLIGHT RS 101
+    entries: [[0.35, ROSHNI], [{word: [0, flying], add: -0.1}, NEW CITY]]
+  - from: CUT_A
+    to: CUT2
+    header: STATUS
+    entries:
+    - [{word: [1, everyone], add: -0.1}, RUSH HOUR]
+    - [{word: [1, calm], add: -0.3}, CALM]
+  - from: CUT2
+    to: CUT3
+    header: FLIGHT RS 101
+    entries:
+    - [{word: [2, leaves], add: -0.1}, DEPARTED]
+    - [{word: [2, there], add: -0.1}, NEXT FLIGHT]
+  - from: CUT3
+    to: CUT4
+    header: BAGGAGE
+    entries:
+    - [{word: [3, light], add: -0.1}, LIGHT BAG]
+    - [{word: [3, heart], add: -0.4}, LIGHT HEART]
+  - from: CUT4
+    to: CUT5
+    header: LOUNGE
+    entries: [[{word: [4, small], add: -0.1}, SMALL JOYS]]
+  - from: CUT5
+    to: CUT6
+    header: KINDNESS
+    y: 1160
+    entries: [[{word: [5, gives], add: -0.1}, BE KIND]]
+  - from: CUT6
+    to: CUT7
+    header: GATE 07
+    entries: [[{word: [6, opens], add: -0.15}, GATE OPEN]]
+    status: [BOARDING NOW, {word: [6, her], add: -0.05}, CUT7]
+  - from: CUT7
+    to: DROP
+    header: ANNOUNCEMENT
+    entries: [[{at: CUT7, add: 0.1}, FINAL CALL]]
+  captions: {y: 1300, size: 70, stop_at: WALK, break_after: [flight]}
+  kinetic:
+    y: 1120
+    step: 150
+    size: 150
+    out_at: PASS_IN
+    words:
+    - [WALK, WALK LIKE, white]
+    - [{word: [7, the]}, THE RUNWAY, amber]
+    - [{word: [7, is]}, IS YOURS., white]
+  fade_out_at: {at: END, add: -0.45}
+sfx:
+- {sound: bell, at: 0.05, gain: 0.22, args: {freq: 880}}
+- {sound: bell, at: 0.48, gain: 0.22, args: {freq: 698}}
+- {sound: flyover, at: {word: [2, leaves], add: -0.8}, gain: 0.22}
+- {sound: bell, at: {line_start: 6, add: -1.05}, gain: 0.15, args: {freq: 880}}
+- {sound: bell, at: {line_start: 6, add: -0.62}, gain: 0.15, args: {freq: 698}}
+- sound: whoosh
+  at: {at: PASS_IN, add: -0.1}
+  gain: 0.14
+  args: {dur: 0.6, f0: 200, f1: 2500}
+- {sound: thud, at: STAMP_AT, gain: 0.45}
+voice:
+  lines:
+  - This is Roshni. Today, she is flying to a new city.
+  - The airport is busy. Everyone is rushing. But Roshni is calm.
+  - Then... her plane leaves without her! Does she cry? No. She smiles. There is always another flight.
+  - Others drag heavy bags. Roshni carries just one small bag. A light bag. A light heart.
+  - She buys a coffee and laughs. Small joys make big days.
+  - An old uncle drops his ticket. Roshni gives it back. Now two people are smiling.
+  - Soon, a new gate opens. Her gate. And Roshni is ready.
+  - Because when life changes your flight... just walk like the runway is yours.
+  joiner: ' <long pause> '
+  style: 'A warm, expressive storyteller: a young Indian woman with a soft Indian English accent, telling a short story the
+    way you read to children and grandparents. Slow, clear and gentle, with a smile in the voice, a playful gasp on ''Oh''
+    moments, a little suspense before ''her plane leaves without her'', and quiet confidence on the last line.'
+images:
+  refs: [refs/r1_face.jpg, refs/r2_full.jpg, refs/r3_rust.jpg]
+  resolution: 2K
+  aspect: '9:16'
+  prefix: 'Use the woman in the reference photos as the only main character: keep her exact face, eyes, eyebrows, nose with
+    small nose pin, smile, skin tone and long dark wavy hair so she is clearly the same person. She wears a chic travel look:
+    a camel wool trench coat worn open, a fitted rust-brown ribbed henley top with small silver buttons, high-waisted wide-leg
+    light-blue jeans, red pointed-toe flats, small gold hoop earrings and a slim gold watch. '
+  suffix: . Photorealistic luxury fashion editorial, shot on 35mm cinema camera, natural skin texture, soft warm cinematic
+    light, colour palette of warm neutrals with rust and red accents, modern minimalist international airport terminal. Vertical
+    9:16 frame. No text, no logos, no watermark.
+  shots:
+    s1_hero_walk: 'Wide symmetrical shot: she walks confidently towards the camera down the centre of a vast, sunlit airport
+      terminal with floor-to-ceiling glass windows and an aircraft visible outside, pulling a small tan leather carry-on,
+      tortoiseshell sunglasses on, slight smile. Lots of open space above her'
+    s2_crowd: She stands still and calm in the middle of a busy airport hall, looking straight at the camera with a soft smile,
+      hands in coat pockets, while travellers rush past her on both sides as motion-blurred silhouettes. A large departures
+      board glows softly behind her, out of focus
+    s3_window: Golden hour. She stands at a giant airport window seen from a three-quarter back angle, holding a takeaway
+      coffee cup, watching a passenger jet take off over the runway outside. Warm sunset light rims her hair. Calm, peaceful
+      mood
+    s4_light_bags: 'Low-angle side shot at floor level: her red pointed flats and wide-leg jeans striding past a big pile
+      of heavy, overstuffed suitcases on a luggage trolley, while she pulls only her one small tan leather carry-on. Shallow
+      depth of field, polished reflective floor'
+    s5_happy: 'Medium close-up: she laughs freely, head tilted back slightly, holding a takeaway coffee cup in one hand and
+      her passport with a boarding pass in the other, sunglasses pushed up on her head. Warm bokeh airport lights behind her'
+    s6_kind: She kindly bends down and hands a dropped boarding pass back to a smiling elderly Indian man with grey hair and
+      a walking stick, both smiling warmly at each other in a bright airport corridor. Heartwarming, gentle moment
+    s7_gate: She rises from a seat at the departure gate, picking up her tan carry-on, confident smile, as a large overhead
+      gate sign glows behind her. Big windows with a parked aircraft at the jet bridge. Clean, hopeful morning light
+    s8_runway: 'Hero shot from a low angle: she power-walks straight towards the camera along a long glowing airport corridor
+      like a fashion model on a runway, trench coat flowing behind her, sunglasses on, chin up, carry-on rolling beside her.
+      Strong leading lines, dramatic warm backlight'
+    s9_look_back: At the doorway of the jet bridge leading to the aircraft, she looks back over her shoulder at the camera
+      with a confident, warm smile, one hand on the carry-on handle. Soft daylight from the aircraft door
+    n1_arrive: She steps out of a taxi at the glass entrance of a grand modern airport terminal in soft morning light, sunglasses
+      pushed up on her head, holding her passport, looking up at the building with an excited, happy smile, small tan carry-on
+      beside her
+    n2_window_smile: 'Close-up at a giant airport window at golden hour: she turns towards the camera with a big, warm, carefree
+      smile, holding a takeaway coffee cup, while a passenger jet climbs into the orange sunset sky behind her through the
+      glass'

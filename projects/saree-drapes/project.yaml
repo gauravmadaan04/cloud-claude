@@ -1,0 +1,128 @@
+# Types Of Saree Drapes — paper-doll reel config. Edit, then: python make.py projects/saree-drapes build
+format: paperdoll
+title: TYPES OF SAREE DRAPES
+subtitle: AN INDIAN WEAR GUIDE FOR WOMEN
+watermark: divasclub
+vo_offset: 0.5
+items:
+- id: nivi
+  label: NIVI
+  hem: 0.935
+  prompt: 'an emerald-green silk saree with a gold zari border, draped in the classic Nivi style: neat pleats tucked at the
+    front centre falling to the floor, and the pallu going diagonally across the chest and over her LEFT shoulder, falling
+    down her back; worn with a matching emerald short-sleeve blouse. Gold flat sandals.'
+- id: gujarati
+  label: GUJARATI
+  hem: 0.935
+  prompt: 'a traditional orange-red bandhani saree with a green border in the Gujarati ''seedha pallu'' style, the style worn
+    at Garba and family functions: neat front pleats, and the decorative pallu worn over the right shoulder and displayed
+    neatly down the front like a panel; a matching elbow-sleeve blouse. Modest, festive and graceful.'
+- id: nauvari
+  label: NAUVARI
+  hem: 0.86
+  prompt: 'a purple Paithani nine-yard saree with a green-and-gold border, draped in the Maharashtrian Nauvari style: tucked
+    between the legs like a dhoti so it forms trouser-like legs ending at mid-calf, with the pallu over the left shoulder;
+    matching blouse.'
+- id: kerala
+  label: KERALA
+  hem: 0.935
+  prompt: 'a cream Kerala kasavu set (mundum neriyathum) with a broad gold border: the lower cloth wrapped straight to the
+    ankle with front pleats, and the neriyathu upper cloth draped over the left shoulder; a gold short-sleeve blouse.'
+- id: coorgi
+  label: COORGI
+  hem: 0.935
+  prompt: 'a royal-blue silk saree with a silver border, draped in the Coorgi style: the pleats tucked at the BACK, and the
+    pallu brought from behind under the right arm and pinned/tied over the right shoulder; matching blouse.'
+- id: butterfly
+  label: BUTTERFLY
+  hem: 0.935
+  prompt: 'a blush-pink chiffon saree with light sequin work, draped in the butterfly style: a narrow, finely pleated pallu
+    over the left shoulder, neat front pleats, and only a little of the waist visible at the side; worn with a modest matching
+    blouse with a high round neckline and elbow-length sleeves. Elegant and graceful, suitable for a family function.'
+- id: lehenga
+  label: LEHENGA STYLE
+  hem: 0.935
+  prompt: 'a teal silk saree with gold border, draped lehenga style: pleats tucked all the way around the waist so the lower
+    half flares like a lehenga skirt, with the pallu over the left shoulder; matching blouse.'
+- id: pant
+  label: PANT STYLE
+  hem: 0.935
+  prompt: 'a mustard-yellow saree draped pant-style over slim ivory pants: the pleated saree wrapped around the hips and falling
+    at one side, the pants visible on the other side, pallu over the left shoulder; a black short-sleeve blouse.'
+- id: mumtaz
+  label: MUMTAZ
+  hem: 0.935
+  prompt: 'a bright orange chiffon saree draped in the retro 1960s Mumtaz style: wrapped tightly around the hips and legs
+    several times in a fitted column, with no front pleats and a short pallu over the left shoulder; matching short-sleeve
+    blouse.'
+- id: bengali
+  label: BENGALI
+  hem: 0.935
+  prompt: 'a white saree with a broad red border (laal paar), draped in the traditional Bengali style: wide box pleats at
+    the front, the pallu brought over the left shoulder and then forward again over the right shoulder, and a bunch of silver
+    keys tied to the pallu end at her waist; a red short-sleeve blouse.'
+finale:
+  desc: The queen of drapes. Box pleats, and keys at the waist.
+  name_words:
+  - bengali
+layout:
+  outfit_top: 0.2
+  side_h: 560
+  side_y: 1270
+  hook_spacing: 380
+  hook_h: 0.88
+  hook_shift: 0.06
+  orbit_h: 330
+ending:
+  pivot_word: not
+  prime_rows:
+  - - Not
+    - every
+    - style
+    - flatters
+  - - every
+    - body
+    - type.
+audio:
+  music: assets/music/desi_fusion_120bpm.mp3
+  music_start: 74.2
+  gain_db: 7.4
+  limit: 0.76
+voice:
+  lines:
+  - Types of saree drapes every woman should know!
+  - Nivi. The classic. Pleats in front, pallu over the left shoulder.
+  - Gujarati. The pallu comes over the right shoulder, to the front.
+  - Nauvari. A nine-yard Maharashtrian drape, tucked like a dhoti.
+  - Kerala. Cream and gold. Simple and graceful.
+  - Coorgi. Pleats at the back, pallu tied over the shoulder.
+  - Butterfly. A thin pallu that shows off the waist.
+  - Lehenga style. Pleats all around, like a lehenga.
+  - Pant style. Draped over pants. Modern and easy.
+  - Mumtaz. Wrapped tight, with a short pallu. Pure retro Bollywood!
+  - And the queen of drapes... the Bengali! Box pleats, and keys at the waist.
+  style: A cheerful, warm young Indian woman fashion creator with a natural Indian English accent, talking to her Instagram
+    followers like a friendly big sister. Bright and upbeat but clear and easy to understand, say each drape name with a little
+    emphasis and a tiny pause after it, and proud and dramatic on the finale.
+  ending_text: So many options... so which one is actually right for you? ... Not every style flatters every body type. To
+    know what suits you...
+  ending_style: A warm young Indian woman fashion creator with a natural Indian English accent. Start a little overwhelmed
+    and playfully confused, like there are too many choices, then pause, and become sincere and caring, as if sharing a secret.
+    In the final phrase, say 'To know' clearly as two words, starting with a crisp T, as a statement (not a question), trailing
+    off with gentle curiosity.
+generation:
+  model_image: assets/models/apple_38_north_indian.png
+  base_keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change her outfit to: '
+  keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change ONLY her saree and blouse to: '
+  end: ' Tasteful and modest. Nothing covering her face. No text, no letters, no watermark.'
+  cutout_prompt: 'Draw ONLY the saree and blouse this woman is wearing, by itself, as a hand-drawn paper-doll clothing piece:
+    front view, upright, keeping the same size and proportions as on her body and exactly the same cut, length, colours, prints
+    and embroidery, in the same colour-pencil and marker illustration style. Centred on plain white paper with generous empty
+    space around it. No person, no head, no hands, no skin, no feet, no shoes, no hanger, no shadow, no text, no watermark.'
+  cutout_aspect: '9:16'
