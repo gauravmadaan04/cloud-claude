@@ -1,0 +1,121 @@
+# Types Of Suits — paper-doll reel config. Edit, then: python make_reel.py reels/suits build
+title: TYPES OF SUITS
+subtitle: AN INDIAN WEAR GUIDE FOR WOMEN
+watermark: divasclub
+vo_offset: 0.5
+items:
+- id: straight
+  label: STRAIGHT
+  hem: 0.925
+  prompt: a mint-green cotton straight-cut kurta, knee length with side slits, three-quarter sleeves and delicate white chikankari
+    embroidery at the neckline, worn with matching white straight-cut pants to the ankle (an Indian straight suit). Gold embroidered
+    juttis.
+- id: patiala
+  label: PATIALA
+  hem: 0.925
+  prompt: a mustard-yellow short kurta ending at mid-thigh with small mirror work, worn with a deep-pink Patiala salwar that
+    has many heavy, deep pleats and is gathered at the ankle.
+- id: sharara
+  label: SHARARA
+  hem: 0.925
+  prompt: 'a powder-blue short kurta to mid-thigh with silver gota and mirror work, worn with a matching powder-blue sharara:
+    pants fitted to the knee, then flaring out wide and flowing to the floor.'
+- id: gharara
+  label: GHARARA
+  hem: 0.925
+  prompt: 'a lilac kurta to mid-thigh with gold gota work, worn with a lilac gharara: pants fitted to the knee with a decorative
+    gold gota band at the knee, then gathered and flaring out wide to the floor.'
+- id: palazzo
+  label: PALAZZO
+  hem: 0.925
+  prompt: an indigo-blue block-print straight kurta to the knee, worn with wide-leg flowing white palazzo pants to the ankle.
+- id: churidar
+  label: CHURIDAR
+  hem: 0.925
+  prompt: 'a maroon kurta to just below the knee with gold buttis, worn with a beige churidar: slim fitted pants with many
+    soft bunched folds gathered at the ankles.'
+- id: angrakha
+  label: ANGRAKHA
+  hem: 0.925
+  prompt: a peach angrakha-style kurta that wraps and overlaps across the chest and ties with tassel strings at the side,
+    flared to the knee, worn with slim ivory ankle pants.
+- id: dhoti
+  label: DHOTI
+  hem: 0.925
+  prompt: a teal short asymmetric kurta with a curved hem, worn with ivory dhoti pants that are draped and cowled at the front
+    and narrow at the ankle.
+- id: afghani
+  label: AFGHANI
+  hem: 0.925
+  prompt: a black kurta to mid-thigh with colourful tribal thread embroidery, worn with a loose black Afghani salwar that
+    is very baggy and gathered into cuffs at the ankles.
+- id: anarkali
+  label: ANARKALI
+  hem: 0.925
+  prompt: 'a royal wine-red floor-length Anarkali: a fitted bodice and a very full, flared, circular kurta falling to the
+    ankles with rich gold zari embroidery at the hem and neckline, worn with a fitted churidar underneath.'
+finale:
+  desc: The queen of them all. Flared, and full of grace.
+  name_words:
+  - anarkali
+layout:
+  outfit_top: 0.205
+  side_h: 560
+  side_y: 1270
+  hook_spacing: 380
+  hook_h: 0.88
+  hook_shift: 0.06
+  orbit_h: 330
+ending:
+  pivot_word: not
+  prime_rows:
+  - - Not
+    - every
+    - style
+    - flatters
+  - - every
+    - body
+    - type.
+audio:
+  music: assets/music/desi_fusion_120bpm.mp3
+  music_start: 74.2
+  gain_db: 7.4
+  limit: 0.76
+voice:
+  lines:
+  - Types of suits every Indian girl should know!
+  - Straight suit. Simple and elegant. Perfect for office.
+  - Patiala. Lots of pleats in the salwar. Pure Punjabi swag!
+  - Sharara. Pants that flare out from the knee. So festive!
+  - Gharara. Gathered at the knee, then flared. A nawabi classic.
+  - Palazzo suit. Wide, flowy pants. Comfy all day.
+  - Churidar. Fitted pants that bunch at the ankles.
+  - Angrakha. The kurta wraps, and ties at the side.
+  - Dhoti suit. Draped dhoti pants. Fusion fun!
+  - Afghani. Loose salwar, gathered at the ankles.
+  - And the queen of them all... the Anarkali! Flared, and full of grace.
+  style: A cheerful, warm young Indian woman fashion creator with a natural Indian English accent, talking to her Instagram
+    followers like a friendly big sister. Bright and upbeat but clear and easy to understand, say each suit name with a little
+    emphasis and a tiny pause after it, and proud and dramatic on the finale.
+  ending_text: So many options... so which one is actually right for you? ... Not every style flatters every body type. To
+    know what suits you...
+  ending_style: A warm young Indian woman fashion creator with a natural Indian English accent. Start a little overwhelmed
+    and playfully confused, like there are too many choices, then pause, and become sincere and caring, as if sharing a secret.
+    In the final phrase, say 'To know' clearly as two words, starting with a crisp T, as a statement (not a question), trailing
+    off with gentle curiosity.
+generation:
+  model_image: assets/models/apple_38_north_indian.png
+  base_keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change her outfit to: '
+  keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change ONLY her outfit (kurta and bottoms) to: '
+  end: ' Tasteful and modest. Nothing covering her face. No text, no letters, no watermark.'
+  cutout_prompt: 'Draw ONLY the outfit (kurta and bottoms) this woman is wearing, by itself, as a hand-drawn paper-doll clothing
+    piece: front view, upright, keeping the same size and proportions as on her body and exactly the same cut, length, colours,
+    prints and embroidery, in the same colour-pencil and marker illustration style. Centred on plain white paper with generous
+    empty space around it. No person, no head, no hands, no skin, no feet, no shoes, no hanger, no shadow, no text, no watermark.'
+  cutout_aspect: '9:16'
