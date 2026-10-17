@@ -1,0 +1,120 @@
+# Types Of Necklines — paper-doll reel config. Edit, then: python make_reel.py reels/necklines build
+title: TYPES OF NECKLINES
+subtitle: A STYLE GUIDE FOR WOMEN
+watermark: divasclub
+vo_offset: 0.5
+items:
+- id: round
+  label: ROUND NECK
+  hem: 0.513
+  prompt: a plain coral cotton top with a classic ROUND crew neckline and elbow-length sleeves, worn untucked and ending at
+    the hip, with dark indigo straight-leg jeans to the ankle and nude pointed flats.
+- id: vneck
+  label: V-NECK
+  hem: 0.513
+  prompt: a plain navy-blue top with a clean V-NECK neckline (a moderate V that stops above the bust) and elbow-length sleeves.
+- id: scoop
+  label: SCOOP
+  hem: 0.516
+  prompt: 'a plain mustard-yellow top with a SCOOP neckline: a soft, wide U-shaped curve at the collarbone, elbow-length sleeves.'
+- id: boat
+  label: BOAT NECK
+  hem: 0.515
+  prompt: 'a plain emerald-green top with a BOAT (bateau) neckline: wide and straight across from shoulder to shoulder at
+    collarbone height, elbow-length sleeves.'
+- id: square
+  label: SQUARE
+  hem: 0.508
+  prompt: a plain lilac top with a SQUARE neckline with straight sides and a straight edge at the collarbone, elbow-length
+    puff sleeves.
+- id: sweetheart
+  label: SWEETHEART
+  hem: 0.511
+  prompt: a plain red top with a modest SWEETHEART neckline shaped like the top of a heart, sitting at the collarbone, elbow-length
+    sleeves.
+- id: collar
+  label: COLLAR
+  hem: 0.53
+  prompt: a crisp white button-down shirt with a pointed shirt COLLAR, worn untucked, elbow-length rolled sleeves.
+- id: cowl
+  label: COWL
+  hem: 0.511
+  prompt: a champagne-gold satin top with a soft COWL neckline that drapes in gentle folds at the collarbone, elbow-length
+    sleeves.
+- id: offshoulder
+  label: OFF-SHOULDER
+  hem: 0.514
+  prompt: a teal OFF-SHOULDER top with a wide elasticated neckline sitting just below both shoulders and short flounce sleeves
+    on the upper arms.
+- id: highneck
+  label: HIGH NECK
+  hem: 0.513
+  prompt: a plain black fitted HIGH-NECK (mock turtleneck) top covering the neck up to just under the chin, elbow-length sleeves.
+finale:
+  desc: The classy one. Covered, chic, and so elegant.
+  name_words:
+  - high
+  - neck
+layout:
+  outfit_top: 0.232
+  side_h: 300
+  side_y: 1060
+  hook_spacing: 580
+  hook_h: 0.95
+  hook_shift: 0.02
+  orbit_h: 220
+ending:
+  pivot_word: your
+  prime_rows:
+  - - Your
+    - face
+    - shape
+    - decides
+  - - which
+    - neckline
+    - suits
+    - you.
+  icons: face_shapes
+audio:
+  music: assets/music/desi_fusion_120bpm.mp3
+  music_start: 74.2
+  gain_db: 7.0
+  limit: 0.72
+voice:
+  lines:
+  - Types of necklines every woman should know!
+  - Round neck. Simple, classic, and so easy.
+  - V-neck. Makes your neck look longer.
+  - Scoop. A soft, deep curve. Very feminine.
+  - Boat neck. Wide and straight, from shoulder to shoulder.
+  - Square. Straight lines with a clean, modern look.
+  - Sweetheart. Curved like the top of a heart.
+  - Collar. Smart and crisp, just like a shirt.
+  - Cowl. Soft fabric that drapes in folds.
+  - Off-shoulder. Shows off your shoulders. Party ready!
+  - And the classy one... the high neck! Covered, chic, and so elegant.
+  style: A cheerful, warm young Indian woman fashion creator with a natural Indian English accent, talking to her Instagram
+    followers like a friendly big sister. Bright and upbeat but clear and easy to understand, say each neckline name with
+    a little emphasis and a tiny pause after it, and proud and dramatic on the finale.
+  ending_text: So many options... so which one is actually right for you? ... Your face shape decides which neckline suits
+    you. To know what suits you...
+  ending_style: A warm young Indian woman fashion creator with a natural Indian English accent. Start a little overwhelmed
+    and playfully confused, like there are too many choices, then pause, and become sincere and caring, as if sharing a secret.
+    In the final phrase, say 'To know' clearly as two words, starting with a crisp T, as a statement (not a question), trailing
+    off with gentle curiosity.
+generation:
+  model_image: assets/models/apple_38_north_indian.png
+  base_keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change her outfit to: '
+  keep: 'Edit this illustration. Keep the woman exactly the same: same face, smile, gold jhumka earrings, thin gold bangles,
+    low bun, skin tone, her apple-shaped body with fuller bust and arms and soft rounded tummy, standing pose, arms relaxed
+    slightly away from her body, same hand-drawn colour-pencil and marker style, same white paper background, and the exact
+    same framing, head position and scale. No bindi on her forehead. Change ONLY her top to: '
+  end: ' Tasteful and modest. Nothing covering her face. No text, no letters, no watermark.'
+  cutout_prompt: 'Draw ONLY the top this woman is wearing, by itself, as a hand-drawn paper-doll clothing piece: front view,
+    upright, keeping the same size and proportions as on her body and exactly the same cut, length, colours, prints and embroidery,
+    in the same colour-pencil and marker illustration style. Centred on plain white paper with generous empty space around
+    it. No person, no head, no hands, no skin, no feet, no shoes, no hanger, no shadow, no text, no watermark.'
+  cutout_aspect: '1:1'
