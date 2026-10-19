@@ -82,6 +82,10 @@ final class IPCServer {
             UIHub.shared.openSettings(tab: req.args.first); return .init(ok: true)
         case "close-windows":
             UIHub.shared.closeAppWindows(); return .init(ok: true)
+        case "show-menu":
+            UIHub.shared.statusMenu.open(); return .init(ok: true)
+        case "hide-menu":
+            UIHub.shared.statusMenu.close(); return .init(ok: true)
         default:
             guard let cmd = Command.parse(req.cmd) else {
                 return .init(ok: false, message: "Unknown command '\(req.cmd)'. Try `ribbon help`.")

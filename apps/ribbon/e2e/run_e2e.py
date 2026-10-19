@@ -462,10 +462,12 @@ def _():
         vis = [c["windows"][0]["frame"] for c in s["columns"] if c["visibility"] == "visible"]
         vx = main_display(st)["visible"][0]
         return len(vis) >= 2 and close(vis[0][0], vx, 1) and all(close(b[0], a[0] + a[2], 1) for a, b in zip(vis, vis[1:]))
-    wait(touching, what="edge-to-edge windows")
-    shot("no-gaps")
-    cli("config", "set", "innerGap", "10")
-    cli("config", "set", "outerGap", "10")
+    try:
+        wait(touching, what="edge-to-edge windows")
+        shot("no-gaps")
+    finally:
+        cli("config", "set", "innerGap", "10")
+        cli("config", "set", "outerGap", "10")
     wait_settled()
 
 
@@ -485,10 +487,16 @@ def _():
     time.sleep(0.8)
     shot("cheat-sheet")
     cli("show-shortcuts")
-    for pane in ["general", "layout", "appearance", "shortcuts", "trackpad", "setup", "automation"]:
+    cli("show-menu")
+    time.sleep(1.0)
+    shot("menu")
+    cli("hide-menu")
+    time.sleep(0.5)
+    for pane in ["general", "layout", "appearance", "shortcuts", "trackpad", "apps", "displays", "setup", "automation", "about"]:
         cli("show-settings", pane)
-        time.sleep(0.9)
+        time.sleep(1.2)
         shot(f"settings-{pane}")
+        assert cli("ping", check=False, timeout=4).strip() == "pong", f"Ribbon stopped responding on the {pane} pane"
     cli("close-windows")
     time.sleep(0.3)
 
@@ -497,7 +505,7 @@ def _():
 def _():
     for step in range(7):
         cli("show-onboarding", str(step))
-        time.sleep(1.2)
+        time.sleep(1.6)
         shot(f"onboarding-step-{step}")
     cli("close-windows")
 

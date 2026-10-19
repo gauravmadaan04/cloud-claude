@@ -16,7 +16,7 @@ final class Fixture: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let args = CommandLine.arguments
         let count = args.firstIndex(of: "--windows").flatMap { Int(args[$0 + 1]) } ?? 3
         try? FileManager.default.createDirectory(at: dir.appendingPathComponent("cmd"), withIntermediateDirectories: true)
-        for i in 1...max(1, count) { open("Fixture \(i)", resizable: true) }
+        if count > 0 { for i in 1...count { open("Fixture \(i)", resizable: true) } }
         if args.contains("--fixed") { open("Fixed", resizable: false, size: NSSize(width: 300, height: 260)) }
         if args.contains("--tabs") {
             let a = open("Tab A", resizable: true)

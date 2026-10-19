@@ -26,6 +26,7 @@ final class TrackedWindow {
     var lastSetTime: CFTimeInterval = 0
     let openingFrame: Rect
     var fights: [CFTimeInterval] = []
+    var repairs: [CFTimeInterval] = []
 
     init(id: WindowID, element: AXElement, pid: pid_t, bundleID: String?, appName: String, title: String, frame: Rect) {
         self.id = id; self.element = element; self.pid = pid; self.bundleID = bundleID
@@ -487,32 +488,59 @@ final class WindowManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
     }
 
-    /// After animations: learn the real size of windows whose apps refuse to shrink. Frames are
-    /// applied asynchronously, so a window must read too wide twice before we believe it.
+    /// After animations: check that every window really is where the layout put it. Apps that
+    /// refuse to shrink teach us their minimum width; anything else that's off gets put right
+    /// (a few times at most, so an app that insists on its own frame doesn't cause a fight).
     private func readBack() {
-        func oversized() -> [(StripKey, TrackedWindow, Double)] {
-            var out: [(StripKey, TrackedWindow, Double)] = []
+        struct Miss { let key: StripKey; let w: TrackedWindow; let target: Rect; let onScreen: Bool }
+        func misses() -> [Miss] {
+            var out: [Miss] = []
             for (key, r) in layouts where isActive(key) {
+                guard let d = display(uuid: key.display) else { continue }
+                let others = displays.filter { $0.uuid != d.uuid }.map(\.frame)
                 for pl in r.placements {
-                    guard let w = windows[pl.window], !animator.isAnimating(w.id), let size = w.element.size else { continue }
-                    let width = Double(size.width)
-                    if width > pl.frame.w + 4, (w.constraints.minWidth ?? 0) < width - 1 { out.append((key, w, width)) }
+                    guard let w = windows[pl.window], w.key == key, !animator.isAnimating(w.id), let actual = w.element.frame else { continue }
+                    var target = pl.frame.rounded()
+                    let onScreen = pl.visibility.isOnScreen
+                    if case .hidden(let side) = pl.visibility {
+                        target = Parking.frame(size: target.size, side: side, screen: d.frame, others: others, y: target.y)
+                    }
+                    let sizeOK = abs(actual.w - target.w) <= 2 && abs(actual.h - target.h) <= 2
+                    let posOK = abs(actual.x - target.x) <= 2 && abs(actual.y - target.y) <= 2
+                    if !sizeOK || (onScreen && !posOK) { out.append(Miss(key: key, w: w, target: target, onScreen: onScreen)) }
                 }
             }
             return out
         }
-        let first = oversized()
+        let first = misses()
         guard !first.isEmpty else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self else { return }
-            let suspects = Set(first.map { $0.1.id })
+            let suspects = Set(first.map { $0.w.id })
             var touched = Set<StripKey>()
-            for (key, w, width) in oversized() where suspects.contains(w.id) {
-                w.constraints.minWidth = width
-                touched.insert(key)
-                Log.info("\(w.appName) won't go narrower than \(Int(width))pt")
+            var repaired = false
+            let now = CACurrentMediaTime()
+            for m in misses() where suspects.contains(m.w.id) {
+                guard let actual = m.w.element.frame else { continue }
+                if m.onScreen, actual.w > m.target.w + 4, (m.w.constraints.minWidth ?? 0) < actual.w - 1 {
+                    m.w.constraints.minWidth = actual.w
+                    touched.insert(m.key)
+                    Log.info("\(m.w.appName) won't go narrower than \(Int(actual.w))pt")
+                    continue
+                }
+                m.w.repairs = m.w.repairs.filter { now - $0 < 10 }
+                guard m.w.repairs.count < 3 else { continue }
+                m.w.repairs.append(now)
+                repaired = true
+                Log.debug("repair \(m.w.id) \(m.w.appName): \(actual) -> \(m.target)")
+                m.w.lastFrame = actual
+                self.animator.mover.invalidate(m.w.id)
+                self.animator.move(m.w.id, element: m.w.element, pid: m.w.pid, from: actual, to: m.target, animated: false, response: 0)
             }
             touched.forEach { self.relayout($0, reveal: true) }
+            if repaired {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.readBack() }
+            }
         }
     }
 

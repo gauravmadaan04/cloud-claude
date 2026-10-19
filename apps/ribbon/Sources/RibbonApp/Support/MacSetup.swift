@@ -1,5 +1,6 @@
 #if os(macOS)
 import AppKit
+import Darwin
 import RibbonCore
 
 struct SetupCheck: Identifiable {
@@ -45,12 +46,14 @@ enum MacSetup {
         if let u = URL(string: "x-apple.systempreferences:\(pane)") { NSWorkspace.shared.open(u) }
     }
 
+    /// Runs a fix in the background (never blocks the UI).
     static func shell(_ cmd: String) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
         p.arguments = ["-c", cmd]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
         try? p.run()
-        p.waitUntilExit()
     }
 
     static func run() -> [SetupCheck] {
@@ -169,15 +172,17 @@ enum MacSetup {
         return out
     }
 
+    /// Looks for a running process by name without spawning anything.
     static func processRunning(_ name: String) -> Bool {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-        p.arguments = ["-x", name]
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { return false }
-        p.waitUntilExit()
-        return p.terminationStatus == 0
+        let count = proc_listallpids(nil, 0)
+        guard count > 0 else { return false }
+        var pids = [pid_t](repeating: 0, count: Int(count) + 64)
+        let n = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        var buf = [CChar](repeating: 0, count: 256)
+        for pid in pids.prefix(Int(max(0, n))) where pid > 0 {
+            if proc_name(pid, &buf, UInt32(buf.count)) > 0, String(cString: buf) == name { return true }
+        }
+        return false
     }
 
     static func json(_ checks: [SetupCheck]) -> String {

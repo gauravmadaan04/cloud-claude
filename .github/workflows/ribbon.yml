@@ -57,6 +57,7 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           cp ~/Library/Logs/Ribbon/ribbon.log dist/e2e/ 2>/dev/null || true
+          cp ~/Library/Logs/DiagnosticReports/Ribbon* dist/e2e/ 2>/dev/null || true
           VERSION=1.0.0 scripts/make_dmg.sh
 
       - name: Publish build to the ribbon-dist branch

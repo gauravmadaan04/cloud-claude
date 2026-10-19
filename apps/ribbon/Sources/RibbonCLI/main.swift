@@ -59,7 +59,7 @@ default:
 }
 
 if Command.parse(cmd) == nil && !IPC.queries.contains(where: { $0.name == cmd }) &&
-    !["show-onboarding", "show-settings", "close-windows"].contains(cmd) {
+    !["show-onboarding", "show-settings", "close-windows", "show-menu", "hide-menu"].contains(cmd) {
     FileHandle.standardError.write(Data("Unknown command '\(cmd)'. Run `ribbon help`.\n".utf8))
     exit(2)
 }

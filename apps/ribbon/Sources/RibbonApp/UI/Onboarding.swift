@@ -14,366 +14,542 @@ final class PracticeCenter: ObservableObject {
     }
 }
 
-// MARK: - A miniature strip, drawn with the real layout engine
-
-struct DemoWindow {
-    let title: String
-    let symbol: String
-    let color: Color
-}
-
-let demoWindows: [WindowID: DemoWindow] = [
-    1: DemoWindow(title: "Mail", symbol: "envelope.fill", color: Color(red: 0.33, green: 0.56, blue: 0.98)),
-    2: DemoWindow(title: "Notes", symbol: "note.text", color: Color(red: 0.98, green: 0.76, blue: 0.24)),
-    3: DemoWindow(title: "Safari", symbol: "safari.fill", color: Color(red: 0.27, green: 0.75, blue: 0.86)),
-    4: DemoWindow(title: "Terminal", symbol: "terminal.fill", color: Color(red: 0.25, green: 0.27, blue: 0.32)),
-    5: DemoWindow(title: "Music", symbol: "music.note", color: Color(red: 0.98, green: 0.36, blue: 0.43)),
-    6: DemoWindow(title: "Calendar", symbol: "calendar", color: Color(red: 0.55, green: 0.42, blue: 0.95)),
-]
-
-func demoStrip(count: Int = 5) -> Strip {
-    var s = Strip()
-    let widths = [0.5, 0.5, 2.0 / 3, 1.0 / 3, 0.5, 0.5]
-    for i in 1...count { s.insert(WindowID(i), width: widths[i - 1], at: .end, focus: false) }
-    s.focusColumn(1)
-    s.scroll = Layout.scrollToReveal(s, demoParams)
-    return s
-}
-
-let demoParams = LayoutParams(screen: Rect(x: 0, y: 0, w: 1200, h: 700), area: Rect(x: 0, y: 26, w: 1200, h: 674),
-                              innerGap: 16, outerGap: 16, tabBarHeight: 36)
-
-struct MiniStripView: View {
-    var strip: Strip
-
-    var body: some View {
-        GeometryReader { geo in
-            let sx: CGFloat = geo.size.width / CGFloat(demoParams.screen.w)
-            let sy: CGFloat = geo.size.height / CGFloat(demoParams.screen.h)
-            let r = Layout.compute(strip, demoParams)
-            ZStack(alignment: .topLeading) {
-                LinearGradient(colors: [Color(red: 0.16, green: 0.2, blue: 0.38), Color(red: 0.42, green: 0.28, blue: 0.55)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                Rectangle().fill(Color.white.opacity(0.18)).frame(height: 26.0 * sy)
-                ForEach(r.placements, id: \.window) { pl in
-                    let hiddenTab = strip.columns[pl.column].mode == .tabbed && pl.row != strip.columns[pl.column].active
-                    if !hiddenTab {
-                        DemoWindowView(demo: demoWindows[pl.window], focused: strip.focusedWindow == pl.window, scale: sx)
-                            .frame(width: CGFloat(pl.frame.w) * sx, height: CGFloat(pl.frame.h) * sy)
-                            .offset(x: CGFloat(pl.frame.x) * sx, y: CGFloat(pl.frame.y) * sy)
-                    }
-                }
-                ForEach(r.tabBars, id: \.column) { tb in
-                    HStack(spacing: 3) {
-                        ForEach(Array(tb.windows.enumerated()), id: \.offset) { i, wid in
-                            Text(demoWindows[wid]?.title ?? "")
-                                .font(.system(size: max(8.0, 22.0 * sx), weight: .semibold))
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(RoundedRectangle(cornerRadius: 4).fill(i == tb.active ? Color.accentColor : Color.white.opacity(0.25)))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .padding(2)
-                    .frame(width: CGFloat(tb.frame.w) * sx, height: CGFloat(tb.frame.h - 4) * sy)
-                    .offset(x: CGFloat(r.columnRects[tb.column].x) * sx, y: CGFloat(tb.frame.y) * sy)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .animation(.spring(response: 0.38, dampingFraction: 0.86), value: strip)
-        }
-        .aspectRatio(CGFloat(demoParams.screen.w / demoParams.screen.h), contentMode: .fit)
-        .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-    }
-}
-
-struct DemoWindowView: View {
-    let demo: DemoWindow?
-    let focused: Bool
-    let scale: CGFloat
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 12 * scale + 3, style: .continuous).fill(Color(nsColor: .windowBackgroundColor))
-            VStack(spacing: 0) {
-                HStack(spacing: 4) {
-                    ForEach([Color.red, Color.yellow, Color.green], id: \.self) { c in
-                        Circle().fill(c.opacity(0.85)).frame(width: max(4, 12 * scale), height: max(4, 12 * scale))
-                    }
-                    Spacer()
-                }
-                .padding(6)
-                .frame(maxWidth: .infinity)
-                .background((demo?.color ?? .gray).opacity(0.18))
-                Spacer()
-                Image(systemName: demo?.symbol ?? "macwindow")
-                    .font(.system(size: max(12, 70 * scale)))
-                    .foregroundColor(demo?.color ?? .gray)
-                Text(demo?.title ?? "").font(.system(size: max(9, 26 * scale), weight: .semibold)).foregroundColor(.secondary)
-                Spacer()
-            }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 12 * scale + 3, style: .continuous)
-                .strokeBorder(focused ? Color.accentColor : Color.black.opacity(0.1), lineWidth: focused ? 3 : 1)
-        )
-    }
-}
-
-// MARK: - The tour
-
 final class OnboardingModel: ObservableObject {
     static let shared = OnboardingModel()
     @Published var step = 0
 }
 
+private struct TourStep {
+    let title: String
+    let symbol: String
+}
+
+private let tourSteps: [TourStep] = [
+    TourStep(title: "Welcome", symbol: "sparkles"),
+    TourStep(title: "How it works", symbol: "rectangle.split.3x1"),
+    TourStep(title: "Permission", symbol: "lock.shield"),
+    TourStep(title: "Mac check", symbol: "checkmark.seal"),
+    TourStep(title: "Practice", symbol: "keyboard"),
+    TourStep(title: "Trackpad", symbol: "hand.draw"),
+    TourStep(title: "Ready", symbol: "flag.checkered"),
+]
+
+// MARK: - The tour window
+
 struct OnboardingView: View {
     var finish: () -> Void
     @ObservedObject private var model = OnboardingModel.shared
-    private var step: Int { model.step }
-    private let titles = ["Welcome", "How it works", "Permission", "Mac Setup", "Practice", "Trackpad", "Done"]
+    @State private var trusted = AXPermission.isTrusted
+    private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch step {
-                case 0: WelcomeStep()
-                case 1: ConceptStep()
-                case 2: PermissionStep()
-                case 3: SetupStep()
-                case 4: PracticeStep()
-                case 5: TrackpadStep()
-                default: DoneStep()
+        HStack(spacing: 0) {
+            sidebar
+            VStack(spacing: 0) {
+                ZStack {
+                    stepView
+                        .id(model.step)
+                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
+                                                removal: .move(edge: .leading).combined(with: .opacity)))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 40)
+                .padding(.top, 38)
+                .clipped()
+                footer
+            }
+        }
+        .frame(width: 900, height: 640)
+        .background(
+            ZStack {
+                Color(nsColor: .windowBackgroundColor)
+                AuroraBackdrop(intensity: 0.45)
+            }
+            .ignoresSafeArea()
+        )
+        .tint(Brand.violet)
+        .onReceive(poll) { _ in trusted = AXPermission.isTrusted }
+    }
+
+    @ViewBuilder
+    private var stepView: some View {
+        switch model.step {
+        case 0: WelcomeStep()
+        case 1: ConceptStep()
+        case 2: PermissionStep()
+        case 3: SetupStep()
+        case 4: PracticeStep()
+        case 5: TrackpadStep()
+        default: ReadyStep()
+        }
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 12) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 46, height: 46)
+                    .shadow(color: Brand.violet.opacity(0.35), radius: 8, y: 3)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Ribbon").font(.system(size: 18, weight: .bold))
+                    Text("Setup").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 40)
-            .padding(.top, 34)
-            .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
-            .id(step)
+            .padding(.top, 48)
+            .padding(.bottom, 26)
 
-            Divider()
-            HStack {
-                HStack(spacing: 7) {
-                    ForEach(titles.indices, id: \.self) { i in
-                        Capsule().fill(i == step ? Color.accentColor : Color.secondary.opacity(0.3))
-                            .frame(width: i == step ? 22 : 7, height: 7)
+            ForEach(tourSteps.indices, id: \.self) { i in
+                stepRow(i)
+            }
+            Spacer()
+            Label("About two minutes", systemImage: "clock")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 20)
+        }
+        .padding(.horizontal, 18)
+        .frame(width: 214)
+        .frame(maxHeight: .infinity)
+        .background(
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay(alignment: .trailing) { Rectangle().fill(Color.primary.opacity(0.08)).frame(width: 1) }
+                .ignoresSafeArea()
+        )
+    }
+
+    private func stepRow(_ i: Int) -> some View {
+        let current = i == model.step
+        let done = i < model.step
+        return Button {
+            go(i)
+        } label: {
+            HStack(spacing: 11) {
+                ZStack {
+                    Circle()
+                        .fill(current ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(done ? 0.0 : 0.07)))
+                        .frame(width: 24, height: 24)
+                    if done {
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 21)).foregroundStyle(Color.green)
+                    } else {
+                        Image(systemName: tourSteps[i].symbol).font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(current ? Color.white : Color.secondary)
                     }
                 }
-                .animation(.spring(response: 0.3), value: step)
-                Text(titles[step]).font(.callout).foregroundColor(.secondary).padding(.leading, 6)
+                Text(tourSteps[i].title)
+                    .font(.system(size: 13, weight: current ? .semibold : .regular))
+                    .foregroundStyle(current ? Color.primary : Color.secondary)
                 Spacer()
-                if step > 0 { Button("Back") { go(step - 1) }.keyboardShortcut(.cancelAction) }
-                if step < titles.count - 1 {
-                    Button(step == 2 && !AXPermission.isTrusted ? "Skip for Now" : "Continue") { go(step + 1) }
-                        .keyboardShortcut(.defaultAction)
-                        .buttonStyle(.borderedProminent)
-                } else {
-                    Button("Start Using Ribbon") { finish() }
-                        .keyboardShortcut(.defaultAction)
-                        .buttonStyle(.borderedProminent)
-                }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(current ? Brand.violet.opacity(0.12) : Color.clear))
+            .contentShape(Rectangle())
         }
-        .frame(width: 760, height: 560)
+        .buttonStyle(.plain)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 10) {
+            Text("Step \(model.step + 1) of \(tourSteps.count)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+            if model.step > 0 {
+                Button("Back") { go(model.step - 1) }
+                    .buttonStyle(QuietButtonStyle())
+                    .keyboardShortcut(.cancelAction)
+            }
+            if model.step < tourSteps.count - 1 {
+                Button(model.step == 2 && !trusted ? "Skip for Now" : "Continue") { go(model.step + 1) }
+                    .buttonStyle(BrandButtonStyle())
+                    .keyboardShortcut(.defaultAction)
+            } else {
+                Button("Start Using Ribbon") { finish() }
+                    .buttonStyle(BrandButtonStyle())
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
     }
 
     private func go(_ s: Int) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { model.step = s }
+        withAnimation(Brand.spring) { model.step = max(0, min(tourSteps.count - 1, s)) }
     }
 }
 
-private struct StepHeader: View {
+// MARK: - Shared pieces
+
+private struct StepTitle: View {
+    var eyebrow: String? = nil
     let title: String
     let subtitle: String
+
     var body: some View {
-        VStack(spacing: 8) {
-            Text(title).font(.system(size: 28, weight: .bold))
-            Text(subtitle).font(.title3).foregroundColor(.secondary).multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 8) {
+            if let eyebrow {
+                Text(eyebrow.uppercased())
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(Brand.gradient)
+            }
+            Text(title).font(.system(size: 30, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+            Text(subtitle).font(.system(size: 15)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+private struct FeatureChip: View {
+    let symbol: String
+    let text: String
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Brand.gradient)
+            Text(text).font(.system(size: 12, weight: .semibold))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Color.primary.opacity(0.06)))
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.75))
+    }
+}
+
+/// Plays a looping script of strip commands for illustrations.
+struct ScriptedStrip: View {
+    let start: Strip
+    let script: [(inout Strip) -> Void]
+    var every: Double = 1.4
+    var params: LayoutParams = previewParams()
+    var showDock = true
+    @State private var strip: Strip?
+    @State private var tick = 0
+
+    var body: some View {
+        StripPreview(strip: strip ?? start, params: params, showDock: showDock)
+            .onReceive(Timer.publish(every: every, on: .main, in: .common).autoconnect()) { _ in
+                var s = strip ?? start
+                let phase = tick % (script.count + 1)
+                if phase == script.count {
+                    s = start
+                } else {
+                    script[phase](&s)
+                    s.scroll = Layout.scrollToReveal(s, params)
+                }
+                tick += 1
+                strip = s
+            }
+    }
+}
+
+// MARK: - 1 Welcome
 
 struct WelcomeStep: View {
-    @State private var strip = demoStrip()
-    @State private var tick = 0
-    private let timer = Timer.publish(every: 1.3, on: .main, in: .common).autoconnect()
-
     var body: some View {
-        VStack(spacing: 22) {
-            HStack(spacing: 14) {
-                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Welcome to Ribbon").font(.system(size: 32, weight: .bold))
-                    Text("Your windows, side by side on an endless strip.").font(.title3).foregroundColor(.secondary)
-                }
-            }
-            MiniStripView(strip: strip).frame(height: 300)
-            Text("Opening a window never squeezes the others. The strip simply scrolls to whatever you're working on. This short tour gets you set up and teaches the five shortcuts you'll use most. It takes about two minutes.")
-                .multilineTextAlignment(.center).foregroundColor(.secondary).frame(maxWidth: 560)
-        }
-        .onReceive(timer) { _ in
-            tick += 1
-            let script: [(inout Strip) -> Void] = [
+        VStack(alignment: .leading, spacing: 20) {
+            StepTitle(eyebrow: "Welcome to Ribbon", title: "Your windows, side by side.",
+                      subtitle: "Every window becomes a column on one long strip that runs past the edges of the screen. Open as many as you like; nothing gets squeezed.")
+            ScriptedStrip(start: demoStrip(count: 6, focus: 0), script: [
                 { $0.focusRight() }, { $0.focusRight() }, { $0.cycleWidth(presets: [1.0 / 3, 0.5, 2.0 / 3]) },
-                { $0.focusRight() }, { $0.focusLeft() }, { $0.focusFirst() },
-            ]
-            var s = strip
-            script[tick % script.count](&s)
-            s.scroll = Layout.scrollToReveal(s, demoParams)
-            strip = s
+                { $0.focusRight() }, { $0.focusRight() }, { $0.focusFirst() },
+            ])
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                FeatureChip(symbol: "keyboard", text: "Keyboard first")
+                FeatureChip(symbol: "hand.draw", text: "Trackpad swipes")
+                FeatureChip(symbol: "square.stack", text: "Stacks & tabs")
+                FeatureChip(symbol: "bolt.fill", text: "Native & fast")
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 }
+
+// MARK: - 2 How it works
 
 struct ConceptStep: View {
-    @State private var strip: Strip = {
-        var s = demoStrip(count: 4)
-        s.focusColumn(2)
-        s.consume(into: .left)
-        s.scroll = Layout.scrollToReveal(s, demoParams)
-        return s
-    }()
-
     var body: some View {
-        VStack(spacing: 20) {
-            StepHeader(title: "How Ribbon works", subtitle: "Three ideas, and you know it all.")
-            HStack(alignment: .top, spacing: 26) {
-                VStack(alignment: .leading, spacing: 18) {
-                    idea("rectangle.split.3x1", "Columns on a strip",
-                         "Every window is a column. New ones open next to the one you're using; the rest keep their widths.")
-                    idea("arrow.left.and.right", "The strip scrolls",
-                         "Focus a window with ⌃⌥ + arrows, a three-finger swipe or a click, and the strip glides to show it.")
-                    idea("square.stack", "Stacks, tabs and pins",
-                         "Stack windows in one column, turn a stack into tabs, or pin a window to the screen edge.")
-                }
-                .frame(width: 330)
-                MiniStripView(strip: strip).frame(width: 330)
+        VStack(alignment: .leading, spacing: 22) {
+            StepTitle(eyebrow: "The idea", title: "Three things to know.",
+                      subtitle: "That's really all there is to Ribbon.")
+            HStack(alignment: .top, spacing: 14) {
+                concept(symbol: "rectangle.split.3x1", colors: BadgeColors.indigo, title: "Columns, not a grid",
+                        text: "A new window opens next to the one you're using. The others keep their widths.",
+                        preview: ScriptedStrip(start: demoStrip(count: 2, focus: 0), script: [
+                            { $0.insert(3, width: 0.5, focus: true) }, { $0.insert(4, width: 1.0 / 3, focus: true) },
+                        ], every: 1.6, showDock: false))
+                concept(symbol: "arrow.left.and.right", colors: BadgeColors.violet, title: "The strip scrolls",
+                        text: "Focus a window with ⌃⌥ and an arrow, a swipe or a click, and the strip glides to show it.",
+                        preview: ScriptedStrip(start: demoStrip(count: 5, focus: 0), script: [
+                            { $0.focusRight() }, { $0.focusRight() }, { $0.focusRight() }, { $0.focusLeft() },
+                        ], every: 1.2, showDock: false))
+                concept(symbol: "square.stack.3d.up", colors: BadgeColors.pink, title: "Stack, tab and pin",
+                        text: "Put windows in one column, flip a stack into tabs, or pin one to the edge of the screen.",
+                        preview: ScriptedStrip(start: demoStrip(count: 3, focus: 1), script: [
+                            { $0.consume(into: .left) }, { $0.toggleTabbed() }, { $0.toggleTabbed() }, { $0.expel(to: .right) },
+                        ], every: 1.5, showDock: false))
             }
         }
     }
 
-    private func idea(_ symbol: String, _ title: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol).font(.title2).foregroundColor(.accentColor).frame(width: 30)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.headline)
-                Text(text).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
+    private func concept<P: View>(symbol: String, colors: [Color], title: String, text: String, preview: P) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            preview.frame(maxWidth: .infinity)
+            IconBadge(symbol: symbol, colors: colors, size: 30)
+            Text(title).font(.system(size: 15, weight: .semibold))
+            Text(text).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
+        .card(padding: 14, radius: 18)
     }
 }
+
+// MARK: - 3 Permission
 
 struct PermissionStep: View {
     @State private var trusted = AXPermission.isTrusted
-    private let timer = Timer.publish(every: 0.8, on: .main, in: .common).autoconnect()
+    @State private var showHelp = false
+    @State private var pulse = false
+    private let timer = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(spacing: 22) {
-            StepHeader(title: "Let Ribbon arrange your windows",
-                       subtitle: "macOS asks you to allow this once. Ribbon only moves and resizes windows; it never reads what's in them.")
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.05))
+        VStack(alignment: .leading, spacing: 22) {
+            StepTitle(eyebrow: "One permission", title: "Let Ribbon arrange your windows.",
+                      subtitle: "macOS asks once. Ribbon only moves and resizes windows; it never reads what's in them, and nothing leaves your Mac.")
+            mockSettings
+            HStack(spacing: 12) {
                 if trusted {
-                    VStack(spacing: 10) {
-                        Image(systemName: "checkmark.seal.fill").font(.system(size: 54)).foregroundColor(.green)
-                        Text("Access granted. You're ready to go.").font(.title3.weight(.semibold))
-                    }
-                    .transition(.scale.combined(with: .opacity))
+                    StatusPill(kind: .good, text: "Access granted. You're all set.")
                 } else {
-                    VStack(alignment: .leading, spacing: 14) {
-                        stepRow(1, "Click **Open Accessibility Settings** below.")
-                        stepRow(2, "Turn on the switch next to **Ribbon** (enter your password if asked).")
-                        stepRow(3, "Come back here. This page notices by itself.")
-                        Text("Ribbon isn't in the list? Click **+**, open **Applications**, choose **Ribbon**. After installing a new version, remove Ribbon with **–** and add it again.")
-                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-                        Button {
-                            AXPermission.prompt()
-                            AXPermission.openSettings()
-                        } label: {
-                            Label("Open Accessibility Settings", systemImage: "lock.open").padding(.horizontal, 6)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                    Button {
+                        AXPermission.prompt()
+                        AXPermission.openSettings()
+                    } label: {
+                        Label("Open Accessibility Settings", systemImage: "arrow.up.forward.app")
                     }
-                    .padding(26)
+                    .buttonStyle(BrandButtonStyle(large: true))
+                    StatusPill(kind: .waiting, text: "Waiting for access")
                 }
+                Spacer()
             }
-            .frame(width: 560, height: 270)
-            .animation(.spring(response: 0.4), value: trusted)
+            if !trusted {
+                DisclosureGroup(isExpanded: $showHelp) {
+                    Text("In Privacy & Security → Accessibility, click **+**, open **Applications** and choose **Ribbon**. After installing a newer version, select Ribbon, click **–**, then add it again.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 6)
+                } label: {
+                    Text("Ribbon isn't in the list?").font(.system(size: 13, weight: .medium))
+                }
+                .frame(maxWidth: 520)
+            }
+            Spacer(minLength: 0)
         }
         .onReceive(timer) { _ in
             let now = AXPermission.isTrusted
             if now != trusted {
-                trusted = now
+                withAnimation(Brand.spring) { trusted = now }
                 if now { WindowManager.shared.start() }
             }
         }
+        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
     }
 
-    private func stepRow(_ n: Int, _ text: LocalizedStringKey) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(n)").font(.headline).foregroundColor(.white).frame(width: 26, height: 26).background(Circle().fill(Color.accentColor))
-            Text(text).fixedSize(horizontal: false, vertical: true)
+    /// A tiny replica of the System Settings row the user needs to switch on.
+    private var mockSettings: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.left").foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                Text("Accessibility").font(.system(size: 14, weight: .bold))
+                Spacer()
+                IconBadge(symbol: "hand.raised.fill", colors: BadgeColors.blue, size: 20)
+                Text("Privacy & Security").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            Divider()
+            HStack(spacing: 12) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 30, height: 30)
+                Text("Ribbon").font(.system(size: 14, weight: .medium))
+                Spacer()
+                Toggle("", isOn: .constant(trusted)).toggleStyle(.switch).labelsHidden().allowsHitTesting(false)
+                    .padding(4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Brand.violet.opacity(trusted ? 0 : (pulse ? 0.9 : 0.25)), lineWidth: 2)
+                    )
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            Divider().padding(.leading, 58)
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(0.08)).frame(width: 30, height: 30)
+                RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.1)).frame(width: 110, height: 9)
+                Spacer()
+                Toggle("", isOn: .constant(false)).toggleStyle(.switch).labelsHidden().allowsHitTesting(false).opacity(0.5)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .opacity(0.6)
         }
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .shadow(color: Color.black.opacity(0.12), radius: 16, y: 6)
+        .frame(maxWidth: 520)
+    }
+}
+
+// MARK: - 4 Mac check
+
+func checkBadge(_ id: String) -> (String, [Color]) {
+    switch id {
+    case "ax": return ("hand.raised.fill", BadgeColors.blue)
+    case "rivals": return ("rectangle.on.rectangle", BadgeColors.orange)
+    case "stage": return ("rectangle.3.group", BadgeColors.violet)
+    case "tiling": return ("rectangle.split.2x1", BadgeColors.indigo)
+    case "spaces": return ("display.2", BadgeColors.teal)
+    case "mru": return ("square.stack.3d.down.right", BadgeColors.gray)
+    case "swipe": return ("hand.draw", BadgeColors.pink)
+    case "login": return ("power", BadgeColors.green)
+    default: return ("gearshape", BadgeColors.gray)
+    }
+}
+
+struct SetupCheckCard: View {
+    let check: SetupCheck
+    var onFix: () -> Void
+
+    var body: some View {
+        let badge = checkBadge(check.id)
+        HStack(alignment: .top, spacing: 12) {
+            IconBadge(symbol: badge.0, colors: badge.1, size: 28)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 7) {
+                    Text(check.title).font(.system(size: 13, weight: .semibold))
+                    statusIcon
+                }
+                Text(check.detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if !check.fixes.isEmpty && check.status != .ok {
+                    HStack(spacing: 8) {
+                        ForEach(Array(check.fixes.enumerated()), id: \.offset) { i, fix in
+                            if i == 0 {
+                                Button(fix.title) { run(fix) }.buttonStyle(BrandButtonStyle())
+                            } else {
+                                Button(fix.title) { run(fix) }.buttonStyle(QuietButtonStyle())
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .card(padding: 12, radius: 14)
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        switch check.status {
+        case .ok: Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.green)
+        case .warn: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.orange)
+        case .info: Image(systemName: "info.circle.fill").foregroundStyle(Color.blue)
+        }
+    }
+
+    private func run(_ fix: SetupCheck.Fix) {
+        fix.action()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { onFix() }
     }
 }
 
 struct SetupStep: View {
+    @State private var checks: [SetupCheck] = MacSetup.run()
+    private let timer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+
     var body: some View {
-        VStack(spacing: 18) {
-            StepHeader(title: "Quick Mac check", subtitle: "A few macOS settings and apps can get in Ribbon's way. Fix what you like; nothing here is required.")
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) { MacSetupList() }.padding(18)
+        let good = checks.filter { $0.status == .ok }.count
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 18) {
+                StepTitle(eyebrow: "Mac check", title: "A quick look at your setup.",
+                          subtitle: "A few macOS settings and apps can get in Ribbon's way. Fix what you like; only Accessibility is required.")
+                ProgressRing(value: Double(good), total: Double(max(1, checks.count)), label: "\(good)/\(checks.count)", caption: "look good")
+                    .frame(width: 80, height: 80)
             }
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color.primary.opacity(0.04)))
-            .frame(maxHeight: 330)
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(checks) { c in SetupCheckCard(check: c) { checks = MacSetup.run() } }
+                }
+                .padding(.bottom, 8)
+            }
         }
+        .onReceive(timer) { _ in checks = MacSetup.run() }
     }
 }
+
+struct ProgressRing: View {
+    let value: Double
+    let total: Double
+    let label: String
+    let caption: String
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.primary.opacity(0.08), lineWidth: 7)
+            Circle().trim(from: 0, to: CGFloat(value / total))
+                .stroke(Brand.gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            VStack(spacing: 0) {
+                Text(label).font(.system(size: 17, weight: .bold, design: .rounded))
+                Text(caption).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary)
+            }
+        }
+        .animation(Brand.spring, value: value)
+    }
+}
+
+// MARK: - 5 Practice
 
 struct PracticeStep: View {
     @ObservedObject private var practice = PracticeCenter.shared
     @ObservedObject private var store = SettingsStore.shared
     @State private var lesson = 0
     @State private var done = Set<Int>()
-    @State private var strip = demoStrip()
+    @State private var strip = demoStrip(count: 5, focus: 1)
     @State private var handled = 0
+    @State private var pressed = false
+    @State private var celebrate = false
 
     var body: some View {
         let lessons = Essentials.lessons
         let current = lessons[min(lesson, lessons.count - 1)]
-        VStack(spacing: 14) {
-            StepHeader(title: "Learn the five essentials", subtitle: "Press each shortcut. It works on your real windows too.")
-            HStack(alignment: .top, spacing: 22) {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(lessons.indices, id: \.self) { i in
-                        HStack(spacing: 10) {
-                            Image(systemName: lessonSymbol(i))
-                                .foregroundColor(lessonColor(i))
-                            Text(lessons[i].headline).fontWeight(i == lesson ? Font.Weight.semibold : Font.Weight.regular)
-                            Spacer()
-                            Text(combo(lessons[i].command)).font(.system(.callout, design: .rounded).weight(.semibold))
-                                .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            StepTitle(eyebrow: "Practice", title: "Learn the five essentials.",
+                      subtitle: "Press each shortcut. The preview follows along, and so do your real windows.")
+            HStack(alignment: .top, spacing: 18) {
+                VStack(spacing: 14) {
+                    StripPreview(strip: strip, showDock: false)
+                    VStack(spacing: 10) {
+                        if done.count == lessons.count {
+                            HStack(spacing: 14) {
+                                SuccessMark(size: 38)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("You've got it.").font(.system(size: 17, weight: .bold))
+                                    Text("⌃⌥/ shows every other shortcut whenever you need it.").font(.system(size: 12)).foregroundStyle(.secondary)
+                                }
+                            }
+                        } else {
+                            Text(current.headline).font(.system(size: 16, weight: .bold))
+                            CommandKeys(command: current.command, size: .large, pressed: pressed, highlighted: celebrate)
+                            Text(current.detail).font(.system(size: 12)).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.vertical, 5).padding(.horizontal, 10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(i == lesson ? Color.accentColor.opacity(0.12) : Color.clear))
-                        .onTapGesture { lesson = i }
                     }
+                    .frame(maxWidth: .infinity)
+                    .card(padding: 14, radius: 16)
                 }
-                .frame(width: 300)
-                VStack(spacing: 12) {
-                    MiniStripView(strip: strip).frame(width: 340)
-                    VStack(spacing: 6) {
-                        Text("Press").foregroundColor(.secondary)
-                        Text(combo(current.command)).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundColor(.accentColor)
-                        Text(current.detail).font(.callout).foregroundColor(.secondary).multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true).frame(width: 330)
-                        if lesson < lessons.count - 1 || !done.contains(lesson) {
-                            Button("Skip this one") { advance() }.buttonStyle(.link).font(.callout)
-                        }
+                .frame(width: 370)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(lessons.indices, id: \.self) { i in lessonRow(i) }
+                    Spacer(minLength: 0)
+                    if done.count < lessons.count {
+                        Button("Skip this one") { advance() }.buttonStyle(.link).font(.system(size: 12))
                     }
                 }
             }
@@ -385,22 +561,31 @@ struct PracticeStep: View {
         }
     }
 
-    private func combo(_ c: Command) -> String {
-        store.config.combos(for: c).first.map { KeyboardLayout.label($0) } ?? "—"
-    }
-
-    private func lessonSymbol(_ i: Int) -> String {
-        if done.contains(i) { return "checkmark.circle.fill" }
-        return i == lesson ? "circle.inset.filled" : "circle"
-    }
-
-    private func lessonColor(_ i: Int) -> Color {
-        if done.contains(i) { return Color.green }
-        return i == lesson ? Color.accentColor : Color.secondary
+    private func lessonRow(_ i: Int) -> some View {
+        let isDone = done.contains(i)
+        let isCurrent = i == lesson && !isDone
+        return Button {
+            withAnimation(Brand.snappy) { lesson = i }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: isDone ? "checkmark.circle.fill" : (isCurrent ? "circle.circle.fill" : "circle"))
+                    .font(.system(size: 15))
+                    .foregroundStyle(isDone ? Color.green : (isCurrent ? Brand.violet : Color.secondary))
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(Essentials.lessons[i].headline).font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
+                    CommandKeys(command: Essentials.lessons[i].command, size: .small)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isCurrent ? Brand.violet.opacity(0.1) : Color.clear))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(isCurrent ? Brand.violet.opacity(0.35) : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func react(to c: Command) {
-        // Mirror the command on the demo strip.
         var s = strip
         switch c {
         case .focusLeft: s.focusLeft()
@@ -408,6 +593,7 @@ struct PracticeStep: View {
         case .moveLeft: s.moveColumn(-1)
         case .moveRight: s.moveColumn(1)
         case .cycleWidth: s.cycleWidth(presets: store.config.widthPresets)
+        case .cycleWidthBack: s.cycleWidth(presets: store.config.widthPresets, forward: false)
         case .fullWidth: s.toggleFullWidth()
         case .stackLeft: s.consume(into: .left)
         case .stackRight: s.consume(into: .right)
@@ -416,10 +602,15 @@ struct PracticeStep: View {
         case .toggleTabbed: s.toggleTabbed()
         case .focusUp: s.focusVertical(-1)
         case .focusDown: s.focusVertical(1)
+        case .focusFirst: s.focusFirst()
+        case .focusLast: s.focusLast()
         default: break
         }
-        s.scroll = Layout.scrollToReveal(s, demoParams)
+        s.scroll = Layout.scrollToReveal(s, previewParams())
         strip = s
+        withAnimation(Brand.snappy) { pressed = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { withAnimation(Brand.snappy) { pressed = false } }
+
         let target = Essentials.lessons[lesson].command
         let accepted: Set<Command>
         switch target {
@@ -428,17 +619,53 @@ struct PracticeStep: View {
         case .stackLeft: accepted = [.stackLeft, .stackRight]
         default: accepted = [target]
         }
-        if accepted.contains(c) {
-            done.insert(lesson)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { advance() }
+        if accepted.contains(c) && !done.contains(lesson) {
+            withAnimation(Brand.spring) {
+                celebrate = true
+                done.insert(lesson)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                withAnimation(Brand.spring) { celebrate = false }
+                advance()
+            }
         }
     }
 
     private func advance() {
         let n = Essentials.lessons.count
         if let next = (0..<n).first(where: { $0 > lesson && !done.contains($0) }) ?? (0..<n).first(where: { !done.contains($0) }) {
-            withAnimation { lesson = next }
+            withAnimation(Brand.spring) { lesson = next }
         }
+    }
+}
+
+// MARK: - 6 Trackpad
+
+/// A trackpad with fingers sliding left and right.
+struct TrackpadIllustration: View {
+    let fingers: Int
+    @State private var swipe = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LinearGradient(colors: [Color(white: 0.88), Color(white: 0.77)], startPoint: .top, endPoint: .bottom))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.6), lineWidth: 1))
+                .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
+            HStack(spacing: 14) {
+                ForEach(0..<fingers, id: \.self) { _ in
+                    Circle()
+                        .fill(RadialGradient(colors: [Brand.violet.opacity(0.95), Brand.indigo.opacity(0.7)], center: .center, startRadius: 1, endRadius: 16))
+                        .frame(width: 26, height: 26)
+                        .shadow(color: Brand.violet.opacity(0.5), radius: 6)
+                }
+            }
+            .offset(x: swipe ? 46 : -46)
+            Image(systemName: "arrow.left.and.right").font(.system(size: 16, weight: .bold)).foregroundStyle(Color.black.opacity(0.25))
+                .offset(y: 52)
+        }
+        .frame(width: 250, height: 160)
+        .onAppear { withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { swipe = true } }
     }
 }
 
@@ -447,68 +674,81 @@ struct TrackpadStep: View {
     @State private var checks: [SetupCheck] = MacSetup.run()
 
     var body: some View {
-        VStack(spacing: 20) {
-            StepHeader(title: "Swipe through your windows", subtitle: "Slide fingers left or right on the trackpad and the strip follows, then settles on the nearest window.")
-            HStack(spacing: 30) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.primary.opacity(0.06)).frame(width: 220, height: 150)
-                    HStack(spacing: 10) {
-                        ForEach(0..<store.config.swipeFingers, id: \.self) { _ in
-                            Circle().fill(Color.accentColor.opacity(0.75)).frame(width: 22, height: 22)
-                        }
-                    }
-                    Image(systemName: "arrow.left.and.right").font(.title).foregroundColor(.secondary).offset(y: 44)
-                }
-                Form {
+        VStack(alignment: .leading, spacing: 18) {
+            StepTitle(eyebrow: "Trackpad & mouse", title: "Swipe through your windows.",
+                      subtitle: "Slide your fingers left or right; the strip follows them, then settles on the nearest window.")
+            HStack(alignment: .center, spacing: 24) {
+                TrackpadIllustration(fingers: store.config.swipeFingers)
+                VStack(alignment: .leading, spacing: 12) {
                     Toggle("Swipe to scroll the strip", isOn: setting(\.swipeEnabled))
                     Picker("Fingers", selection: setting(\.swipeFingers)) { Text("Three").tag(3); Text("Four").tag(4) }
-                        .pickerStyle(.segmented)
+                        .pickerStyle(.segmented).frame(width: 220)
                     Toggle("Natural direction", isOn: setting(\.swipeNatural))
                     Toggle("Hold ⌃⌥ and scroll a mouse to move the strip", isOn: setting(\.scrollWheelWithModifiers))
                 }
-                .formStyle(.grouped)
-                .frame(width: 380, height: 210)
+                .toggleStyle(.switch)
+                .card(padding: 16, radius: 16)
             }
             if let c = checks.first(where: { $0.id == "swipe" }) {
-                SetupCheckRow(check: c) { checks = MacSetup.run() }.frame(width: 640)
+                SetupCheckCard(check: c) { checks = MacSetup.run() }
             }
+            Spacer(minLength: 0)
         }
         .onChange(of: store.config.swipeFingers) { _ in checks = MacSetup.run() }
     }
 }
 
-struct DoneStep: View {
+// MARK: - 7 Ready
+
+struct ReadyStep: View {
     @State private var login = LoginItem.isEnabled
-    @ObservedObject private var store = SettingsStore.shared
 
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 56)).foregroundColor(.green)
-            StepHeader(title: "You're all set", subtitle: "Ribbon lives in the menu bar. Look for the three-column icon.")
-            VStack(alignment: .leading, spacing: 10) {
-                tip("keyboard", "**\(label(.showShortcuts))** shows every shortcut, any time.")
-                tip("hand.raised", "Hold **⌃⌥** to see the strip map; click a tile to jump to it.")
-                tip("pause.circle", "**\(label(.toggleTiling))** pauses Ribbon and puts every window back on screen.")
-                tip("gearshape", "Gaps, widths, colours, shortcuts and app rules are in **Settings**.")
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 18) {
+                SuccessMark(size: 52)
+                StepTitle(title: "Ribbon is ready.", subtitle: "It lives in the menu bar. Everything else is a shortcut away.")
             }
-            .frame(width: 520, alignment: .leading)
-            Toggle("Open Ribbon automatically when I log in", isOn: Binding<Bool>(get: { login }, set: { on in
+            VStack(alignment: .trailing, spacing: 6) {
+                MenuBarStrip(scale: 0.62)
+                    .frame(height: 22)
+                    .background(Brand.softGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Label("Ribbon's menu is up here", systemImage: "arrow.turn.right.up")
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Brand.violet)
+                    .padding(.trailing, 70)
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                tip(.showShortcuts, "Every shortcut", "A cheat sheet, any time.")
+                tip(.showStrip, "Strip map", "Or hold ⌃⌥. Click a tile to jump.")
+                tip(.toggleFloat, "Float a window", "Takes it off the strip, and back.")
+                tip(.toggleTiling, "Pause Ribbon", "Puts every window back on screen.")
+            }
+            Toggle(isOn: Binding<Bool>(get: { login }, set: { (on: Bool) in
                 LoginItem.set(on)
                 login = LoginItem.isEnabled
-            }))
+            })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open Ribbon when I log in").font(.system(size: 13, weight: .semibold))
+                    Text("Recommended, so your strips are always there.").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            }
             .toggleStyle(.switch)
+            .card(padding: 14, radius: 14)
+            Spacer(minLength: 0)
         }
     }
 
-    private func label(_ c: Command) -> String {
-        store.config.combos(for: c).first.map { KeyboardLayout.label($0) } ?? ""
-    }
-
-    private func tip(_ symbol: String, _ text: LocalizedStringKey) -> some View {
+    private func tip(_ c: Command, _ title: String, _ text: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).foregroundColor(.accentColor).frame(width: 24)
-            Text(text)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(text).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            CommandKeys(command: c, size: .small)
         }
+        .card(padding: 12, radius: 14)
     }
 }
 #endif

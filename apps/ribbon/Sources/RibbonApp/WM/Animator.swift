@@ -64,11 +64,18 @@ final class AXMover {
                 if let last = sizes[wid] ?? nil, abs(last.w - f.w) < 0.5, abs(last.h - f.h) < 0.5 {
                     job.element.setPosition(pos)
                 } else {
-                    // Size, position, size: survives moves between displays and min-size clamping.
-                    job.element.setSize(size)
+                    // Move first, then resize: apps clamp a resize to the screen from wherever the
+                    // window currently is, so growing in place can come up short.
                     job.element.setPosition(pos)
                     job.element.setSize(size)
-                    applied[wid] = f.size
+                    if let p = job.element.position, abs(p.x - pos.x) > 1 || abs(p.y - pos.y) > 1 {
+                        job.element.setPosition(pos)
+                    }
+                    // Only remember the size once the app has really taken it; otherwise the next
+                    // frame tries again (e.g. once the window has slid somewhere it fits).
+                    if let s = job.element.size, abs(s.width - size.width) < 2, abs(s.height - size.height) < 2 {
+                        applied[wid] = f.size
+                    }
                 }
             }
             if enhanced { app.set("AXEnhancedUserInterface", true) }

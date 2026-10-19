@@ -48,7 +48,14 @@ final class StripIndicatorController {
         model.interactive = interactive || self.sticky
         guard rebuild() else { return }
         panel.ignoresMouseEvents = !model.interactive
-        panel.orderFrontRegardless()
+        if !panel.isVisible || panel.alphaValue < 1 {
+            if !panel.isVisible { panel.alphaValue = 0 }
+            panel.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.16
+                panel.animator().alphaValue = 1
+            }
+        }
         hideWork?.cancel()
         if !self.sticky {
             let w = DispatchWorkItem { [weak self] in self?.hide() }
@@ -65,7 +72,16 @@ final class StripIndicatorController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
     }
 
-    func hide() { panel.orderOut(nil) }
+    func hide() {
+        guard panel.isVisible else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.22
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            guard let self, self.panel.alphaValue < 0.05 else { return }
+            self.panel.orderOut(nil)
+        })
+    }
 
     func refresh() {
         guard panel.isVisible else { return }
@@ -99,8 +115,8 @@ final class StripIndicatorController {
         // Size and place the panel.
         let maxW = d.visible.w * 0.7
         let scale = min(0.09, maxW / max(1, total))
-        let width = min(maxW, max(160, total * scale)) + 24
-        let height = 76.0
+        let width = min(maxW, max(220, total * scale)) + 28
+        let height = 96.0
         let pos = SettingsStore.shared.config.indicatorPosition
         let y = pos == .bottom ? d.visible.maxY - height - 18 : d.visible.y + 14
         let frame = Rect(x: d.visible.midX - width / 2, y: y, w: width, h: height)
@@ -119,16 +135,16 @@ struct IndicatorGeometry {
     let viewportH: CGFloat
 
     init(size: CGSize, model: IndicatorModel, gap: CGFloat) {
-        inner = size.width - 24
+        inner = size.width - 28
         var total: Double = 0
         for t in model.tiles { total += t.width }
         let gaps: CGFloat = gap * CGFloat(max(0, model.tiles.count - 1))
         let usable: CGFloat = max(1, inner - gaps)
         scale = usable / CGFloat(max(1, total))
-        tileHeight = size.height - 26
-        viewportX = 12 + CGFloat(model.viewport.start) * inner
-        viewportW = max(20, CGFloat(model.viewport.length) * inner)
-        viewportH = size.height - 14
+        tileHeight = size.height - 32
+        viewportX = 14 + CGFloat(model.viewport.start) * inner - 4
+        viewportW = max(24, CGFloat(model.viewport.length) * inner + 8)
+        viewportH = size.height - 16
     }
 
     func width(_ t: IndicatorModel.Tile) -> CGFloat { max(18, CGFloat(t.width) * scale) }
@@ -148,22 +164,23 @@ struct StripIndicatorView: View {
 
     private func content(_ g: IndicatorGeometry) -> some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
-            RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.1))
+            Color.clear
             // The part of the strip on screen.
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Brand.gradient, lineWidth: 2)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Brand.violet.opacity(0.08)))
                 .frame(width: g.viewportW, height: g.viewportH)
-                .offset(x: g.viewportX, y: 7)
-                .animation(.spring(response: 0.3, dampingFraction: 0.9), value: model.viewport.start)
+                .offset(x: g.viewportX, y: 8)
+                .animation(Brand.spring, value: model.viewport.start)
             HStack(spacing: gap) {
                 ForEach(model.tiles) { tile in
                     tileCell(tile, g)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 13)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 16)
         }
+        .glassSurface(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func tileCell(_ tile: IndicatorModel.Tile, _ g: IndicatorGeometry) -> some View {
@@ -182,24 +199,39 @@ struct StripIndicatorView: View {
 
     @ViewBuilder
     private func tileView(_ t: IndicatorModel.Tile) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(t.focused ? Color.accentColor.opacity(0.85) : Color.primary.opacity(0.13))
-            if let icon = t.icon {
-                Image(nsImage: icon).resizable().aspectRatio(contentMode: .fit).frame(width: 26, height: 26)
-                    .shadow(radius: 1)
-            }
-            VStack {
-                HStack(spacing: 2) {
-                    if t.pinned { Image(systemName: "pin.fill").font(.system(size: 8)) }
-                    if t.tabbed { Image(systemName: "rectangle.stack").font(.system(size: 8)) }
-                    Spacer()
-                    if t.windows > 1 { Text("\(t.windows)").font(.system(size: 9, weight: .bold)) }
+        GeometryReader { geo in
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(t.focused ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(0.1)))
+                    .shadow(color: t.focused ? Brand.violet.opacity(0.45) : Color.clear, radius: 6, y: 2)
+                VStack(spacing: 4) {
+                    if let icon = t.icon {
+                        Image(nsImage: icon).resizable().aspectRatio(contentMode: .fit)
+                            .frame(width: min(30, geo.size.height * 0.5), height: min(30, geo.size.height * 0.5))
+                            .shadow(color: Color.black.opacity(0.2), radius: 1, y: 1)
+                    }
+                    if geo.size.width > 64 {
+                        Text(t.title).font(.system(size: 10, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                            .padding(.horizontal, 6)
+                            .foregroundStyle(t.focused ? Color.white : Color.primary.opacity(0.75))
+                    }
                 }
-                Spacer()
+                VStack {
+                    HStack(spacing: 3) {
+                        if t.pinned { Image(systemName: "pin.fill").font(.system(size: 8, weight: .bold)) }
+                        if t.tabbed { Image(systemName: "rectangle.topthird.inset.filled").font(.system(size: 8, weight: .bold)) }
+                        Spacer()
+                        if t.windows > 1 {
+                            Text("\(t.windows)").font(.system(size: 9, weight: .heavy, design: .rounded))
+                                .padding(.horizontal, 4).padding(.vertical, 1)
+                                .background(Capsule().fill(t.focused ? Color.white.opacity(0.3) : Color.primary.opacity(0.12)))
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(5)
+                .foregroundStyle(t.focused ? Color.white : Color.secondary)
             }
-            .padding(4)
-            .foregroundColor(t.focused ? Color.white : Color.secondary)
         }
     }
 
