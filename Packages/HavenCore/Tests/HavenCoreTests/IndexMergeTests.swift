@@ -67,6 +67,22 @@ final class IndexMergeTests: XCTestCase {
         XCTAssertEqual(Set(merged.prefix(3).map(\.path)), Set(touched.map(\.path)))
     }
 
+    func testScanKeepsTheRootsOwnPathThroughASymlink() throws {
+        let fm = FileManager.default
+        let base = fm.temporaryDirectory.appendingPathComponent("haven-link-\(UUID().uuidString)")
+        let real = base.appendingPathComponent("real")
+        try fm.createDirectory(at: real.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: real.appendingPathComponent("sub/a.txt"))
+        let link = base.appendingPathComponent("link")
+        try fm.createSymbolicLink(at: link, withDestinationURL: real)
+        defer { try? fm.removeItem(at: base) }
+        let items = FileScanner.scan(root: IndexRoot(id: "r", path: link.path, name: "link"))
+        XCTAssertEqual(Set(items.map(\.path)), [link.path + "/sub", link.path + "/sub/a.txt"])
+        // A live update of the same folder agrees with the scan: nothing doubles up.
+        let merged = IndexMerge.apply(base: items, listed: [link.path + "/sub": FileScanner.list(directory: link.path + "/sub", rootID: "r")])
+        XCTAssertEqual(merged.count, 2)
+    }
+
     func testListingSkipsTheFoldersAScanSkips() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("haven-list-\(UUID().uuidString)")
         let fm = FileManager.default

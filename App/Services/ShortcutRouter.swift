@@ -8,12 +8,19 @@ import HavenCore
 final class ShortcutRouter {
     static let shared = ShortcutRouter()
     private var monitor: Any?
+    private var mouseMonitor: Any?
+    /// Like Finder, arrow keys move through the files after any click; only Tab hands them to the sidebar.
+    private var filesHaveArrows = true
 
     func install() {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let used = MainActor.assumeIsolated { ShortcutRouter.shared.handle(event) }
             return used ? nil : event
+        }
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+            MainActor.assumeIsolated { ShortcutRouter.shared.filesHaveArrows = true }
+            return event
         }
     }
 
@@ -30,6 +37,10 @@ final class ShortcutRouter {
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
 
         let code = event.keyCode
+        if code == 48 { // Tab moves the keyboard between the sidebar and the files
+            filesHaveArrows = false
+            return false
+        }
         if mods.isEmpty && code == 49 { // Space
             if model.isPreviewing { model.closePreview(); return true }
             guard !model.selectedIDs.isEmpty || model.quickLookURL != nil else { return false }
@@ -45,9 +56,9 @@ final class ShortcutRouter {
         if mods == .command && code == 126 { // ⌘↑
             return model.goToEnclosingFolder()
         }
-        // Arrows (⇧ to extend) move through the files, unless the sidebar has the keyboard.
+        // Arrows (⇧ to extend) move through the files, unless you tabbed into the sidebar.
         if browsing, mods.subtracting(.shift).isEmpty, let direction = Self.direction(code),
-           !(window.firstResponder is NSTableView) {
+           filesHaveArrows || !(window.firstResponder is NSTableView) {
             return model.moveSelection(direction, extend: mods.contains(.shift))
         }
         // Letters, digits and punctuation without ⌘/⌃/⌥: jump to a file by name.

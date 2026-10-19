@@ -73,18 +73,26 @@ public enum FileScanner {
     /// Walks a root and returns everything Haven should show.
     public static func scan(root: IndexRoot, options: ScanOptions = ScanOptions(), progress: ((Int) -> Void)? = nil,
                             cancelled: () -> Bool = { false }) -> [FileItem] {
+        // Walk the real folder (a symlinked root is followed) but report paths the way the root is spelled,
+        // so they agree with folder listings and the watcher (/var vs /private/var, links to other folders).
         let rootURL = URL(fileURLWithPath: root.path, isDirectory: true)
         guard FileManager.default.fileExists(atPath: root.path) else { return [] }
+        let walkURL = rootURL.resolvingSymlinksInPath()
+        let respell = walkURL.path != rootURL.path ? walkURL.path + "/" : nil
         var out: [FileItem] = []
         let enumOptions: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
-        guard let en = FileManager.default.enumerator(at: rootURL, includingPropertiesForKeys: resourceKeys, options: enumOptions, errorHandler: { _, _ in true }) else {
+        guard let en = FileManager.default.enumerator(at: walkURL, includingPropertiesForKeys: resourceKeys, options: enumOptions, errorHandler: { _, _ in true }) else {
             return []
         }
-        let rootDepth = rootURL.standardizedFileURL.pathComponents.count
+        let rootDepth = walkURL.standardizedFileURL.pathComponents.count
         var parentNames: [String: String] = [:]
         while let obj = en.nextObject() {
             if cancelled() { break }
-            guard let url = obj as? URL else { continue }
+            guard var url = obj as? URL else { continue }
+            if let respell, url.path.hasPrefix(respell) {
+                url = URL(fileURLWithPath: rootURL.path + "/" + url.path.dropFirst(respell.count),
+                          isDirectory: url.hasDirectoryPath)
+            }
             let name = url.lastPathComponent
             let depth = url.standardizedFileURL.pathComponents.count - rootDepth
             let values = try? url.resourceValues(forKeys: Set(resourceKeys))
