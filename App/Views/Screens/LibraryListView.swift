@@ -224,42 +224,25 @@ struct DetailView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        if LaunchOptions.current.debug("plaindetail") {
-            Group {
-                if let parsed = model.parsed {
-                    SearchResultsView(parsed: parsed)
-                } else {
-                    page(model.selection ?? .home)
-                        .id(model.selection)
-                }
+        ZStack {
+            if let parsed = model.parsed {
+                SearchResultsView(parsed: parsed)
+                    .transition(.opacity)
+            } else {
+                page(model.selection ?? .home)
+                    .id(model.selection)
+                    .transition(.opacity)
             }
-        } else {
-            ZStack {
-                if let parsed = model.parsed {
-                    SearchResultsView(parsed: parsed)
-                        .transition(.opacity)
-                } else {
-                    page(model.selection ?? .home)
-                        .id(model.selection)
-                        .transition(.opacity)
-                }
-            }
-            .animation(.easeInOut(duration: 0.16), value: model.selection)
-            .animation(.easeInOut(duration: 0.16), value: model.parsed == nil)
         }
+        .animation(.easeInOut(duration: 0.16), value: model.selection)
+        .animation(.easeInOut(duration: 0.16), value: model.parsed == nil)
     }
 
     @ViewBuilder
     private func page(_ item: SidebarItem) -> some View {
         switch item {
         case .home:
-            if LaunchOptions.current.debug("nohome") {
-                Text("Home (diagnostics)")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .accessibilityIdentifier("home.tile.images")
-            } else {
-                HomeView()
-            }
+            HomeView()
         case .recents:
             LibraryListView(title: "Recents", subtitle: "Everything that arrived or changed lately", symbol: "clock",
                             source: .recents, sourceKey: "recents")

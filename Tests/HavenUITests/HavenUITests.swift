@@ -94,33 +94,6 @@ final class HavenUITests: XCTestCase {
 
     // MARK: Tests
 
-    /// Diagnostics only (never fails): does a click put keyboard focus in the search field, with and without
-    /// the newer pieces of the window?
-    func test00_SearchFocusDiagnostics() throws {
-        var table: [String] = []
-        for flags in ["", "oldfield", "nohome", "nobridge"] {
-            launch(onboarding: false, extra: flags.isEmpty ? [] : ["-HavenDebug", flags])
-            guard el("home.tile.images").waitForExistence(timeout: 60) else {
-                table.append("[\(flags)] home missing")
-                app.terminate()
-                continue
-            }
-            sleep(3)
-            let field = app.textFields["search.field"]
-            field.click()
-            sleep(1)
-            let clicked = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-            app.typeKey("f", modifierFlags: .command)
-            sleep(1)
-            let commandF = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-            table.append("[\(flags.isEmpty ? "default" : flags)] click → focus: \(clicked) · ⌘F → focus: \(commandF)")
-            print("FOCUS LOG [\(flags)]:\n\(focusLog())")
-            if !clicked { snap("debug-focus-\(flags.isEmpty ? "default" : flags)") }
-            app.terminate()
-        }
-        print("FOCUS TABLE:\n" + table.joined(separator: "\n"))
-    }
-
     func test01_OnboardingTour() throws {
         launch(onboarding: true)
         waitFor(app.staticTexts["Welcome to Haven"], 40, "Onboarding should open on first launch")
@@ -202,9 +175,10 @@ final class HavenUITests: XCTestCase {
         snap("16-search-from-gmail")
         clearSearch()
 
-        // An empty, focused search field suggests recent searches and ideas.
-        app.textFields["search.field"].click()
+        // ⌘F focuses the search field; while it's empty, recent searches and ideas drop down.
+        app.typeKey("f", modifierFlags: .command)
         waitFor(el("search.suggestions"), 5, "Suggestions should drop down under the search field")
+        XCTAssertTrue((app.textFields["search.field"].value(forKey: "hasKeyboardFocus") as? Bool) ?? false, "⌘F should focus the search field")
         sleep(1)
         snap("16b-search-suggestions")
         app.typeKey(.escape, modifierFlags: [])

@@ -17,8 +17,6 @@ struct LaunchOptions {
     let skipOnboarding: Bool
     let appearance: String?
     let look: String?
-    /// Comma-separated switches for diagnosing problems in test runs (-HavenDebug a,b).
-    let debugFlags: Set<String>
 
     init(arguments: [String]) {
         func value(_ flag: String) -> String? {
@@ -35,12 +33,9 @@ struct LaunchOptions {
         skipOnboarding = flag("-HavenSkipOnboarding")
         appearance = value("-HavenAppearance")?.lowercased()
         look = value("-HavenLook")?.lowercased()
-        debugFlags = Set((value("-HavenDebug") ?? "").lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
     }
 
     var isFixtureMode: Bool { fixtureRoot != nil }
-
-    func debug(_ flag: String) -> Bool { debugFlags.contains(flag) }
 
     /// Hosted unit tests load the app too; it should stay idle for them.
     var isRunningUnitTests: Bool {
