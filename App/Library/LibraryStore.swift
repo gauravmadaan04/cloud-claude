@@ -258,6 +258,8 @@ final class LibraryStore {
 
     /// Saves the index a few seconds after the last change, in the background.
     private func scheduleSave() {
+        // Never overwrite the saved index with one that was never loaded.
+        guard started else { return }
         saveTask?.cancel()
         let snapshot = items
         let roots = Prefs.shared.enabledRoots.map(\.path)

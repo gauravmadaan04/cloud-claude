@@ -12,6 +12,8 @@ final class FileOps {
     /// Each trash registers its own undo target, so Undo from the toast or Activity can take back the
     /// matching ⌘Z step instead of leaving a dead one behind.
     @ObservationIgnored private var undoTargets: [UUID: (target: UndoTarget, manager: UndoManager)] = [:]
+    /// Pastes run one after another, so two quick ⌘Vs pick different free names.
+    @ObservationIgnored private var pasteTail: Task<Void, Never>?
 
     private final class UndoTarget {}
 
@@ -183,7 +185,9 @@ final class FileOps {
             return dir != p && !dir.hasPrefix(p + "/")
         }
         guard !items.isEmpty else { return }
-        Task {
+        let previous = pasteTail
+        pasteTail = Task {
+            await previous?.value
             let created = await Task.detached(priority: .userInitiated) { () -> [String] in
                 let fm = FileManager()
                 var out: [String] = []

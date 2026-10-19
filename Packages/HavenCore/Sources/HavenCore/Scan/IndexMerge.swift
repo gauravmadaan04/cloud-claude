@@ -49,6 +49,9 @@ public enum IndexMerge {
         }
         fresh.append(contentsOf: added)
         if fresh.isEmpty { return kept }
+        // A new subfolder can arrive both from its own listing and from its parent's new-folder scan.
+        var seen = Set<String>()
+        fresh = fresh.filter { seen.insert($0.path).inserted }
         return mergeNewestFirst(kept, FileSortOrder.dateNewest.sorted(fresh))
     }
 

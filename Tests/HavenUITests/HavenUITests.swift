@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// Drives the real app like a person would, on a sample home folder, and keeps screenshots of every screen.

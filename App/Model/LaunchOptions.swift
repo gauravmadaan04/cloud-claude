@@ -52,6 +52,8 @@ struct LaunchOptions {
     /// Fixture runs keep their settings apart from the real ones.
     var defaults: UserDefaults {
         if isFixtureMode, let d = UserDefaults(suiteName: "app.haven.Haven.fixture") { return d }
+        // Unit tests never touch your real settings.
+        if isRunningUnitTests, let d = UserDefaults(suiteName: "app.haven.Haven.tests") { return d }
         return .standard
     }
 
@@ -59,7 +61,9 @@ struct LaunchOptions {
     var supportDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        let dir = base.appendingPathComponent(isFixtureMode ? "Haven-Fixture" : "Haven", isDirectory: true)
+        // Sample-folder runs and unit tests keep their caches apart from your real index and activity log.
+        let name = isFixtureMode ? "Haven-Fixture" : (isRunningUnitTests ? "Haven-Tests" : "Haven")
+        let dir = base.appendingPathComponent(name, isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

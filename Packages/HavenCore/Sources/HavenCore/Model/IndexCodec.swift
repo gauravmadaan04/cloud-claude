@@ -154,8 +154,8 @@ public enum IndexCodec {
                 let quarantine = flags & (1 << 4) != 0 ? try s(try r.varint()) : nil
                 var source: DownloadSource?
                 if flags & (1 << 5) != 0 {
-                    let key = SourceKey(id: Int(try r.varint()), name: Int(try r.varint()), symbol: Int(try r.varint()),
-                                        tint: Int(try r.varint()), host: Int(try r.varint()))
+                    let key = SourceKey(id: try r.index(), name: try r.index(), symbol: try r.index(),
+                                        tint: try r.index(), host: try r.index())
                     if let cached = sourceCache[key] {
                         source = cached
                     } else {
@@ -250,6 +250,12 @@ public enum IndexCodec {
                 if b < 0x80 { return result }
                 shift += 7
             }
+        }
+
+        /// A table position; a damaged file can't make it overflow.
+        mutating func index() throws -> Int {
+            guard let i = Int(exactly: try varint()) else { throw Failure.corrupt }
+            return i
         }
 
         mutating func count() throws -> Int {

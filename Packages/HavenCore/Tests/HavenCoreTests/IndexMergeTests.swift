@@ -38,6 +38,16 @@ final class IndexMergeTests: XCTestCase {
         XCTAssertEqual(merged.map(\.path), ["/r/b/new/one.txt", "/r/b/new", "/r/b/new/two/three.txt", "/r/b/old.txt", "/r/b"])
     }
 
+    func testNewSubfolderListedTwiceStillAppearsOnce() {
+        let base = newestFirst([f("/r/p", 1, folder: true)])
+        // The watcher reported the parent and the new subfolder together; the subfolder's files also came from
+        // the parent's new-folder scan.
+        let merged = IndexMerge.apply(base: base,
+                                      listed: ["/r/p": [f("/r/p/new", 5, folder: true)], "/r/p/new": [f("/r/p/new/b.txt", 6)]],
+                                      added: [f("/r/p/new/b.txt", 6), f("/r/p/new/sub/c.txt", 7)])
+        XCTAssertEqual(merged.map(\.path).sorted(), ["/r/p", "/r/p/new", "/r/p/new/b.txt", "/r/p/new/sub/c.txt"])
+    }
+
     func testRemovingTrashedFolderDropsItsContents() {
         let base = newestFirst([f("/r/p", 1, folder: true), f("/r/p/q.txt", 2), f("/r/pq.txt", 3), f("/r/z.txt", 4)])
         XCTAssertEqual(IndexMerge.removing(["/r/p"], from: base).map(\.path), ["/r/z.txt", "/r/pq.txt"])
