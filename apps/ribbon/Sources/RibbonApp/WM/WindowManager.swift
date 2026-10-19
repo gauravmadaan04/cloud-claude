@@ -487,20 +487,33 @@ final class WindowManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
     }
 
-    /// After animations: learn the real size of windows whose apps refuse to shrink.
+    /// After animations: learn the real size of windows whose apps refuse to shrink. Frames are
+    /// applied asynchronously, so a window must read too wide twice before we believe it.
     private func readBack() {
-        var touched = Set<StripKey>()
-        for (key, r) in layouts where isActive(key) {
-            for pl in r.placements {
-                guard let w = windows[pl.window], let size = w.element.size else { continue }
-                if Double(size.width) > pl.frame.w + 4, (w.constraints.minWidth ?? 0) < Double(size.width) - 1 {
-                    w.constraints.minWidth = Double(size.width)
-                    touched.insert(key)
-                    Log.info("\(w.appName) won't go narrower than \(Int(size.width))pt")
+        func oversized() -> [(StripKey, TrackedWindow, Double)] {
+            var out: [(StripKey, TrackedWindow, Double)] = []
+            for (key, r) in layouts where isActive(key) {
+                for pl in r.placements {
+                    guard let w = windows[pl.window], !animator.isAnimating(w.id), let size = w.element.size else { continue }
+                    let width = Double(size.width)
+                    if width > pl.frame.w + 4, (w.constraints.minWidth ?? 0) < width - 1 { out.append((key, w, width)) }
                 }
             }
+            return out
         }
-        touched.forEach { relayout($0, reveal: true) }
+        let first = oversized()
+        guard !first.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self else { return }
+            let suspects = Set(first.map { $0.1.id })
+            var touched = Set<StripKey>()
+            for (key, w, width) in oversized() where suspects.contains(w.id) {
+                w.constraints.minWidth = width
+                touched.insert(key)
+                Log.info("\(w.appName) won't go narrower than \(Int(width))pt")
+            }
+            touched.forEach { self.relayout($0, reveal: true) }
+        }
     }
 
     // MARK: - Visibility sync (the safety net for every missed notification)

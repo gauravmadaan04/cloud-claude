@@ -48,40 +48,40 @@ struct MiniStripView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let sx = geo.size.width / demoParams.screen.w
-            let sy = geo.size.height / demoParams.screen.h
+            let sx: CGFloat = geo.size.width / CGFloat(demoParams.screen.w)
+            let sy: CGFloat = geo.size.height / CGFloat(demoParams.screen.h)
             let r = Layout.compute(strip, demoParams)
             ZStack(alignment: .topLeading) {
                 LinearGradient(colors: [Color(red: 0.16, green: 0.2, blue: 0.38), Color(red: 0.42, green: 0.28, blue: 0.55)],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
-                Rectangle().fill(Color.white.opacity(0.18)).frame(height: 26 * sy)
+                Rectangle().fill(Color.white.opacity(0.18)).frame(height: 26.0 * sy)
                 ForEach(r.placements, id: \.window) { pl in
                     let hiddenTab = strip.columns[pl.column].mode == .tabbed && pl.row != strip.columns[pl.column].active
                     if !hiddenTab {
                         DemoWindowView(demo: demoWindows[pl.window], focused: strip.focusedWindow == pl.window, scale: sx)
-                            .frame(width: pl.frame.w * sx, height: pl.frame.h * sy)
-                            .offset(x: pl.frame.x * sx, y: pl.frame.y * sy)
+                            .frame(width: CGFloat(pl.frame.w) * sx, height: CGFloat(pl.frame.h) * sy)
+                            .offset(x: CGFloat(pl.frame.x) * sx, y: CGFloat(pl.frame.y) * sy)
                     }
                 }
                 ForEach(r.tabBars, id: \.column) { tb in
                     HStack(spacing: 3) {
                         ForEach(Array(tb.windows.enumerated()), id: \.offset) { i, wid in
                             Text(demoWindows[wid]?.title ?? "")
-                                .font(.system(size: max(8, 22 * sx), weight: .semibold))
+                                .font(.system(size: max(8.0, 22.0 * sx), weight: .semibold))
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .background(RoundedRectangle(cornerRadius: 4).fill(i == tb.active ? Color.accentColor : Color.white.opacity(0.25)))
                                 .foregroundColor(.white)
                         }
                     }
                     .padding(2)
-                    .frame(width: tb.frame.w * sx, height: (tb.frame.h - 4) * sy)
-                    .offset(x: r.columnRects[tb.column].x * sx, y: tb.frame.y * sy)
+                    .frame(width: CGFloat(tb.frame.w) * sx, height: CGFloat(tb.frame.h - 4) * sy)
+                    .offset(x: CGFloat(r.columnRects[tb.column].x) * sx, y: CGFloat(tb.frame.y) * sy)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .animation(.spring(response: 0.38, dampingFraction: 0.86), value: strip)
         }
-        .aspectRatio(demoParams.screen.w / demoParams.screen.h, contentMode: .fit)
+        .aspectRatio(CGFloat(demoParams.screen.w / demoParams.screen.h), contentMode: .fit)
         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
     }
 }
@@ -351,15 +351,15 @@ struct PracticeStep: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(lessons.indices, id: \.self) { i in
                         HStack(spacing: 10) {
-                            Image(systemName: done.contains(i) ? "checkmark.circle.fill" : (i == lesson ? "circle.inset.filled" : "circle"))
-                                .foregroundColor(done.contains(i) ? .green : (i == lesson ? .accentColor : .secondary))
-                            Text(lessons[i].headline).fontWeight(i == lesson ? .semibold : .regular)
+                            Image(systemName: lessonSymbol(i))
+                                .foregroundColor(lessonColor(i))
+                            Text(lessons[i].headline).fontWeight(i == lesson ? Font.Weight.semibold : Font.Weight.regular)
                             Spacer()
                             Text(combo(lessons[i].command)).font(.system(.callout, design: .rounded).weight(.semibold))
                                 .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 5).padding(.horizontal, 10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(i == lesson ? Color.accentColor.opacity(0.12) : .clear))
+                        .background(RoundedRectangle(cornerRadius: 8).fill(i == lesson ? Color.accentColor.opacity(0.12) : Color.clear))
                         .onTapGesture { lesson = i }
                     }
                 }
@@ -387,6 +387,16 @@ struct PracticeStep: View {
 
     private func combo(_ c: Command) -> String {
         store.config.combos(for: c).first.map { KeyboardLayout.label($0) } ?? "—"
+    }
+
+    private func lessonSymbol(_ i: Int) -> String {
+        if done.contains(i) { return "checkmark.circle.fill" }
+        return i == lesson ? "circle.inset.filled" : "circle"
+    }
+
+    private func lessonColor(_ i: Int) -> Color {
+        if done.contains(i) { return Color.green }
+        return i == lesson ? Color.accentColor : Color.secondary
     }
 
     private func react(to c: Command) {
@@ -482,7 +492,7 @@ struct DoneStep: View {
                 tip("gearshape", "Gaps, widths, colours, shortcuts and app rules are in **Settings**.")
             }
             .frame(width: 520, alignment: .leading)
-            Toggle("Open Ribbon automatically when I log in", isOn: Binding(get: { login }, set: { on in
+            Toggle("Open Ribbon automatically when I log in", isOn: Binding<Bool>(get: { login }, set: { on in
                 LoginItem.set(on)
                 login = LoginItem.isEnabled
             }))

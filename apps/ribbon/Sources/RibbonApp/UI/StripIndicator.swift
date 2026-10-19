@@ -109,45 +109,75 @@ final class StripIndicatorController {
     }
 }
 
+/// Pixel geometry for the strip map, worked out outside the view builder.
+struct IndicatorGeometry {
+    let inner: CGFloat
+    let scale: CGFloat
+    let tileHeight: CGFloat
+    let viewportX: CGFloat
+    let viewportW: CGFloat
+    let viewportH: CGFloat
+
+    init(size: CGSize, model: IndicatorModel, gap: CGFloat) {
+        inner = size.width - 24
+        var total: Double = 0
+        for t in model.tiles { total += t.width }
+        let gaps: CGFloat = gap * CGFloat(max(0, model.tiles.count - 1))
+        let usable: CGFloat = max(1, inner - gaps)
+        scale = usable / CGFloat(max(1, total))
+        tileHeight = size.height - 26
+        viewportX = 12 + CGFloat(model.viewport.start) * inner
+        viewportW = max(20, CGFloat(model.viewport.length) * inner)
+        viewportH = size.height - 14
+    }
+
+    func width(_ t: IndicatorModel.Tile) -> CGFloat { max(18, CGFloat(t.width) * scale) }
+}
+
 struct StripIndicatorView: View {
     @ObservedObject var model: IndicatorModel
     @State private var dragging: UUID?
     @State private var dragOffset: CGFloat = 0
+    private let gap: CGFloat = 4
 
     var body: some View {
         GeometryReader { geo in
-            let inner = geo.size.width - 24
-            let gap: CGFloat = 4
-            let total = model.tiles.reduce(0.0) { $0 + $1.width }
-            let usable = max(1, inner - gap * CGFloat(max(0, model.tiles.count - 1)))
-            let scale = usable / CGFloat(max(1, total))
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.1))
-                // The part of the strip on screen.
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color.accentColor.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                    .frame(width: max(20, CGFloat(model.viewport.length) * inner), height: geo.size.height - 14)
-                    .offset(x: 12 + CGFloat(model.viewport.start) * inner, y: 7)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.9), value: model.viewport.start)
-                HStack(spacing: gap) {
-                    ForEach(model.tiles) { tile in
-                        tileView(tile)
-                            .frame(width: max(18, CGFloat(tile.width) * scale), height: geo.size.height - 26)
-                            .offset(x: dragging == tile.id ? dragOffset : 0)
-                            .zIndex(dragging == tile.id ? 1 : 0)
-                            .gesture(dragGesture(tile, scale: scale), including: model.interactive ? .all : .none)
-                            .onTapGesture {
-                                guard model.interactive, let key = model.key else { return }
-                                WindowManager.shared.focusColumn(in: key, index: tile.index)
-                            }
-                            .help(tile.title)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 13)
-            }
+            content(IndicatorGeometry(size: geo.size, model: model, gap: gap))
         }
+    }
+
+    private func content(_ g: IndicatorGeometry) -> some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.1))
+            // The part of the strip on screen.
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                .frame(width: g.viewportW, height: g.viewportH)
+                .offset(x: g.viewportX, y: 7)
+                .animation(.spring(response: 0.3, dampingFraction: 0.9), value: model.viewport.start)
+            HStack(spacing: gap) {
+                ForEach(model.tiles) { tile in
+                    tileCell(tile, g)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 13)
+        }
+    }
+
+    private func tileCell(_ tile: IndicatorModel.Tile, _ g: IndicatorGeometry) -> some View {
+        let offset: CGFloat = dragging == tile.id ? dragOffset : 0
+        return tileView(tile)
+            .frame(width: g.width(tile), height: g.tileHeight)
+            .offset(x: offset)
+            .zIndex(dragging == tile.id ? 1 : 0)
+            .gesture(dragGesture(tile, g), including: model.interactive ? GestureMask.all : GestureMask.none)
+            .onTapGesture {
+                guard model.interactive, let key = model.key else { return }
+                WindowManager.shared.focusColumn(in: key, index: tile.index)
+            }
+            .help(tile.title)
     }
 
     @ViewBuilder
@@ -169,26 +199,26 @@ struct StripIndicatorView: View {
                 Spacer()
             }
             .padding(4)
-            .foregroundColor(t.focused ? .white : .secondary)
+            .foregroundColor(t.focused ? Color.white : Color.secondary)
         }
     }
 
-    private func dragGesture(_ tile: IndicatorModel.Tile, scale: CGFloat) -> some Gesture {
+    private func dragGesture(_ tile: IndicatorModel.Tile, _ g: IndicatorGeometry) -> some Gesture {
         DragGesture(minimumDistance: 4)
-            .onChanged { v in
+            .onChanged { (v: DragGesture.Value) in
                 dragging = tile.id
                 dragOffset = v.translation.width
             }
-            .onEnded { v in
+            .onEnded { (v: DragGesture.Value) in
                 defer { dragging = nil; dragOffset = 0 }
                 guard let key = model.key else { return }
                 // Find the insertion point from the dragged tile's new centre.
                 var x: CGFloat = 0
                 var centers: [CGFloat] = []
                 for t in model.tiles {
-                    let w = max(18, CGFloat(t.width) * scale)
+                    let w = g.width(t)
                     centers.append(x + w / 2)
-                    x += w + 4
+                    x += w + gap
                 }
                 guard centers.indices.contains(tile.index) else { return }
                 let c = centers[tile.index] + v.translation.width

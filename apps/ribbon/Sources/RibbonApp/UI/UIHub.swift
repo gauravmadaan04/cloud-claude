@@ -340,7 +340,7 @@ struct TabBarView: View {
                 } label: {
                     HStack(spacing: 6) {
                         if let icon = tab.icon { Image(nsImage: icon).resizable().frame(width: 14, height: 14) }
-                        Text(tab.title).lineLimit(1).truncationMode(.middle).font(.system(size: 12, weight: i == model.active ? .semibold : .regular))
+                        Text(tab.title).lineLimit(1).truncationMode(.middle).font(.system(size: 12, weight: i == model.active ? Font.Weight.semibold : Font.Weight.regular))
                     }
                     .padding(.horizontal, 10)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -348,7 +348,7 @@ struct TabBarView: View {
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
                             .fill(i == model.active ? Color.accentColor.opacity(model.focused ? 0.9 : 0.45) : Color.primary.opacity(0.06))
                     )
-                    .foregroundColor(i == model.active ? .white : .primary)
+                    .foregroundColor(i == model.active ? Color.white : Color.primary)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

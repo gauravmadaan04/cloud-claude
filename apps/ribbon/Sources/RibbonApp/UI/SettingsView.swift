@@ -43,10 +43,14 @@ final class SettingsNavigation: ObservableObject {
 struct SettingsView: View {
     @ObservedObject var nav: SettingsNavigation
 
+    private var paneSelection: Binding<SettingsPane?> {
+        Binding<SettingsPane?>(get: { nav.pane }, set: { (p: SettingsPane?) in if let p { nav.pane = p } })
+    }
+
     var body: some View {
         NavigationSplitView {
-            List(SettingsPane.allCases, selection: Binding(get: { nav.pane }, set: { if let p = $0 { nav.pane = p } })) { pane in
-                Label(pane.title, systemImage: pane.symbol).tag(pane)
+            List(SettingsPane.allCases, selection: paneSelection) { (pane: SettingsPane) in
+                Label(pane.title, systemImage: pane.symbol).tag(Optional(pane))
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
@@ -73,7 +77,7 @@ struct SettingsView: View {
 
 /// Binding into one field of the live config; every change applies immediately.
 func setting<T>(_ kp: WritableKeyPath<Config, T>) -> Binding<T> {
-    Binding(get: { SettingsStore.shared.config[keyPath: kp] }, set: { SettingsStore.shared.config[keyPath: kp] = $0 })
+    Binding<T>(get: { SettingsStore.shared.config[keyPath: kp] }, set: { (v: T) in SettingsStore.shared.config[keyPath: kp] = v })
 }
 
 private func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
@@ -107,7 +111,7 @@ struct GeneralPane: View {
                 }
             }
             Section("Startup") {
-                Toggle("Open Ribbon when you log in", isOn: Binding(get: { loginOn }, set: { on in
+                Toggle("Open Ribbon when you log in", isOn: Binding<Bool>(get: { loginOn }, set: { (on: Bool) in
                     loginError = LoginItem.set(on)
                     loginOn = LoginItem.isEnabled
                 }))
@@ -214,13 +218,16 @@ struct LayoutPane: View {
 struct AppearancePane: View {
     @ObservedObject private var store = SettingsStore.shared
 
+    private var borderColor: Binding<Color> {
+        Binding<Color>(get: { Color(nsColor: NSColor(hex: SettingsStore.shared.config.borderColor) ?? NSColor.systemBlue) },
+                       set: { (c: Color) in SettingsStore.shared.config.borderColor = NSColor(c).hexString })
+    }
+
     var body: some View {
         Form {
             Section("Focus border") {
                 Toggle("Draw a border around the focused window", isOn: setting(\.focusBorder))
-                ColorPicker("Colour", selection: Binding(
-                    get: { Color(nsColor: NSColor(hex: store.config.borderColor) ?? .systemBlue) },
-                    set: { store.config.borderColor = NSColor($0).hexString }), supportsOpacity: false)
+                ColorPicker("Colour", selection: borderColor, supportsOpacity: false)
                 LabeledContent("Thickness") {
                     HStack { Slider(value: setting(\.borderWidth), in: 1...10, step: 1); Text("\(Int(store.config.borderWidth)) pt").monospacedDigit().frame(width: 44) }
                 }
@@ -453,9 +460,9 @@ struct AppsPane: View {
     }
 
     private func ruleBinding<T>(_ bundle: String, _ kp: WritableKeyPath<AppRule, T>) -> Binding<T> {
-        Binding(get: {
+        Binding<T>(get: {
             store.config.appRules.first { $0.bundleID == bundle }![keyPath: kp]
-        }, set: { v in
+        }, set: { (v: T) in
             if let i = store.config.appRules.firstIndex(where: { $0.bundleID == bundle }) { store.config.appRules[i][keyPath: kp] = v }
         })
     }
@@ -484,7 +491,7 @@ struct DisplaysPane: View {
             }
             Section("Displays") {
                 ForEach(Displays.current(), id: \.uuid) { d in
-                    Toggle(isOn: Binding(get: { !store.config.excludedDisplays.contains(d.uuid) }, set: { on in
+                    Toggle(isOn: Binding<Bool>(get: { !store.config.excludedDisplays.contains(d.uuid) }, set: { (on: Bool) in
                         store.config.excludedDisplays.removeAll { $0 == d.uuid }
                         if !on { store.config.excludedDisplays.append(d.uuid) }
                     })) {
