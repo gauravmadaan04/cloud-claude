@@ -1,3 +1,7 @@
+import AppKit
+import HavenCore
+import SwiftUI
+
 /// Grid or list of files with Finder-style selection, keyboard navigation, Quick Look and drag-out.
 /// Built for very long lists: hover and selection live in the cards, so pointing at or selecting a file
 /// redraws only the cards on screen, never the whole list.
