@@ -316,16 +316,17 @@ struct ShortcutsHelpView: View {
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
             HStack(alignment: .top, spacing: 30) {
+                // Files has the most keys: it gets a column of its own.
                 VStack(alignment: .leading, spacing: 18) {
-                    ForEach(Array(groups.prefix(3).enumerated()), id: \.offset) { _, g in group(g) }
+                    ForEach(Array(groups.filter { $0.0 != "Files" }.enumerated()), id: \.offset) { _, g in group(g) }
                 }
                 VStack(alignment: .leading, spacing: 18) {
-                    ForEach(Array(groups.suffix(2).enumerated()), id: \.offset) { _, g in group(g) }
+                    ForEach(Array(groups.filter { $0.0 == "Files" }.enumerated()), id: \.offset) { _, g in group(g) }
                 }
             }
         }
         .padding(24)
-        .frame(width: 620)
+        .frame(width: 680)
         .accessibilityIdentifier("shortcuts.sheet")
     }
 
