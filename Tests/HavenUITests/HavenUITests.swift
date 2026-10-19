@@ -419,12 +419,17 @@ final class HavenUITests: XCTestCase {
         XCTAssertTrue(text.contains(" \(total) selected"), "⌘A should select all \(total) files: \(text)")
         snap("60-select-all")
 
-        // ⇧→ grows the selection from a single file.
+        // A click inside the selection leaves just that file; ⇧← / ⇧→ grow and shrink from it.
+        // (Goa Beach.jpg is the oldest image, so it sits at the end of the grid.)
         file("Goa Beach.jpg").click()
+        expectation(for: NSPredicate(format: "value CONTAINS ' 1 selected'"), evaluatedWith: summary)
+        waitForExpectations(timeout: 5)
+        app.typeKey(.leftArrow, modifierFlags: .shift)
+        app.typeKey(.leftArrow, modifierFlags: .shift)
+        expectation(for: NSPredicate(format: "value CONTAINS ' 3 selected'"), evaluatedWith: summary)
+        waitForExpectations(timeout: 5)
         app.typeKey(.rightArrow, modifierFlags: .shift)
-        app.typeKey(.rightArrow, modifierFlags: .shift)
-        let three = NSPredicate(format: "value CONTAINS ' 3 selected'")
-        expectation(for: three, evaluatedWith: summary)
+        expectation(for: NSPredicate(format: "value CONTAINS ' 2 selected'"), evaluatedWith: summary)
         waitForExpectations(timeout: 5)
 
         // ⌘C puts the file itself on the clipboard.

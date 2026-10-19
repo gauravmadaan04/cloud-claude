@@ -83,6 +83,40 @@ final class IndexMergeTests: XCTestCase {
         XCTAssertEqual(merged.count, 2)
     }
 
+    func testPathsComeBackInTheRootsOwnSpelling() {
+        let spelling = FileScanner.Spelling("/Users/me/link", also: ["/Volumes/Data/target"])
+        let (a, depthA) = spelling.respell(URL(fileURLWithPath: "/Volumes/Data/target/sub/a.txt"))
+        XCTAssertEqual(a.path, "/Users/me/link/sub/a.txt")
+        XCTAssertEqual(depthA, 2)
+        let (b, depthB) = spelling.respell(URL(fileURLWithPath: "/private/Users/me/link/b.txt"))
+        XCTAssertEqual(b.path, "/Users/me/link/b.txt", "/private/… is the same folder")
+        XCTAssertEqual(depthB, 1)
+        let (c, depthC) = spelling.respell(URL(fileURLWithPath: "/Users/me/link/x/y/z"))
+        XCTAssertEqual(c.path, "/Users/me/link/x/y/z")
+        XCTAssertEqual(depthC, 3)
+        let (d, _) = spelling.respell(URL(fileURLWithPath: "/Users/me/linked/elsewhere.txt"))
+        XCTAssertEqual(d.path, "/Users/me/linked/elsewhere.txt", "a folder that only starts with the same letters is left alone")
+    }
+
+    func testRelistingDropsDeletedFilesAndAddsNewOnes() throws {
+        let fm = FileManager.default
+        let base = fm.temporaryDirectory.appendingPathComponent("haven-relist-\(UUID().uuidString)")
+        let real = base.appendingPathComponent("real")
+        try fm.createDirectory(at: real, withIntermediateDirectories: true)
+        let link = base.appendingPathComponent("Downloads")
+        try fm.createSymbolicLink(at: link, withDestinationURL: real)
+        defer { try? fm.removeItem(at: base) }
+        for name in ["a.txt", "b.txt"] { try Data("x".utf8).write(to: real.appendingPathComponent(name)) }
+        let items = FileScanner.scan(root: IndexRoot(id: "downloads", path: link.path, name: "Downloads"))
+        XCTAssertEqual(Set(items.map(\.name)), ["a.txt", "b.txt"])
+        try fm.removeItem(at: real.appendingPathComponent("b.txt"))
+        try Data("x".utf8).write(to: real.appendingPathComponent("c.txt"))
+        for spelled in [link.path, link.path + "/"] {
+            let merged = IndexMerge.apply(base: items, listed: [link.path: FileScanner.list(directory: spelled, rootID: "downloads")])
+            XCTAssertEqual(Set(merged.map(\.path)), [link.path + "/a.txt", link.path + "/c.txt"], "listed as \(spelled)")
+        }
+    }
+
     func testListingSkipsTheFoldersAScanSkips() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("haven-list-\(UUID().uuidString)")
         let fm = FileManager.default

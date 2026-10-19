@@ -78,24 +78,20 @@ public enum FileScanner {
         let rootURL = URL(fileURLWithPath: root.path, isDirectory: true)
         guard FileManager.default.fileExists(atPath: root.path) else { return [] }
         let walkURL = rootURL.resolvingSymlinksInPath()
-        let respell = walkURL.path != rootURL.path ? walkURL.path + "/" : nil
+        let spelling = Spelling(root.path, also: [walkURL.path])
         var out: [FileItem] = []
         let enumOptions: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
         guard let en = FileManager.default.enumerator(at: walkURL, includingPropertiesForKeys: resourceKeys, options: enumOptions, errorHandler: { _, _ in true }) else {
             return []
         }
-        let rootDepth = walkURL.standardizedFileURL.pathComponents.count
+        let keySet = Set(resourceKeys)
         var parentNames: [String: String] = [:]
         while let obj = en.nextObject() {
             if cancelled() { break }
-            guard var url = obj as? URL else { continue }
-            if let respell, url.path.hasPrefix(respell) {
-                url = URL(fileURLWithPath: rootURL.path + "/" + url.path.dropFirst(respell.count),
-                          isDirectory: url.hasDirectoryPath)
-            }
+            guard let found = obj as? URL else { continue }
+            let (url, depth) = spelling.respell(found)
             let name = url.lastPathComponent
-            let depth = url.standardizedFileURL.pathComponents.count - rootDepth
-            let values = try? url.resourceValues(forKeys: Set(resourceKeys))
+            let values = try? found.resourceValues(forKeys: keySet)
             let isDir = values?.isDirectory ?? false
             let isPackage = values?.isPackage ?? false
             if values?.isSymbolicLink == true { continue }
@@ -125,6 +121,48 @@ public enum FileScanner {
         return out
     }
 
+    /// Rewrites paths found under a root to the root's own spelling and says how deep they are. Foundation may
+    /// report a folder reached through a symlink by its real path (/private/var/…), by the link (/var/…), or by
+    /// the resolved target, depending on the API and the macOS version.
+    struct Spelling {
+        let root: String
+        let rootSlash: [UInt8]
+        let alternates: [[UInt8]]
+
+        init(_ path: String, also others: [String]) {
+            root = path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+            rootSlash = Array((root == "/" ? "/" : root + "/").utf8)
+            var forms = Set(others + [root])
+            if let real = realpath(root, nil) {
+                forms.insert(String(cString: real))
+                free(real)
+            }
+            for f in forms {
+                forms.insert(f.hasPrefix("/private/") ? String(f.dropFirst(8)) : "/private" + f)
+            }
+            forms.remove(root)
+            // Longest first, so /private/var/x wins over /var/x… when both could match.
+            alternates = forms.map { Array(($0.hasSuffix("/") ? $0 : $0 + "/").utf8) }.sorted { $0.count > $1.count }
+        }
+
+        /// The URL spelled under the root, and its depth below it (1 = direct child).
+        func respell(_ url: URL) -> (URL, Int) {
+            let path = url.path
+            let bytes = Array(path.utf8)
+            var rest: ArraySlice<UInt8>?
+            if bytes.starts(with: rootSlash) {
+                rest = bytes[rootSlash.count...]
+            } else if let alt = alternates.first(where: { bytes.starts(with: $0) }) {
+                rest = bytes[alt.count...]
+            }
+            guard let rest else { return (url, max(1, url.pathComponents.count - (root as NSString).pathComponents.count)) }
+            let depth = rest.reduce(1) { $1 == 47 ? $0 + 1 : $0 } - (rest.last == 47 ? 1 : 0)
+            if bytes.starts(with: rootSlash) { return (url, depth) }
+            let respelled = String(decoding: rootSlash + rest, as: UTF8.self)
+            return (URL(fileURLWithPath: respelled, isDirectory: url.hasDirectoryPath), depth)
+        }
+    }
+
     /// One item for a URL (used by folder listings and live updates).
     public static func item(at url: URL, rootID: String, options: ScanOptions = ScanOptions()) -> FileItem? {
         let values = try? url.resourceValues(forKeys: Set(resourceKeys))
@@ -135,18 +173,25 @@ public enum FileScanner {
 
     /// Direct children of a folder, skipping hidden files and the same folders a full scan skips.
     public static func list(directory: String, rootID: String, options: ScanOptions = ScanOptions()) -> [FileItem] {
-        let url = URL(fileURLWithPath: directory, isDirectory: true)
+        // Read the real folder when the path is a link to one (some Foundation versions list a link as empty).
+        let url = URL(fileURLWithPath: directory, isDirectory: true).resolvingSymlinksInPath()
         guard let urls = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: resourceKeys, options: [.skipsHiddenFiles]) else {
             return []
         }
+        // Children are named under the folder as the caller spelled it, whatever form Foundation hands back.
+        let base = directory.count > 1 && directory.hasSuffix("/") ? String(directory.dropLast()) : directory
+        let prefix = base == "/" ? "/" : base + "/"
+        let keySet = Set(resourceKeys)
         var names: [String: String] = [:]
         return urls.compactMap { child in
             let ext = child.pathExtension.lowercased()
             if KindClassifier.ignoredPackageExtensions.contains(ext) { return nil }
-            let values = try? child.resourceValues(forKeys: Set(resourceKeys))
+            let values = try? child.resourceValues(forKeys: keySet)
             if values?.isSymbolicLink == true { return nil }
-            if values?.isDirectory == true, values?.isPackage != true, isSkipped(folderNamed: child.lastPathComponent, options) { return nil }
-            return makeItem(url: child, values: values, rootID: rootID, options: options, parentNames: &names)
+            let isDir = values?.isDirectory == true
+            if isDir, values?.isPackage != true, isSkipped(folderNamed: child.lastPathComponent, options) { return nil }
+            let named = URL(fileURLWithPath: prefix + child.lastPathComponent, isDirectory: isDir)
+            return makeItem(url: named, values: values, rootID: rootID, options: options, parentNames: &names)
         }
     }
 
