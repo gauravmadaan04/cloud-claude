@@ -18,10 +18,15 @@ public enum SearchEngine {
         now: Date = Date(),
         calendar: Calendar = .current,
         text: TextLookup? = nil,
-        limit: Int? = nil
+        limit: Int? = nil,
+        isCancelled: (() -> Bool)? = nil
     ) -> [FileItem] {
-        hits(query, in: items, now: now, calendar: calendar, text: text, limit: limit).map(\.item)
+        matches(query, in: items, now: now, calendar: calendar, text: text, limit: limit, isCancelled: isCancelled)
+            .map { items[Int($0.index)] }
     }
+
+    /// Libraries bigger than this are searched on all cores.
+    static var parallelThreshold = 16_384
 
     public static func hits(
         _ query: SearchQuery,
@@ -29,29 +34,167 @@ public enum SearchEngine {
         now: Date = Date(),
         calendar: Calendar = .current,
         text: TextLookup? = nil,
-        limit: Int? = nil
+        limit: Int? = nil,
+        isCancelled: (() -> Bool)? = nil
     ) -> [Hit] {
-        let range = query.date?.resolve(now: now, calendar: calendar)
-        let foldedTags = Set(query.tags.map(FileItem.fold))
-        var hits: [Hit] = []
-        hits.reserveCapacity(min(items.count, 4096))
-        for item in items {
-            if let hit = evaluate(item, query, range: range, foldedTags: foldedTags, text: text) {
-                hits.append(hit)
-            }
-        }
-        sort(&hits, query: query)
-        if let limit, hits.count > limit { return Array(hits.prefix(limit)) }
-        return hits
+        matches(query, in: items, now: now, calendar: calendar, text: text, limit: limit, isCancelled: isCancelled)
+            .map { Hit(item: items[Int($0.index)], score: Int($0.score), matchedInText: $0.inText) }
     }
 
-    static func evaluate(_ item: FileItem, _ q: SearchQuery, range: (start: Date?, end: Date?)?, foldedTags: Set<String>, text: TextLookup?) -> Hit? {
-        // Folders only show up when asked for, or when matching words by name.
-        if item.kind == .folder {
-            let wantsFolders = q.kinds.contains(.folder)
-            let nameSearch = !q.hasTypeFilter && !q.terms.isEmpty && q.minSize == nil && q.maxSize == nil && q.sourceIDs.isEmpty
-            if !(wantsFolders || nameSearch) { return nil }
+    /// Matching files as small records, best first.
+    static func matches(
+        _ query: SearchQuery,
+        in items: [FileItem],
+        now: Date,
+        calendar: Calendar,
+        text: TextLookup?,
+        limit: Int?,
+        isCancelled: (() -> Bool)?
+    ) -> [Found] {
+        let plan = Plan(query, now: now, calendar: calendar)
+        let n = items.count
+        var found: [Found]
+        if n >= parallelThreshold {
+            let chunks = min(256, max(2, n / 4096))
+            let size = (n + chunks - 1) / chunks
+            var parts = [[Found]](repeating: [], count: chunks)
+            parts.withUnsafeMutableBufferPointer { out in
+                DispatchQueue.concurrentPerform(iterations: chunks) { c in
+                    let lo = c * size
+                    let hi = min(n, lo + size)
+                    guard lo < hi else { return }
+                    out[c] = scan(items, lo..<hi, plan, text, isCancelled)
+                }
+            }
+            found = []
+            found.reserveCapacity(parts.reduce(0) { $0 + $1.count })
+            for p in parts { found.append(contentsOf: p) }
+        } else {
+            found = scan(items, 0..<n, plan, text, isCancelled)
         }
+        if isCancelled?() == true { return [] }
+        if let limit, found.count > limit {
+            return topK(found, limit, plan.order.less)
+        }
+        plan.order.sort(&found)
+        return found
+    }
+
+    /// What one matching file contributes while searching: small, so sorting is cheap.
+    struct Found {
+        var index: Int32
+        var score: Int32
+        var inText: Bool
+        var date: Double
+        var size: Int64
+    }
+
+    /// The query with everything that doesn't depend on the file worked out once.
+    struct Plan {
+        let q: SearchQuery
+        let range: (start: Date?, end: Date?)?
+        let foldedTags: Set<String>
+        let terms: [[UInt8]]
+        let wantsFolders: Bool
+        let nameSearch: Bool
+        let order: Order
+
+        init(_ q: SearchQuery, now: Date, calendar: Calendar) {
+            self.q = q
+            range = q.date?.resolve(now: now, calendar: calendar)
+            foldedTags = Set(q.tags.map(FileItem.fold))
+            terms = q.terms.map { Array($0.utf8) }
+            wantsFolders = q.kinds.contains(.folder)
+            nameSearch = !q.hasTypeFilter && !q.terms.isEmpty && q.minSize == nil && q.maxSize == nil && q.sourceIDs.isEmpty
+            switch q.sort {
+            case .largest?: order = .sizeDesc
+            case .smallest?: order = .sizeAsc
+            case .oldest?: order = .dateAsc
+            case .newest?: order = .dateDesc
+            case nil: order = q.terms.isEmpty ? .dateDesc : .score
+            }
+        }
+    }
+
+    /// Result order; ties keep the library's order (newest activity first).
+    enum Order {
+        case score, dateDesc, dateAsc, sizeDesc, sizeAsc
+
+        var less: (Found, Found) -> Bool {
+            switch self {
+            case .score: return Order.byScore
+            case .dateDesc: return Order.byDateDesc
+            case .dateAsc: return Order.byDateAsc
+            case .sizeDesc: return Order.bySizeDesc
+            case .sizeAsc: return Order.bySizeAsc
+            }
+        }
+
+        func sort(_ found: inout [Found]) {
+            // Written out per case so the compiler can inline each comparison.
+            switch self {
+            case .score: found.sort(by: Order.byScore)
+            case .dateDesc: found.sort(by: Order.byDateDesc)
+            case .dateAsc: found.sort(by: Order.byDateAsc)
+            case .sizeDesc: found.sort(by: Order.bySizeDesc)
+            case .sizeAsc: found.sort(by: Order.bySizeAsc)
+            }
+        }
+
+        @inline(__always) static func byDateDesc(_ a: Found, _ b: Found) -> Bool {
+            a.date != b.date ? a.date > b.date : a.index < b.index
+        }
+        @inline(__always) static func byDateAsc(_ a: Found, _ b: Found) -> Bool {
+            a.date != b.date ? a.date < b.date : a.index < b.index
+        }
+        @inline(__always) static func byScore(_ a: Found, _ b: Found) -> Bool {
+            a.score != b.score ? a.score > b.score : byDateDesc(a, b)
+        }
+        @inline(__always) static func bySizeDesc(_ a: Found, _ b: Found) -> Bool {
+            a.size != b.size ? a.size > b.size : byDateDesc(a, b)
+        }
+        @inline(__always) static func bySizeAsc(_ a: Found, _ b: Found) -> Bool {
+            a.size != b.size ? a.size < b.size : byDateDesc(a, b)
+        }
+    }
+
+    static func scan(_ items: [FileItem], _ range: Range<Int>, _ plan: Plan, _ text: TextLookup?, _ isCancelled: (() -> Bool)?) -> [Found] {
+        var out: [Found] = []
+        var i = range.lowerBound
+        while i < range.upperBound {
+            if i & 4095 == 0, let isCancelled, isCancelled() { return [] }
+            let item = items[i]
+            if let (score, inText) = evaluate(item, plan, text) {
+                out.append(Found(index: Int32(i), score: Int32(score), inText: inText,
+                                 date: item.activityDate.timeIntervalSinceReferenceDate, size: item.size))
+            }
+            i += 1
+        }
+        return out
+    }
+
+    /// The best `k` in order, without sorting everything.
+    static func topK(_ all: [Found], _ k: Int, _ less: (Found, Found) -> Bool) -> [Found] {
+        guard k > 0 else { return [] }
+        var best: [Found] = []
+        best.reserveCapacity(k + 1)
+        for f in all {
+            if best.count == k, !less(f, best[k - 1]) { continue }
+            var lo = 0, hi = best.count
+            while lo < hi {
+                let mid = (lo + hi) / 2
+                if less(f, best[mid]) { hi = mid } else { lo = mid + 1 }
+            }
+            best.insert(f, at: lo)
+            if best.count > k { best.removeLast() }
+        }
+        return best
+    }
+
+    static func evaluate(_ item: FileItem, _ p: Plan, _ text: TextLookup?) -> (Int, Bool)? {
+        let q = p.q
+        // Folders only show up when asked for, or when matching words by name.
+        if item.kind == .folder && !(p.wantsFolders || p.nameSearch) { return nil }
         if q.hasTypeFilter {
             let typeOK = q.kinds.contains(item.kind)
                 || (!q.extensions.isEmpty && q.extensions.contains(item.ext))
@@ -59,7 +202,7 @@ public enum SearchEngine {
                 || (q.screenRecordings && item.isScreenshot && item.kind == .video)
             if !typeOK { return nil }
         }
-        if let r = range {
+        if let r = p.range {
             let date: Date?
             switch q.dateField {
             case .activity: date = item.activityDate
@@ -79,24 +222,27 @@ public enum SearchEngine {
         }
         if q.downloadedOnly && item.source == nil && item.rootID != "downloads" { return nil }
         if !q.rootIDs.isEmpty && !q.rootIDs.contains(item.rootID) { return nil }
-        if !foldedTags.isEmpty {
+        if !p.foldedTags.isEmpty {
             let itemTags = Set(item.tags.map(FileItem.fold))
-            if !foldedTags.isSubset(of: itemTags) { return nil }
+            if !p.foldedTags.isSubset(of: itemTags) { return nil }
         }
 
         var score = 0
         var onlyText = false
-        if !q.terms.isEmpty {
-            var folderName: String?
+        if !p.terms.isEmpty {
             var content: String??
-            for term in q.terms {
-                let s = termScore(term, in: item.searchName)
+            for term in p.terms {
+                let s = TextMatch.score(term, in: item.searchName)
                 if s > 0 { score += s; continue }
-                if item.tags.contains(where: { FileItem.fold($0).contains(term) }) { score += 10; continue }
-                if folderName == nil { folderName = FileItem.fold(item.parentName) }
-                if folderName!.contains(term) { score += 5; continue }
-                if content == nil { content = .some(text?(item.path)) }
-                if let c = content!, c.contains(term) {
+                if !item.tags.isEmpty, item.tags.contains(where: { TextMatch.contains(term, in: FileItem.fold($0)) }) {
+                    score += 10
+                    continue
+                }
+                if TextMatch.contains(term, in: item.searchParent) { score += 5; continue }
+                // Only kinds Haven reads text from can match inside the file.
+                guard item.kind.hasReadableText, let text else { return nil }
+                if content == nil { content = .some(text(item.path)) }
+                if let c = content!, TextMatch.contains(term, in: c) {
                     score += 4
                     onlyText = true
                     continue
@@ -104,32 +250,12 @@ public enum SearchEngine {
                 return nil
             }
         }
-        return Hit(item: item, score: score, matchedInText: onlyText)
+        return (score, onlyText)
     }
 
     /// How well a word matches a (folded) file name.
     static func termScore(_ term: String, in name: String) -> Int {
-        guard let r = name.range(of: term) else { return 0 }
-        if r.lowerBound == name.startIndex { return 30 }
-        let before = name[name.index(before: r.lowerBound)]
-        if !before.isLetter && !before.isNumber { return 20 }
-        // camelCase or digit boundaries count as word starts too
-        return 12
-    }
-
-    static func sort(_ hits: inout [Hit], query: SearchQuery) {
-        switch query.sort {
-        case .largest?: hits.sort { $0.item.size != $1.item.size ? $0.item.size > $1.item.size : $0.item.activityDate > $1.item.activityDate }
-        case .smallest?: hits.sort { $0.item.size != $1.item.size ? $0.item.size < $1.item.size : $0.item.activityDate > $1.item.activityDate }
-        case .oldest?: hits.sort { $0.item.activityDate < $1.item.activityDate }
-        case .newest?: hits.sort { $0.item.activityDate > $1.item.activityDate }
-        case nil:
-            if query.terms.isEmpty {
-                hits.sort { $0.item.activityDate > $1.item.activityDate }
-            } else {
-                hits.sort { $0.score != $1.score ? $0.score > $1.score : $0.item.activityDate > $1.item.activityDate }
-            }
-        }
+        TextMatch.score(Array(term.utf8), in: name)
     }
 }
 
@@ -153,18 +279,41 @@ public enum FileSortOrder: String, Codable, CaseIterable, Sendable, Identifiable
 
     public func sorted(_ items: [FileItem]) -> [FileItem] {
         switch self {
-        case .dateNewest: return items.sorted { $0.activityDate > $1.activityDate }
-        case .dateOldest: return items.sorted { $0.activityDate < $1.activityDate }
-        case .nameAZ: return items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        case .nameZA: return items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedDescending }
-        case .sizeLargest: return items.sorted { $0.size > $1.size }
-        case .sizeSmallest: return items.sorted { $0.size < $1.size }
-        case .kind:
-            return items.sorted {
-                $0.kind.rawValue != $1.kind.rawValue ? $0.kind.rawValue < $1.kind.rawValue
-                    : $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        case .dateNewest: return Self.ordered(items, items.map { $0.activityDate.timeIntervalSinceReferenceDate }, descending: true)
+        case .dateOldest: return Self.ordered(items, items.map { $0.activityDate.timeIntervalSinceReferenceDate }, descending: false)
+        case .sizeLargest: return Self.ordered(items, items.map(\.size), descending: true)
+        case .sizeSmallest: return Self.ordered(items, items.map(\.size), descending: false)
+        case .nameAZ, .nameZA:
+            let keys = items.map { NaturalOrder.key($0.searchName) }
+            let desc = self == .nameZA
+            var order = Array(items.indices)
+            order.sort { a, b in
+                let c = NaturalOrder.compare(keys[a], keys[b])
+                if c != 0 { return desc ? c > 0 : c < 0 }
+                return a < b
             }
+            return order.map { items[$0] }
+        case .kind:
+            let keys = items.map { NaturalOrder.key($0.searchName) }
+            let kinds = items.map(\.kind.rawValue)
+            var order = Array(items.indices)
+            order.sort { a, b in
+                if kinds[a] != kinds[b] { return kinds[a] < kinds[b] }
+                let c = NaturalOrder.compare(keys[a], keys[b])
+                return c != 0 ? c < 0 : a < b
+            }
+            return order.map { items[$0] }
         }
+    }
+
+    /// Sorts by a precomputed key (cheap to compare), keeping the incoming order for ties.
+    static func ordered<K: Comparable>(_ items: [FileItem], _ keys: [K], descending: Bool) -> [FileItem] {
+        var order = Array(items.indices)
+        order.sort { a, b in
+            if keys[a] != keys[b] { return descending ? keys[a] > keys[b] : keys[a] < keys[b] }
+            return a < b
+        }
+        return order.map { items[$0] }
     }
 
     public init(hint: SortHint) {
