@@ -171,7 +171,11 @@ enum FixtureFactory {
     }
 
     static func tag(_ path: String, _ tags: [String]) {
-        try? (URL(fileURLWithPath: path) as NSURL).setResourceValue(tags, forKey: .tagNamesKey)
+        // Finder stores tags as "Name\n<colour>" strings in this attribute.
+        let values = tags.map { $0 + "\n0" }
+        if let data = try? PropertyListSerialization.data(fromPropertyList: values, format: .binary, options: 0) {
+            XAttr.set(path, "com.apple.metadata:_kMDItemUserTags", data)
+        }
     }
 
     static func text(_ s: String, to path: String, date: Date) {

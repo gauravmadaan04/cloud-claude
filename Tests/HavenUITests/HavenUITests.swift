@@ -97,9 +97,9 @@ final class HavenUITests: XCTestCase {
         snap("03-onboarding-folders")
         next.click()
         waitFor(app.staticTexts["Pick a look"])
-        app.staticTexts["Minimal"].firstMatch.click()
+        el("onboarding.look.minimal").click()
         snap("04-onboarding-look-minimal")
-        app.staticTexts["Playful"].firstMatch.click()
+        el("onboarding.look.playful").click()
         next.click()
         waitFor(app.staticTexts["Search the way you talk"])
         app.buttons["screenshots over 5 MB"].click()
@@ -292,6 +292,41 @@ final class HavenUITests: XCTestCase {
             s.lifetime = .keepAlways
             add(s)
             try? settings.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "/private/tmp/haven-shots/42-settings.png"))
+        }
+    }
+
+    func test05_GlobalHotKeyAndMenuBar() throws {
+        launch(onboarding: false)
+        requireHome("hotkey")
+
+        // The system-wide shortcut opens Quick Search.
+        app.typeKey(.space, modifierFlags: [.command, .shift])
+        let field = el("quicksearch.field")
+        waitFor(field, 10, "⇧⌘Space should open Quick Search")
+        field.typeText("boarding")
+        sleep(2)
+        let shot = XCUIScreen.main.screenshot()
+        let a = XCTAttachment(screenshot: shot)
+        a.name = "43-hotkey-quicksearch"
+        a.lifetime = .keepAlways
+        add(a)
+        app.typeKey(.escape, modifierFlags: [])
+
+        // The menu bar window lists the latest downloads.
+        let status = app.statusItems.firstMatch
+        if status.waitForExistence(timeout: 5) {
+            status.click()
+            if app.staticTexts["Latest Downloads"].waitForExistence(timeout: 5) {
+                sleep(1)
+                let menuShot = XCUIScreen.main.screenshot()
+                let m = XCTAttachment(screenshot: menuShot)
+                m.name = "44-menu-bar"
+                m.lifetime = .keepAlways
+                add(m)
+                XCTAssertTrue(app.staticTexts["invoice-4821.png"].exists || app.staticTexts["Q3-report.pdf"].exists,
+                              "Menu bar should list recent downloads")
+            }
+            app.typeKey(.escape, modifierFlags: [])
         }
     }
 }

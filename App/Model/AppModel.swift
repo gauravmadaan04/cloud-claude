@@ -243,6 +243,25 @@ final class AppModel {
         previewItem = item
     }
 
+    var isPreviewing: Bool { previewItem != nil }
+
+    func closePreview() {
+        withAnimation(.easeOut(duration: 0.18)) {
+            previewItem = nil
+            previewContext = []
+        }
+    }
+
+    /// ←/→ in the large preview.
+    func stepPreview(_ delta: Int) {
+        let list = previewContext.isEmpty ? visibleItems : previewContext
+        guard let current = previewItem, let i = list.firstIndex(where: { $0.id == current.id }) else { return }
+        let next = i + delta
+        guard list.indices.contains(next) else { return }
+        previewItem = list[next]
+        selectedIDs = [list[next].id]
+    }
+
     func revealInFinder(_ items: [FileItem]) {
         guard !items.isEmpty else { return }
         NSWorkspace.shared.activateFileViewerSelecting(items.map(\.url))

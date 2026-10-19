@@ -34,14 +34,14 @@ struct PreviewOverlay: View {
             }
             .background {
                 // Invisible buttons so Esc, Space and the arrows work wherever keyboard focus is.
-                Group {
+                ZStack {
                     Button("Close Preview") { close() }.keyboardShortcut(.cancelAction)
-                    Button("Close Preview") { close() }.keyboardShortcut(.space, modifiers: [])
                     Button("Previous") { step(-1) }.keyboardShortcut(.leftArrow, modifiers: [])
                     Button("Next") { step(1) }.keyboardShortcut(.rightArrow, modifiers: [])
                 }
-                .opacity(0)
-                .allowsHitTesting(false)
+                .buttonStyle(.plain)
+                .frame(width: 1, height: 1)
+                .opacity(0.001)
                 .accessibilityHidden(true)
             }
             .transition(.opacity.combined(with: .scale(scale: 0.98)))

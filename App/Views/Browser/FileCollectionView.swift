@@ -67,9 +67,15 @@ struct FileCollectionView<Header: View>: View {
                 .focusable()
                 .focusEffectDisabled()
                 .focused($focused)
-                .onMoveCommand { dir in move(dir, in: list, proxy: proxy) }
+                .onMoveCommand { dir in
+                    if model.isPreviewing {
+                        if dir == .left { model.stepPreview(-1) } else if dir == .right { model.stepPreview(1) }
+                        return
+                    }
+                    move(dir, in: list, proxy: proxy)
+                }
                 .onKeyPress(.space) {
-                    model.toggleQuickLook()
+                    if model.isPreviewing { model.closePreview() } else { model.toggleQuickLook() }
                     return .handled
                 }
                 .onKeyPress(.return) {
@@ -85,7 +91,9 @@ struct FileCollectionView<Header: View>: View {
                 .onCopyCommand {
                     model.selectedItems.map { NSItemProvider(object: $0.url as NSURL) }
                 }
-                .onExitCommand { model.selectedIDs = [] }
+                .onExitCommand {
+                    if model.isPreviewing { model.closePreview() } else { model.selectedIDs = [] }
+                }
                 .onChange(of: geo.size.width, initial: true) { _, w in
                     columns = Self.columnCount(width: w, card: prefs.cardSize)
                 }

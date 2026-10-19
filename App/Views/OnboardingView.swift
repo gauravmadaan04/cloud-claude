@@ -387,13 +387,16 @@ private struct LookPage: View {
                       subtitle: "Playful is colourful. Minimal is black, white and grey. Switch any time with ⌃⌘T.")
             HStack(spacing: 22) {
                 ForEach(Look.allCases) { look in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.25)) { prefs.look = look }
-                    } label: {
-                        LookPreviewCard(look: look, selected: prefs.look == look)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("onboarding.look.\(look.rawValue)")
+                    LookPreviewCard(look: look, selected: prefs.look == look)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.25)) { prefs.look = look }
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(look.title) look")
+                        .accessibilityAddTraits(prefs.look == look ? [.isButton, .isSelected] : [.isButton])
+                        .accessibilityAction { prefs.look = look }
+                        .accessibilityIdentifier("onboarding.look.\(look.rawValue)")
                 }
             }
             Picker("Appearance", selection: $prefs.appearance) {
