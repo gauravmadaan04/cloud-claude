@@ -7,7 +7,9 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-W, H = 720, 520
+W, H = 740, 560
+# Everything is laid out on a 720×520 grid, offset so Finder has breathing room (no scrollbars).
+OX, OY = 10, 14
 INTER = "/usr/share/fonts/opentype/inter/Inter-{}.otf"
 
 
@@ -20,13 +22,18 @@ def hexrgb(h, a=255):
 
 
 def background(scale):
-    w, h = W * scale, H * scale
+    full = gradient(W * scale, H * scale)
+    layer = content(scale)
+    full.paste(layer, (OX * scale, OY * scale), layer)
+    return full.convert("RGB")
+
+
+def gradient(w, h):
     img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
     px = img.load()
-    # Soft diagonal pastel wash.
     c1, c2, c3 = (250, 246, 255), (255, 244, 248), (243, 249, 255)
     for y in range(h):
-        for x in range(0, w, 1):
+        for x in range(w):
             t = (x / w * 0.6 + y / h * 0.4)
             if t < 0.5:
                 u = t / 0.5
@@ -35,6 +42,12 @@ def background(scale):
                 u = (t - 0.5) / 0.5
                 c = tuple(int(c2[i] + (c3[i] - c2[i]) * u) for i in range(3))
             px[x, y] = c + (255,)
+    return img
+
+
+def content(scale):
+    w, h = 720 * scale, 520 * scale
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     s = scale
 
@@ -101,7 +114,7 @@ def background(scale):
         t = i / 19
         pts.append(((598 + 18 * math.sin(t * math.pi * 0.8)) * s, (352 + 22 * t) * s))
     d.line(pts, fill=hexrgb(0x8E7BFF), width=int(2 * s))
-    return img.convert("RGB")
+    return img
 
 
 def readme_pdf(path):

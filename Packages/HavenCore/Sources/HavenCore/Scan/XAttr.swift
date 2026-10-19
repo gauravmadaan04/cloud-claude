@@ -61,6 +61,13 @@ public enum XAttr {
         return false
     }
 
+    /// Finder tags ("Work", "Red"…), stored as "Name\n<colour>" strings.
+    public static func tags(_ path: String) -> [String] {
+        guard let d = data(path, "com.apple.metadata:_kMDItemUserTags"),
+              let list = try? PropertyListSerialization.propertyList(from: d, options: [], format: nil) as? [String] else { return [] }
+        return list.compactMap { $0.split(separator: "\n").first.map(String.init) }.filter { !$0.isEmpty }
+    }
+
     public static func testAddedDate(_ path: String) -> Date? {
         guard let d = data(path, testAddedName), let s = String(data: d, encoding: .utf8), let t = Double(s) else { return nil }
         return Date(timeIntervalSince1970: t)

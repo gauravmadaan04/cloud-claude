@@ -171,6 +171,7 @@ public enum FileScanner {
             }
         }
         lastOpened = XAttr.lastUsedDate(path)
+        if tags.isEmpty { tags = XAttr.tags(path) }
         if options.honorTestDates, let testAdded = XAttr.testAddedDate(path) {
             added = testAdded
         }

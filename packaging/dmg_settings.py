@@ -22,8 +22,8 @@ show_pathbar = False
 show_sidebar = False
 sidebar_width = 0
 
-# Content area matches the 720×520 background; the extra height is the title bar.
-window_rect = ((180, 140), (720, 562))
+# The 740×560 background (content laid out on a 720×520 grid offset by 10,14) plus the title bar.
+window_rect = ((180, 120), (740, 600))
 default_view = "icon-view"
 show_icon_preview = False
 include_icon_view_settings = "auto"
@@ -38,7 +38,7 @@ text_size = 13
 icon_size = 112
 
 icon_locations = {
-    appname: (180, 175),
-    "Applications": (540, 175),
-    readmename: (620, 405),
+    appname: (190, 189),
+    "Applications": (550, 189),
+    readmename: (630, 419),
 }

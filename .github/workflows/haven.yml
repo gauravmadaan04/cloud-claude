@@ -66,6 +66,28 @@ jobs:
             -derivedDataPath "$DD" -only-testing:HavenUITests -resultBundlePath build/UITests.xcresult 2>&1 \
             | tee ui.log | grep -E "Test Case|error:|passed|failed|Executed|XCTAssert" | tail -150
 
+      - name: Collect crash reports
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p crashes
+          cp ~/Library/Logs/DiagnosticReports/Haven*.ips crashes/ 2>/dev/null || true
+          for f in crashes/*.ips; do
+            [ -f "$f" ] || continue
+            echo "== $f"
+            python3 - "$f" <<'PY'
+          import json, sys
+          raw = open(sys.argv[1]).read().split("\n", 1)
+          body = json.loads(raw[1]) if len(raw) > 1 else {}
+          print("exception:", body.get("exception"), body.get("termination", {}).get("indicator"))
+          ft = body.get("faultingThread", 0)
+          images = body.get("usedImages", [])
+          for fr in body.get("threads", [])[ft].get("frames", [])[:25]:
+              img = images[fr.get("imageIndex", 0)].get("name", "?") if images else "?"
+              print("  ", img, fr.get("symbol", "?"), fr.get("sourceFile", ""), fr.get("sourceLine", ""))
+          PY
+          done
+
       - name: Collect screenshots
         if: always()
         run: |
@@ -175,6 +197,7 @@ jobs:
             unit.log
             ui.log
             build-debug.log
+            crashes
           retention-days: 7
           if-no-files-found: ignore
 

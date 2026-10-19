@@ -159,6 +159,12 @@ struct LiveTextImage: NSViewRepresentable {
 
     static func dismantleNSView(_ view: NSImageView, coordinator: Coordinator) {
         coordinator.task?.cancel()
+        for overlay in view.subviews.compactMap({ $0 as? ImageAnalysisOverlayView }) {
+            overlay.analysis = nil
+            overlay.trackingImageView = nil
+            overlay.removeFromSuperview()
+        }
+        view.image = nil
     }
 
     private func load(into view: NSImageView, context: Context) {
