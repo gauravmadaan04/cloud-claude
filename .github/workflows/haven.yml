@@ -71,8 +71,31 @@ jobs:
         run: |
           mkdir -p build/screenshots
           xcrun xcresulttool export attachments --path build/UITests.xcresult --output-path build/screenshots >/dev/null 2>&1 || true
-          cp /private/tmp/haven-shots/*.png build/screenshots/ 2>/dev/null || true
-          ls build/screenshots | head -80
+          python3 - <<'PY'
+          import json, os, shutil
+          d = "build/screenshots"
+          out = os.path.join(d, "named")
+          os.makedirs(out, exist_ok=True)
+          try:
+              manifest = json.load(open(os.path.join(d, "manifest.json")))
+          except Exception:
+              manifest = []
+          def walk(x):
+              if isinstance(x, dict):
+                  if "exportedFileName" in x and "suggestedHumanReadableName" in x:
+                      yield x
+                  for v in x.values():
+                      yield from walk(v)
+              elif isinstance(x, list):
+                  for v in x:
+                      yield from walk(v)
+          for a in walk(manifest):
+              src = os.path.join(d, a["exportedFileName"])
+              if src.endswith(".png") and os.path.exists(src):
+                  name = a["suggestedHumanReadableName"].split("_0_")[0]
+                  shutil.copy(src, os.path.join(out, name + ".png"))
+          PY
+          ls build/screenshots/named | head -80
 
       - name: Build release (Apple silicon + Intel)
         run: |
@@ -125,7 +148,7 @@ jobs:
         if: always()
         with:
           name: screenshots
-          path: build/screenshots
+          path: build/screenshots/named
           retention-days: 14
           if-no-files-found: ignore
 

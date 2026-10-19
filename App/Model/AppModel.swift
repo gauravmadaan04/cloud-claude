@@ -119,6 +119,8 @@ final class AppModel {
     var searchSortOverride: FileSortOrder?
     /// Bumped to move keyboard focus into the search field (⌘F).
     var searchFocusRequest = 0
+    /// Bumped to move keyboard focus from the search field into the results (↓ or ↩ in the field).
+    var focusResultsRequest = 0
 
     var selectedIDs: Set<String> = []
     /// The list currently on screen (for Quick Look arrows, Select All and menu commands).

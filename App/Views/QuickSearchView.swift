@@ -51,7 +51,7 @@ struct QuickSearchView: View {
                         }
                         ForEach(Array(model.results.enumerated()), id: \.element.id) { index, item in
                             QuickSearchRow(item: item, selected: index == model.selectedIndex)
-                                .id(index)
+                                .id(item.id)
                                 .onTapGesture(count: 2) {
                                     model.selectedIndex = index
                                     onCommit([])
@@ -67,7 +67,9 @@ struct QuickSearchView: View {
                     }
                     .padding(8)
                 }
-                .onChange(of: model.selectedIndex) { _, i in proxy.scrollTo(i) }
+                .onChange(of: model.selectedIndex) { _, i in
+                    if model.results.indices.contains(i) { proxy.scrollTo(model.results[i].id) }
+                }
             }
             Divider()
             HStack(spacing: 14) {
@@ -123,6 +125,7 @@ struct QuickSearchRow: View {
                 .fill(selected ? theme.accent.opacity(0.2) : .clear)
         )
         .contentShape(Rectangle())
-        .accessibilityIdentifier("quicksearch.row")
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("quicksearch.row.\(item.name)")
     }
 }

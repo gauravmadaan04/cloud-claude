@@ -33,21 +33,32 @@ struct OnboardingView: View {
             background
             VStack(spacing: 0) {
                 stepper
-                    .padding(.top, 26)
-                ZStack {
-                    pageView(page)
-                        .id(page)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-                            removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
-                        ))
+                    .padding(.top, 22)
+                // Pages scroll on small screens; the buttons below always stay visible.
+                GeometryReader { geo in
+                    ScrollView {
+                        VStack {
+                            Spacer(minLength: 0)
+                            pageView(page)
+                                .id(page)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                                    removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
+                                ))
+                                .frame(maxWidth: 780)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-                .frame(maxWidth: 780, maxHeight: .infinity)
-                .padding(.horizontal, 40)
                 .clipped()
+                Divider().opacity(0.5)
                 controls
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 28)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
             }
         }
         .accessibilityElement(children: .contain)
@@ -162,19 +173,19 @@ private struct PageTitle: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 34, weight: .semibold))
+                .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(theme.accent)
-                .frame(width: 70, height: 70)
-                .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .frame(width: 58, height: 58)
+                .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
             Text(title)
-                .font(.system(size: 30, weight: .bold, design: theme.headingDesign))
+                .font(.system(size: 27, weight: .bold, design: theme.headingDesign))
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("onboarding.title")
             Text(subtitle)
-                .font(.title3)
+                .font(.system(size: 15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 560)
+                .frame(maxWidth: 580)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -184,11 +195,10 @@ private struct WelcomePage: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 26) {
-            Spacer(minLength: 10)
+        VStack(spacing: 22) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .frame(width: 128, height: 128)
+                .frame(width: 112, height: 112)
                 .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
             VStack(spacing: 10) {
                 Text("Welcome to Haven")
@@ -198,6 +208,7 @@ private struct WelcomePage: View {
                     .font(.title2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 16) {
                 feature("photo.on.rectangle.angled", "Big thumbnails", "See what's inside every folder")
@@ -208,7 +219,6 @@ private struct WelcomePage: View {
             Text("This short tour takes about a minute.")
                 .font(.callout)
                 .foregroundStyle(.tertiary)
-            Spacer(minLength: 10)
         }
     }
 
@@ -227,8 +237,7 @@ private struct PrivacyPage: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer(minLength: 8)
+        VStack(spacing: 24) {
             PageTitle(symbol: "lock.shield", title: "Everything stays on your Mac",
                       subtitle: "Haven has no account and never uploads anything. In fact, it doesn't use the internet at all.")
             VStack(alignment: .leading, spacing: 16) {
@@ -239,7 +248,6 @@ private struct PrivacyPage: View {
             }
             .frame(maxWidth: 560)
             .cardStyle(theme, padding: 22)
-            Spacer(minLength: 8)
         }
     }
 
@@ -338,7 +346,7 @@ private struct FoldersPage: View {
                 .help("Include \(root.name) in Haven")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 5)
     }
 
     private func ask(_ root: IndexRoot) async {
@@ -732,8 +740,7 @@ private struct ReadyPage: View {
     private var store: LibraryStore { .shared }
 
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer(minLength: 10)
+        VStack(spacing: 20) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(theme.accent)
@@ -755,7 +762,6 @@ private struct ReadyPage: View {
             .foregroundStyle(.secondary)
             Text("Reading text in images carries on quietly in the background.")
                 .foregroundStyle(.tertiary)
-            Spacer(minLength: 10)
         }
     }
 }

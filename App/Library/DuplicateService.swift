@@ -25,7 +25,7 @@ final class DuplicateService {
     private var cacheURL: URL { LaunchOptions.current.supportDirectory.appendingPathComponent("hashes.json") }
 
     /// Distance under which two photos count as look-alikes (Vision feature print distance).
-    nonisolated static let similarityThreshold: Float = 0.42
+    nonisolated static let similarityThreshold: Float = 0.38
 
     var isRunning: Bool {
         switch phase {
@@ -75,7 +75,7 @@ final class DuplicateService {
         // Exact copies are already handled; compare the remaining photos.
         let identicalPaths = Set(identical.flatMap { $0.items.dropFirst().map(\.path) })
         let photos = items.filter {
-            $0.kind == .image && !$0.isCloudOnly && !identicalPaths.contains($0.path) && $0.size > 20_000
+            $0.kind == .image && !$0.isCloudOnly && !$0.isScreenshot && !identicalPaths.contains($0.path) && $0.size > 1_000
                 && !["svg", "gif", "ico", "icns", "psd"].contains($0.ext)
         }
         let similarGroups = SimilarPhotoFinder.groups(in: photos, threshold: similarityThreshold) { p in

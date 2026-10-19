@@ -87,7 +87,7 @@ struct SidebarView: View {
                 .foregroundStyle(tint ?? (theme.isPlayful ? theme.accent : Color.primary.opacity(0.75)))
         }
         .badge(count ?? 0)
-        .tag(SidebarItem?.some(item))
+        .tag(item)
         .accessibilityIdentifier("sidebar.\(item.accessibilityID)")
     }
 
@@ -109,6 +109,8 @@ struct SidebarView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
         .accessibilityIdentifier("sidebar.status")
     }
 }

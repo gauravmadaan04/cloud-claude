@@ -55,6 +55,18 @@ final class HavenUITests: XCTestCase {
         return ok
     }
 
+    /// Waits for Home's library tiles; takes a screenshot to explain a failure.
+    func requireHome(_ label: String) {
+        if !el("home.tile.images").waitForExistence(timeout: 60) {
+            snap("debug-\(label)-no-home")
+            XCTFail("Home did not appear (\(label))")
+        }
+    }
+
+    func page(_ title: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "identifier == 'page.title' AND label == %@", title)).firstMatch
+    }
+
     func search(_ text: String) {
         let field = app.textFields["search.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
@@ -115,7 +127,7 @@ final class HavenUITests: XCTestCase {
     func test02_HomeSearchAndBrowse() throws {
         launch(onboarding: false)
         waitFor(app.staticTexts["home.greeting"], 40)
-        waitFor(el("home.tile.images"), 60, "Library tiles should load")
+        requireHome("search")
         sleep(4) // let thumbnails and duplicate checks settle
         snap("11-home-playful")
 
@@ -161,6 +173,7 @@ final class HavenUITests: XCTestCase {
 
         // Category, list view, inspector, preview.
         el("sidebar.category.images").click()
+        waitFor(page("Images"), 10, "Sidebar should open Images")
         waitFor(file("Goa Beach.jpg"), 15)
         sleep(2)
         snap("19-images-grid")
@@ -197,7 +210,7 @@ final class HavenUITests: XCTestCase {
 
     func test03_DuplicatesCleanUpAndUndo() throws {
         launch(onboarding: false)
-        waitFor(el("home.tile.images"), 60)
+        requireHome("cleanup")
 
         app.typeKey("d", modifierFlags: [.command, .shift])
         waitFor(el("dupes.freeup"), 90, "Duplicates should be found")
@@ -226,14 +239,14 @@ final class HavenUITests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: Self.fixtureRoot + "/Downloads/Zoom-6.2.pkg"), "Undo should restore the file")
 
         el("sidebar.activity").click()
-        waitFor(el("page.title"), 10)
+        waitFor(page("Activity"), 10, "Sidebar should open Activity")
         sleep(1)
         snap("35-activity")
 
         // Minimal look.
         app.typeKey("t", modifierFlags: [.command, .control])
         el("sidebar.home").click()
-        waitFor(el("home.tile.images"), 10)
+        waitFor(el("home.tile.images"), 10, "Sidebar should open Home")
         sleep(2)
         snap("36-home-minimal")
         app.typeKey("t", modifierFlags: [.command, .control])
@@ -247,7 +260,7 @@ final class HavenUITests: XCTestCase {
 
     func test04_QuickSearchAndSettings() throws {
         launch(onboarding: false)
-        waitFor(el("home.tile.images"), 60)
+        requireHome("quicksearch")
 
         app.menuBars.menuBarItems["File"].click()
         app.menuItems["Quick Search…"].click()
@@ -256,7 +269,7 @@ final class HavenUITests: XCTestCase {
         sleep(1)
         snap("40-quicksearch-recent")
         field.typeText("invoice")
-        waitFor(el("quicksearch.row"), 10)
+        waitFor(el("quicksearch.row.invoice-4821.png"), 10, "Quick Search should find the invoice by name")
         sleep(1)
         let screen = XCUIScreen.main.screenshot()
         let a = XCTAttachment(screenshot: screen)

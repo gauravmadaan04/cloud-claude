@@ -48,7 +48,8 @@ struct ContentView: View {
         .environment(\.theme, theme)
         .tint(theme.accent)
         .preferredColorScheme(prefs.appearance.colorScheme)
-        .frame(minWidth: 960, minHeight: 640)
+        .frame(minWidth: 960, minHeight: 620)
+        .background(WindowFitter())
         .onAppear {
             model.openWindowAction = openWindow
             model.openSettingsAction = openSettings
@@ -104,6 +105,11 @@ struct SearchField: View {
             TextField("Search in plain English, like “pdfs from last week”", text: $model.searchText)
                 .textFieldStyle(.plain)
                 .focused($focused)
+                .onSubmit { model.focusResultsRequest += 1 }
+                .onKeyPress(.downArrow) {
+                    model.focusResultsRequest += 1
+                    return .handled
+                }
                 .onExitCommand {
                     model.searchText = ""
                     focused = false
@@ -130,7 +136,7 @@ struct SearchField: View {
         .padding(.vertical, 5)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(focused ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08)))
-        .frame(width: 440)
+        .frame(minWidth: 220, idealWidth: 380, maxWidth: 440)
         .onChange(of: model.searchFocusRequest) { _, _ in focused = true }
     }
 }
@@ -221,4 +227,25 @@ struct MiniPlayerView: View {
             .padding(.horizontal, 6)
         }
     }
+}
+
+/// On first appearance, shrinks/moves the window so it fits the screen's visible area.
+struct WindowFitter: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window, let screen = window.screen ?? NSScreen.main else { return }
+            let visible = screen.visibleFrame
+            var frame = window.frame
+            guard !visible.contains(frame) else { return }
+            frame.size.width = min(frame.width, visible.width)
+            frame.size.height = min(frame.height, visible.height)
+            frame.origin.x = max(visible.minX, min(frame.origin.x, visible.maxX - frame.width))
+            frame.origin.y = max(visible.minY, min(frame.origin.y, visible.maxY - frame.height))
+            window.setFrame(frame, display: true)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

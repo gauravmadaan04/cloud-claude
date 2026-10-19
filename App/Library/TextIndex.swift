@@ -173,7 +173,7 @@ final class TextIndex {
                     }
                 }.value
                 self.processed += batch.count
-                if self.processed % 24 < batch.count { self.version += 1 }
+                self.version += 1
                 self.scheduleSave()
             }
             guard let self else { return }

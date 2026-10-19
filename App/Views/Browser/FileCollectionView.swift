@@ -103,7 +103,10 @@ struct FileCollectionView<Header: View>: View {
             }
         }
         .onChange(of: model.sourceFilter) { _, _ in model.setVisible(shown) }
-        .onAppear { focused = true }
+        .onChange(of: model.focusResultsRequest) { _, _ in
+            focused = true
+            if model.selectedIDs.isEmpty, let first = shown.first { model.selectedIDs = [first.id]; anchorID = first.id }
+        }
     }
 
     static func columnCount(width: CGFloat, card: Double) -> Int {
