@@ -125,6 +125,7 @@ final class HavenIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: shot))
     }
 
+    @MainActor
     func testHotKeyDisplay() {
         XCTAssertEqual(HotKeyCombo.default.display, "⇧⌘Space")
         XCTAssertEqual(HotKeyCenter.symbols(UInt32(0x100 | 0x200)), "⇧⌘")
