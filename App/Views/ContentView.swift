@@ -207,7 +207,7 @@ struct MiniPlayerView: View {
                 }
                 .frame(width: 22, height: 22)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(player.title.isEmpty ? current.baseName : player.title)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
@@ -215,8 +215,7 @@ struct MiniPlayerView: View {
                         .progressViewStyle(.linear)
                         .controlSize(.mini)
                 }
-                .frame(width: 120)
-                Button { player.previous() } label: { Image(systemName: "backward.fill") }.help("Previous (⌥⌘←)")
+                .frame(width: 96)
                 Button { player.togglePlayPause() } label: { Image(systemName: player.isPlaying ? "pause.fill" : "play.fill") }
                     .help("Play/Pause (⌥⌘P)")
                     .accessibilityIdentifier("player.toggle")
@@ -224,7 +223,11 @@ struct MiniPlayerView: View {
                 Button { player.stop() } label: { Image(systemName: "xmark") }.help("Stop")
             }
             .buttonStyle(.borderless)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 4)
+            .contextMenu {
+                Button("Previous Track") { player.previous() }
+                Button("Next Track") { player.next() }
+            }
         }
     }
 }

@@ -482,16 +482,15 @@ private struct SearchDemoPage: View {
                 }
                 .padding(12)
                 .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                HStack(spacing: 8) {
+                FlowLayout(spacing: 6) {
                     Text("Haven reads:").foregroundStyle(.secondary)
                     if parsed.chips.isEmpty {
                         Text("…").foregroundStyle(.tertiary)
                     }
-                    ForEach(parsed.chips) { ChipView(chip: $0) }
+                    ForEach(parsed.chips) { ChipView(chip: $0).fixedSize() }
                 }
                 .font(.callout)
-                .frame(minHeight: 30)
-                .accessibilityIdentifier("onboarding.search.chips")
+                .frame(maxWidth: .infinity, minHeight: 30)
             }
             .frame(maxWidth: 620)
             .cardStyle(theme, padding: 18)

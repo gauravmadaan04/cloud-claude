@@ -16,7 +16,7 @@ struct HavenApp: App {
             ContentView()
         }
         .defaultSize(width: 1280, height: 820)
-        .windowToolbarStyle(.unified)
+        .windowToolbarStyle(.unified(showsTitle: false))
         .commands { HavenCommands() }
 
         Settings {
