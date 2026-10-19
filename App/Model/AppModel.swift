@@ -98,6 +98,8 @@ final class AppModel {
             selectedIDs = []
             sourceFilter = nil
             if searchText.isEmpty == false && !keepSearchOnNavigate { searchText = "" }
+            // Going somewhere else ends typing in the search box (and closes its suggestions).
+            SearchFieldBridge.shared.resign()
         }
     }
     private(set) var backStack: [SidebarItem] = []
@@ -249,6 +251,7 @@ final class AppModel {
     }
 
     func preview(_ item: FileItem, in list: [FileItem]) {
+        SearchFieldBridge.shared.resign()
         previewContext = list
         previewItem = item
     }

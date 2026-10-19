@@ -115,6 +115,10 @@ struct SearchField: View {
                     return .handled
                 }
                 .onExitCommand {
+                    if model.isPreviewing {
+                        model.closePreview()
+                        return
+                    }
                     model.searchText = ""
                     SearchFieldBridge.shared.resign()
                 }
@@ -209,8 +213,13 @@ final class SearchFieldBridge: NSObject {
         window.makeFirstResponder(field)
     }
 
+    /// Gives up keyboard focus, but only if the search field has it.
     func resign() {
-        window?.makeFirstResponder(nil)
+        guard let window else { return }
+        let editing = (window.firstResponder as? NSText)?.delegate as? NSTextField
+        if let editing, isToolbarField(editing, in: window) {
+            window.makeFirstResponder(nil)
+        }
     }
 }
 
