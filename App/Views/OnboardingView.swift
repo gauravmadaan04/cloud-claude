@@ -34,16 +34,19 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 stepper
                     .padding(.top, 22)
-                ZStack {
-                    pageView(page)
-                        .id(page)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-                            removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
-                        ))
-                        .frame(maxWidth: 780)
+                // The page gets exactly the space between the dots and the buttons, so the buttons never move.
+                GeometryReader { geo in
+                    ZStack {
+                        pageView(page)
+                            .id(page)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                                removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
+                            ))
+                            .frame(maxWidth: 780)
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, 40)
                 .padding(.vertical, 10)
                 .clipped()
@@ -724,21 +727,27 @@ private struct TourPage: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            PageTitle(symbol: "wand.and.stars", title: "A few things to try",
-                      subtitle: "Everything is also in the menus. See all shortcuts any time with ⌘/.")
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+            VStack(spacing: 6) {
+                Text("A few things to try")
+                    .font(.system(size: 27, weight: .bold, design: theme.headingDesign))
+                    .accessibilityIdentifier("onboarding.title")
+                Text("Everything is also in the menus. See all shortcuts any time with ⌘/.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
                 ForEach(features) { f in
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Image(systemName: f.symbol).font(.title3).foregroundStyle(theme.accent)
-                            Spacer()
+                            Image(systemName: f.symbol).font(.body.weight(.semibold)).foregroundStyle(theme.accent)
+                            Text(f.title).font(.subheadline.weight(.semibold))
+                            Spacer(minLength: 4)
                             KeyCaps(keys: f.keys)
                         }
-                        Text(f.title).font(.headline)
                         Text(f.text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-                    .cardStyle(theme, padding: 12)
+                    .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
+                    .cardStyle(theme, padding: 11)
                 }
             }
             .frame(maxWidth: 760)
