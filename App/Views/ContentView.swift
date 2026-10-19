@@ -16,14 +16,7 @@ struct ContentView: View {
                     .navigationSplitViewColumnWidth(min: 200, ideal: 228, max: 320)
             } detail: {
                 DetailView()
-                    .overlay(alignment: .top) {
-                        if model.searchFieldFocused && model.searchText.isEmpty && !model.showOnboarding && model.previewItem == nil {
-                            SearchSuggestionsView()
-                                .padding(.top, 10)
-                                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-                        }
-                    }
-                    .animation(.snappy(duration: 0.2), value: model.searchFieldFocused && model.searchText.isEmpty)
+                    .modifier(SuggestionsOverlay(enabled: !LaunchOptions.current.debug("nosuggest")))
                     .inspector(isPresented: $model.showInspector) {
                         InspectorView()
                             .inspectorColumnWidth(min: 260, ideal: 300, max: 440)
@@ -59,6 +52,9 @@ struct ContentView: View {
         .frame(minWidth: 960, minHeight: 620)
         .background(WindowFitter())
         .onAppear {
+            #if DEBUG
+            FocusProbe.start()
+            #endif
             model.openWindowAction = openWindow
             model.openSettingsAction = openSettings
         }
@@ -149,8 +145,9 @@ struct SearchField: View {
         .onChange(of: model.searchFocusRequest) { _, _ in focused = true }
         .onChange(of: focused) { _, isFocused in
             #if DEBUG
-            FocusProbe.note("search field focused=\(isFocused)")
+            FocusProbe.write("SwiftUI focus state: \(isFocused)")
             #endif
+            guard !LaunchOptions.current.debug("nosuggest") else { return }
             if isFocused {
                 model.searchFieldFocused = true
             } else {
@@ -160,6 +157,28 @@ struct SearchField: View {
                     if !focused { model.searchFieldFocused = false }
                 }
             }
+        }
+    }
+}
+
+/// Recent searches and ideas under the toolbar field while it's focused and empty.
+struct SuggestionsOverlay: ViewModifier {
+    let enabled: Bool
+    @Bindable private var model = AppModel.shared
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .overlay(alignment: .top) {
+                    if model.searchFieldFocused && model.searchText.isEmpty && !model.showOnboarding && model.previewItem == nil {
+                        SearchSuggestionsView()
+                            .padding(.top, 10)
+                            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    }
+                }
+                .animation(.snappy(duration: 0.2), value: model.searchFieldFocused && model.searchText.isEmpty)
+        } else {
+            content
         }
     }
 }
@@ -277,29 +296,47 @@ struct WindowFitter: NSViewRepresentable {
 }
 
 #if DEBUG
-/// Test-only breadcrumbs: who holds keyboard focus around search-field changes (read by the UI tests).
+/// Test-only breadcrumbs: every change of key window and first responder, written to a file the UI tests print.
+@MainActor
 enum FocusProbe {
     static let path = "/private/tmp/haven-focus.log"
+    private static var last = ""
+    private static var timer: Timer?
+    private static let started = Date()
 
-    @MainActor
-    static func note(_ event: String) {
-        guard LaunchOptions.current.isFixtureMode else { return }
-        write(event + " · first responder: " + responder())
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            write("  0.6s later · first responder: " + responder())
+    static func start() {
+        guard LaunchOptions.current.isFixtureMode, timer == nil else { return }
+        try? FileManager.default.removeItem(atPath: path)
+        write("probe started · flags: \(LaunchOptions.current.debugFlags.sorted().joined(separator: ","))")
+        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let now = describe()
+                if now != last {
+                    last = now
+                    write(now)
+                }
+            }
         }
     }
 
-    @MainActor
-    private static func responder() -> String {
-        guard let r = NSApp.keyWindow?.firstResponder else { return "none (key window: \(NSApp.keyWindow?.title ?? "nil"))" }
+    private static func describe() -> String {
+        guard let window = NSApp.keyWindow else { return "no key window" }
+        let title = window.title.isEmpty ? String(describing: type(of: window)) : window.title
+        guard let r = window.firstResponder else { return "key: \(title) · responder: nil" }
         var name = String(describing: type(of: r))
-        if let v = r as? NSView, !v.accessibilityIdentifier().isEmpty { name += " [\(v.accessibilityIdentifier())]" }
-        return name
+        if let tv = r as? NSTextView, tv.isFieldEditor, let owner = tv.delegate as? NSView {
+            name += " editing \(type(of: owner)) [\(owner.accessibilityIdentifier())]"
+        } else if let v = r as? NSView {
+            if !v.accessibilityIdentifier().isEmpty { name += " [\(v.accessibilityIdentifier())]" }
+            name += " in \(type(of: v.superview ?? v))"
+        }
+        return "key: \(title) · responder: \(name)"
     }
 
-    private static func write(_ line: String) {
-        let data = Data((line + "\n").utf8)
+    static func write(_ line: String) {
+        guard LaunchOptions.current.isFixtureMode else { return }
+        let stamp = String(format: "%7.2f ", Date().timeIntervalSince(started))
+        let data = Data((stamp + line + "\n").utf8)
         if let h = FileHandle(forWritingAtPath: path) {
             h.seekToEndOfFile()
             h.write(data)

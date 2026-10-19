@@ -224,18 +224,29 @@ struct DetailView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        ZStack {
-            if let parsed = model.parsed {
-                SearchResultsView(parsed: parsed)
-                    .transition(.opacity)
-            } else {
-                page(model.selection ?? .home)
-                    .id(model.selection)
-                    .transition(.opacity)
+        if LaunchOptions.current.debug("plaindetail") {
+            Group {
+                if let parsed = model.parsed {
+                    SearchResultsView(parsed: parsed)
+                } else {
+                    page(model.selection ?? .home)
+                        .id(model.selection)
+                }
             }
+        } else {
+            ZStack {
+                if let parsed = model.parsed {
+                    SearchResultsView(parsed: parsed)
+                        .transition(.opacity)
+                } else {
+                    page(model.selection ?? .home)
+                        .id(model.selection)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.16), value: model.selection)
+            .animation(.easeInOut(duration: 0.16), value: model.parsed == nil)
         }
-        .animation(.easeInOut(duration: 0.16), value: model.selection)
-        .animation(.easeInOut(duration: 0.16), value: model.parsed == nil)
     }
 
     @ViewBuilder
