@@ -5,8 +5,15 @@ cd "$(dirname "$0")/.."
 VERSION="${VERSION:-1.0.0}"
 BUILD="${BUILD:-$(date +%Y%m%d.%H%M)}"
 
-swift build -c release --arch arm64 --arch x86_64
-BIN=.build/apple/Products/Release
+# One native build per architecture, merged with lipo (more reliable than the multi-arch Xcode build).
+for ARCH in arm64 x86_64; do
+  swift build -c release --triple "$ARCH-apple-macosx13.0"
+done
+BIN=.build/universal
+mkdir -p "$BIN"
+for PRODUCT in Ribbon ribbon RibbonFixture; do
+  lipo -create -output "$BIN/$PRODUCT" ".build/arm64-apple-macosx/release/$PRODUCT" ".build/x86_64-apple-macosx/release/$PRODUCT"
+done
 
 APP=dist/Ribbon.app
 rm -rf dist

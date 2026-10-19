@@ -51,7 +51,7 @@ jobs:
         if: steps.build.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 15
-        run: python3 e2e/run_e2e.py --app dist/Ribbon.app --fixture .build/apple/Products/Release/RibbonFixture --out dist/e2e
+        run: python3 e2e/run_e2e.py --app dist/Ribbon.app --fixture .build/universal/RibbonFixture --out dist/e2e
 
       - name: Package DMG
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
