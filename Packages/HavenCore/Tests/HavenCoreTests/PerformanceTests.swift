@@ -101,10 +101,13 @@ final class PerformanceTests: XCTestCase {
         let merged = time("live update: merge one folder", repeat: 3) { IndexMerge.apply(base: sorted, listed: [dir: listing]) }
         XCTAssertEqual(merged.count, sorted.count)
         _ = time("forget 3 files", repeat: 3) { IndexMerge.removing(Set(sorted.prefix(3).map(\.path)), from: sorted) }
-        let data = try time("JSON encode") { try JSONEncoder().encode(IndexSnapshot(rootPaths: ["/Users/me"], items: items)) }
-        if Self.bench { print("BENCH JSON size \(data.count / 1024) KB") }
-        let back = try time("JSON decode") { try JSONDecoder().decode(IndexSnapshot.self, from: data) }
-        XCTAssertEqual(back.items.count, items.count)
+        // The old JSON format, for comparison (slow; only with HAVEN_BENCH_JSON=1).
+        if !Self.bench || ProcessInfo.processInfo.environment["HAVEN_BENCH_JSON"] != nil {
+            let data = try time("JSON encode") { try JSONEncoder().encode(IndexSnapshot(rootPaths: ["/Users/me"], items: items)) }
+            if Self.bench { print("BENCH JSON size \(data.count / 1024) KB") }
+            let back = try time("JSON decode") { try JSONDecoder().decode(IndexSnapshot.self, from: data) }
+            XCTAssertEqual(back.items.count, items.count)
+        }
         let bin = time("binary encode", repeat: 2) { IndexCodec.encode(items: items, rootPaths: ["/Users/me"]) }
         if Self.bench { print("BENCH binary size \(bin.count / 1024) KB") }
         let decoded = try time("binary decode", repeat: 2) { try IndexCodec.decode(bin) }

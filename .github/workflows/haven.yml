@@ -27,7 +27,16 @@ jobs:
           swift --version
 
       - name: Core logic tests (HavenCore)
-        run: cd Packages/HavenCore && swift test 2>&1 | tail -25
+        run: |
+          set -o pipefail
+          cd Packages/HavenCore && swift test 2>&1 | tail -25
+
+      - name: Speed on 300,000 files (HavenCore, release build)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd Packages/HavenCore && HAVEN_BENCH=1 swift test -c release --filter PerformanceTests 2>&1 \
+            | grep -E "BENCH|Executed|error" | tee "$GITHUB_WORKSPACE/bench.log"
 
       - name: Generate Xcode project
         run: |
@@ -196,6 +205,7 @@ jobs:
           path: |
             unit.log
             ui.log
+            bench.log
             build-debug.log
             crashes
           retention-days: 7
