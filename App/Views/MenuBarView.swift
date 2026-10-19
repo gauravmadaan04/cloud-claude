@@ -98,7 +98,11 @@ struct MenuBarRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ThumbnailView(item: item, side: 36, cornerRadius: 6)
+            ThumbnailView(item: item, side: 38, cornerRadius: 7)
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+                .overlay(alignment: .bottomTrailing) {
+                    if let s = item.source { SourceBadge(source: s, size: 15).offset(x: 4, y: 4) }
+                }
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.name).font(.system(size: 12.5, weight: .medium)).lineLimit(1).truncationMode(.middle)
                 HStack(spacing: 4) {
@@ -120,8 +124,8 @@ struct MenuBarRow: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 7).fill(hovering ? Color.primary.opacity(0.07) : .clear))
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? Color.primary.opacity(0.07) : .clear))
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture { NSWorkspace.shared.open(item.url) }

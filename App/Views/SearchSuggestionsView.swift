@@ -2,6 +2,7 @@ import HavenCore
 import SwiftUI
 
 /// Drops down under the search field while it's focused and empty: recent searches and a few ideas.
+/// Rows are tap targets rather than buttons so they can never take keyboard focus from the field.
 struct SearchSuggestionsView: View {
     @Bindable private var model = AppModel.shared
     @Environment(\.theme) private var theme
@@ -16,10 +17,12 @@ struct SearchSuggestionsView: View {
         VStack(alignment: .leading, spacing: 0) {
             if !prefs.recentSearches.isEmpty {
                 sectionTitle("Recent") {
-                    Button("Clear") { withAnimation(.snappy) { prefs.forgetSearches() } }
-                        .buttonStyle(.plain)
+                    Text("Clear")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                        .onTapGesture { withAnimation(.snappy) { prefs.forgetSearches() } }
+                        .accessibilityAddTraits(.isButton)
                 }
                 VStack(spacing: 1) {
                     ForEach(prefs.recentSearches.prefix(5), id: \.self) { text in
@@ -97,33 +100,33 @@ private struct RecentSearchRow: View {
 
     var body: some View {
         let parsed = QueryParser.parse(text)
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 12, weight: .medium))
+        HStack(spacing: 10) {
+            Image(systemName: "clock.arrow.circlepath")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+            Text(text)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            if parsed.headline != parsed.text {
+                Text(parsed.headline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(width: 18)
-                Text(text)
                     .lineLimit(1)
-                Spacer(minLength: 8)
-                if parsed.headline != parsed.text {
-                    Text(parsed.headline)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Image(systemName: "arrow.up.left")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.tertiary)
-                    .opacity(hovering ? 1 : 0)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? theme.accent.opacity(0.12) : .clear))
-            .contentShape(Rectangle())
+            Image(systemName: "arrow.up.left")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.tertiary)
+                .opacity(hovering ? 1 : 0)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? theme.accent.opacity(0.12) : .clear))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
         .onHover { hovering = $0 }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -135,20 +138,21 @@ private struct IdeaChip: View {
 
     var body: some View {
         let symbol = QueryParser.parse(text).chips.first { $0.kind != .sort }?.symbol ?? "magnifyingglass"
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 10.5, weight: .semibold))
-                Text(text)
-            }
-            .font(.callout)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .foregroundStyle(hovering ? AnyShapeStyle(theme.onAccent) : AnyShapeStyle(.primary))
-            .background(hovering ? AnyShapeStyle(theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.primary.opacity(hovering ? 0 : 0.06)))
+        HStack(spacing: 5) {
+            Image(systemName: symbol).font(.system(size: 10.5, weight: .semibold))
+            Text(text)
         }
-        .buttonStyle(.plain)
+        .font(.callout)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .foregroundStyle(hovering ? AnyShapeStyle(theme.onAccent) : AnyShapeStyle(.primary))
+        .background(hovering ? AnyShapeStyle(theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(hovering ? 0 : 0.06)))
+        .contentShape(Capsule())
+        .onTapGesture(perform: action)
         .onHover { hovering = $0 }
         .animation(.snappy(duration: 0.15), value: hovering)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }

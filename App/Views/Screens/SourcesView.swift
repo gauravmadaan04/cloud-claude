@@ -60,12 +60,14 @@ struct SourceCard: View {
             }
             HStack(spacing: 8) {
                 ForEach(summary.preview) { item in
-                    ThumbnailView(item: item, side: 70, height: 56, cornerRadius: 8)
+                    ThumbnailView(item: item, side: 72, height: 56, cornerRadius: 8)
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
                 }
                 Spacer(minLength: 0)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(theme, padding: 14)
+        .interactiveCard(tint: theme.sourceColor(summary.source.tint))
     }
 }

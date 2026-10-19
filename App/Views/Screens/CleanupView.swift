@@ -137,6 +137,7 @@ struct BigCleanupCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
         .cardStyle(theme, padding: 18)
+        .interactiveCard(tint: color)
     }
 }
 

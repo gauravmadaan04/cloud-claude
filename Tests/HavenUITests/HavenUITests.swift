@@ -14,6 +14,7 @@ final class HavenUITests: XCTestCase {
     }
 
     func launch(onboarding: Bool, extra: [String] = []) {
+        try? FileManager.default.removeItem(atPath: "/private/tmp/haven-focus.log")
         app = XCUIApplication()
         app.launchArguments = extra + [
             "-HavenFixtureRoot", Self.fixtureRoot,
@@ -72,6 +73,13 @@ final class HavenUITests: XCTestCase {
         let field = app.textFields["search.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.click()
+        if !((field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false) {
+            // Explain a lost focus: which view took it (the app logs this in test runs).
+            sleep(1)
+            snap("debug-search-focus")
+            let log = (try? String(contentsOfFile: "/private/tmp/haven-focus.log", encoding: .utf8)) ?? "(no focus log)"
+            print("FOCUS LOG for “\(text)”:\n\(log)")
+        }
         field.typeKey("a", modifierFlags: .command)
         field.typeKey(.delete, modifierFlags: [])
         field.typeText(text)

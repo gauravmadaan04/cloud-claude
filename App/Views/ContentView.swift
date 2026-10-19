@@ -145,10 +145,12 @@ struct SearchField: View {
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(focused ? 0.03 : 0.06)))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
             .strokeBorder(focused ? Color.accentColor.opacity(0.55) : Color.primary.opacity(0.08), lineWidth: focused ? 1.5 : 1))
-        .animation(.easeOut(duration: 0.15), value: focused)
         .frame(minWidth: 200, idealWidth: 340, maxWidth: 420)
         .onChange(of: model.searchFocusRequest) { _, _ in focused = true }
         .onChange(of: focused) { _, isFocused in
+            #if DEBUG
+            FocusProbe.note("search field focused=\(isFocused)")
+            #endif
             if isFocused {
                 model.searchFieldFocused = true
             } else {
@@ -273,3 +275,38 @@ struct WindowFitter: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
+
+#if DEBUG
+/// Test-only breadcrumbs: who holds keyboard focus around search-field changes (read by the UI tests).
+enum FocusProbe {
+    static let path = "/private/tmp/haven-focus.log"
+
+    @MainActor
+    static func note(_ event: String) {
+        guard LaunchOptions.current.isFixtureMode else { return }
+        write(event + " · first responder: " + responder())
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            write("  0.6s later · first responder: " + responder())
+        }
+    }
+
+    @MainActor
+    private static func responder() -> String {
+        guard let r = NSApp.keyWindow?.firstResponder else { return "none (key window: \(NSApp.keyWindow?.title ?? "nil"))" }
+        var name = String(describing: type(of: r))
+        if let v = r as? NSView, !v.accessibilityIdentifier().isEmpty { name += " [\(v.accessibilityIdentifier())]" }
+        return name
+    }
+
+    private static func write(_ line: String) {
+        let data = Data((line + "\n").utf8)
+        if let h = FileHandle(forWritingAtPath: path) {
+            h.seekToEndOfFile()
+            h.write(data)
+            try? h.close()
+        } else {
+            FileManager.default.createFile(atPath: path, contents: data)
+        }
+    }
+}
+#endif

@@ -24,6 +24,27 @@ extension View {
     }
 }
 
+/// A clickable card: lifts and picks up a tinted edge under the pointer.
+struct InteractiveCard: ViewModifier {
+    var tint: Color?
+    @Environment(\.theme) private var theme
+    @State private var hovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous)
+                .strokeBorder((tint ?? theme.accent).opacity(hovering ? 0.4 : 0), lineWidth: 1))
+            .hoverLift(hovering)
+            .onHover { hovering = $0 }
+    }
+}
+
+extension View {
+    func interactiveCard(tint: Color? = nil) -> some View {
+        modifier(InteractiveCard(tint: tint))
+    }
+}
+
 // MARK: - Thumbnails
 
 /// A file's thumbnail: photos fill the frame, documents sit on a soft sheet, everything else gets a

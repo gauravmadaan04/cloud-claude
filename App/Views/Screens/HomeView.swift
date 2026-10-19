@@ -333,7 +333,6 @@ struct CleanupMiniCard: View {
     let bytes: Int64
     var progressText: String? = nil
     @Environment(\.theme) private var theme
-    @State private var hovering = false
 
     private var color: Color { cleanupColor(kind, theme: theme) }
 
@@ -377,10 +376,7 @@ struct CleanupMiniCard: View {
         }
         .frame(width: 152, height: 112, alignment: .topLeading)
         .cardStyle(theme, padding: 14)
-        .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous)
-            .strokeBorder(hovering ? color.opacity(0.35) : .clear, lineWidth: 1))
-        .hoverLift(hovering)
-        .onHover { hovering = $0 }
+        .interactiveCard(tint: color)
     }
 }
 

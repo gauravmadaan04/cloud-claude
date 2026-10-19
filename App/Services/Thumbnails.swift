@@ -57,6 +57,17 @@ final class Thumbnails: @unchecked Sendable {
         }
         let pixels = CGFloat(bucket) * max(1, scale)
         let cost = Int(pixels * pixels * 4)
+        // Songs: the album cover if there is one; otherwise the designed tile (Quick Look's page icon is dull).
+        if item.kind == .audio {
+            if let art = await Self.audioArtwork(item.url) {
+                let t = Thumbnail(image: art, isIcon: false)
+                cache.setObject(t, forKey: k, cost: cost)
+                return t
+            }
+            let t = await MainActor.run { Thumbnail(image: NSWorkspace.shared.icon(forFile: item.path), isIcon: true) }
+            cache.setObject(t, forKey: k, cost: bucket * bucket * 4)
+            return t
+        }
         // Pictures: ImageIO is fast and doesn't depend on the Quick Look service.
         if item.kind == .image, item.ext != "svg" {
             let url = item.url
@@ -126,6 +137,15 @@ final class Thumbnails: @unchecked Sendable {
         let bounds = page.bounds(for: .mediaBox)
         let ratio = maxPixel / max(bounds.width, bounds.height, 1)
         return page.thumbnail(of: CGSize(width: bounds.width * ratio, height: bounds.height * ratio), for: .mediaBox)
+    }
+
+    static func audioArtwork(_ url: URL) async -> NSImage? {
+        let asset = AVURLAsset(url: url)
+        guard let metadata = try? await asset.load(.commonMetadata) else { return nil }
+        for entry in metadata where entry.commonKey == .commonKeyArtwork {
+            if let data = try? await entry.load(.dataValue), let image = NSImage(data: data) { return image }
+        }
+        return nil
     }
 
     static func videoThumbnail(_ url: URL, maxPixel: CGFloat) async -> NSImage? {

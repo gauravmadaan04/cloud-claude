@@ -38,9 +38,10 @@ struct ActivityView: View {
     private func row(_ entry: ActivityEntry) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol(entry))
-                .font(.title3)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(entry.undone ? Color.secondary : theme.accent)
-                .frame(width: 30)
+                .frame(width: 34, height: 34)
+                .background((entry.undone ? Color.secondary : theme.accent).opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.summary)
                     .fontWeight(.medium)
