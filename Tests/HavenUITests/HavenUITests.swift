@@ -63,8 +63,9 @@ final class HavenUITests: XCTestCase {
         }
     }
 
+    /// The big title of the current page (macOS puts a text's string in `value`).
     func page(_ title: String) -> XCUIElement {
-        app.staticTexts.matching(NSPredicate(format: "identifier == 'page.title' AND label == %@", title)).firstMatch
+        app.staticTexts.matching(NSPredicate(format: "identifier == 'page.title' AND (value == %@ OR label == %@)", title, title)).firstMatch
     }
 
     func search(_ text: String) {
@@ -96,9 +97,9 @@ final class HavenUITests: XCTestCase {
         snap("03-onboarding-folders")
         next.click()
         waitFor(app.staticTexts["Pick a look"])
-        el("onboarding.look.minimal").click()
+        app.buttons["onboarding.look.minimal"].click()
         snap("04-onboarding-look-minimal")
-        el("onboarding.look.playful").click()
+        app.buttons["onboarding.look.playful"].click()
         next.click()
         waitFor(app.staticTexts["Search the way you talk"])
         app.buttons["screenshots over 5 MB"].click()
@@ -148,7 +149,7 @@ final class HavenUITests: XCTestCase {
         search("screenshots")
         waitFor(app.buttons["search.save"], 10)
         app.buttons["search.save"].click()
-        waitFor(el("page.title"), 10)
+        waitFor(page("Screenshots"), 10, "Saved search should open from the sidebar")
         snap("14-saved-search")
 
         // Text inside screenshots (OCR) becomes searchable.

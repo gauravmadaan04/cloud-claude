@@ -136,7 +136,7 @@ struct SearchField: View {
         .padding(.vertical, 5)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(focused ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08)))
-        .frame(minWidth: 220, idealWidth: 380, maxWidth: 440)
+        .frame(minWidth: 200, idealWidth: 340, maxWidth: 420)
         .onChange(of: model.searchFocusRequest) { _, _ in focused = true }
     }
 }

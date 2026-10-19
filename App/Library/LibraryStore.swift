@@ -216,7 +216,7 @@ final class LibraryStore {
         let snapshot = IndexSnapshot(rootPaths: Prefs.shared.enabledRoots.map(\.path), items: items)
         let url = snapshotURL
         saveTask = Task.detached(priority: .background) {
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(8))
             if Task.isCancelled { return }
             if let data = try? JSONEncoder().encode(snapshot) {
                 try? data.write(to: url, options: .atomic)
@@ -303,7 +303,7 @@ final class LibraryStore {
         guard !pendingChanges.isEmpty else { return }
         changeTask?.cancel()
         changeTask = Task {
-            try? await Task.sleep(for: .milliseconds(700))
+            try? await Task.sleep(for: .milliseconds(1200))
             guard !Task.isCancelled else { return }
             let dirs = self.pendingChanges
             self.pendingChanges.removeAll()

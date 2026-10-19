@@ -136,6 +136,21 @@ jobs:
           shasum -a 256 build/Haven-1.0.0.dmg | tee build/Haven-1.0.0.dmg.sha256
           ls -lh build/Haven-1.0.0.dmg
 
+      - name: Screenshot the installer window (best effort)
+        continue-on-error: true
+        run: |
+          hdiutil attach build/Haven-1.0.0.dmg -readonly
+          sleep 2
+          open /Volumes/Haven
+          sleep 5
+          mkdir -p build/screenshots/named
+          screencapture -x build/screenshots/named/50-dmg-window.png || true
+          osascript -e 'tell application "Finder" to close every window' || true
+          hdiutil detach /Volumes/Haven || true
+          ls -la build/Haven-1.0.0.dmg
+          APP=build/rel/Build/Products/Release/Haven.app
+          ls "$APP/Contents/Resources" | grep -i appintents || echo "no App Intents metadata"
+
       - uses: actions/upload-artifact@v4
         with:
           name: Haven-dmg

@@ -125,7 +125,6 @@ struct QueryChipsBar: View {
             }
         }
         .font(.callout)
-        .accessibilityIdentifier("search.chips")
     }
 }
 
