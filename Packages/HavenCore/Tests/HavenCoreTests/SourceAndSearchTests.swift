@@ -123,8 +123,8 @@ final class SearchEngineTests: XCTestCase {
     }
 
     func testSortOrders() {
-        let sorted = SortOrder.sizeLargest.sorted(items)
+        let sorted = FileSortOrder.sizeLargest.sorted(items)
         XCTAssertEqual(sorted.first?.name, "Screenshot 2026-10-01.png")
-        XCTAssertEqual(SortOrder.nameAZ.sorted(items).first?.name, "attachment.pdf")
+        XCTAssertEqual(FileSortOrder.nameAZ.sorted(items).first?.name, "attachment.pdf")
     }
 }

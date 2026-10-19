@@ -134,7 +134,7 @@ public enum SearchEngine {
 }
 
 /// How lists can be sorted in the browser.
-public enum SortOrder: String, Codable, CaseIterable, Sendable, Identifiable {
+public enum FileSortOrder: String, Codable, CaseIterable, Sendable, Identifiable {
     case dateNewest, dateOldest, nameAZ, nameZA, sizeLargest, sizeSmallest, kind
 
     public var id: String { rawValue }

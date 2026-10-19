@@ -433,13 +433,13 @@ struct ListHeader: View {
         .background(.bar)
     }
 
-    private var current: SortOrder { model.isSearching ? (model.searchSortOverride ?? .dateNewest) : prefs.sortOrder }
+    private var current: FileSortOrder { model.isSearching ? (model.searchSortOverride ?? .dateNewest) : prefs.sortOrder }
 
     @ViewBuilder
-    private func header(_ title: String, asc: SortOrder, desc: SortOrder) -> some View {
+    private func header(_ title: String, asc: FileSortOrder, desc: FileSortOrder) -> some View {
         if sortable {
             Button {
-                let next: SortOrder = current == desc ? asc : desc
+                let next: FileSortOrder = current == desc ? asc : desc
                 if model.isSearching { model.searchSortOverride = next } else { prefs.sortOrder = next }
             } label: {
                 HStack(spacing: 3) {

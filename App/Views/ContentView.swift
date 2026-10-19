@@ -154,7 +154,7 @@ struct ViewOptions: View {
                 }
                 Divider()
             }
-            ForEach(SortOrder.allCases) { order in
+            ForEach(FileSortOrder.allCases) { order in
                 Button {
                     if model.isSearching { model.searchSortOverride = order } else { prefs.sortOrder = order }
                 } label: {

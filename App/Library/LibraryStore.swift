@@ -397,7 +397,7 @@ final class LibraryStore {
     // MARK: Lists for the UI
 
     /// Computes a list in the background. `sort` nil keeps the source's natural order (search relevance).
-    func load(_ source: CollectionSource, sort: SortOrder?) async -> [FileItem] {
+    func load(_ source: CollectionSource, sort: FileSortOrder?) async -> [FileItem] {
         let all = items
         let d = derived
         let lookup = text.lookup

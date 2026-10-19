@@ -115,7 +115,7 @@ final class AppModel {
     }
     private(set) var parsed: ParsedQuery?
     var isSearching: Bool { parsed != nil }
-    var searchSortOverride: SortOrder?
+    var searchSortOverride: FileSortOrder?
     /// Bumped to move keyboard focus into the search field (⌘F).
     var searchFocusRequest = 0
 

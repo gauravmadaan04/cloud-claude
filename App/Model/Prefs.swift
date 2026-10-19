@@ -67,7 +67,7 @@ final class Prefs {
     var look: Look { didSet { defaults.set(look.rawValue, forKey: "look") } }
     var appearance: AppearanceMode { didSet { defaults.set(appearance.rawValue, forKey: "appearance") } }
     var viewMode: ViewMode { didSet { defaults.set(viewMode.rawValue, forKey: "viewMode") } }
-    var sortOrder: SortOrder { didSet { defaults.set(sortOrder.rawValue, forKey: "sortOrder") } }
+    var sortOrder: FileSortOrder { didSet { defaults.set(sortOrder.rawValue, forKey: "sortOrder") } }
     var cardSize: Double { didSet { defaults.set(cardSize, forKey: "cardSize") } }
     var doubleClick: DoubleClickAction { didSet { defaults.set(doubleClick.rawValue, forKey: "doubleClick") } }
     var showMenuBarExtra: Bool { didSet { defaults.set(showMenuBarExtra, forKey: "showMenuBarExtra") } }
@@ -97,7 +97,7 @@ final class Prefs {
         look = string("look").flatMap(Look.init(rawValue:)) ?? .playful
         appearance = string("appearance").flatMap(AppearanceMode.init(rawValue:)) ?? .system
         viewMode = string("viewMode").flatMap(ViewMode.init(rawValue:)) ?? .grid
-        sortOrder = string("sortOrder").flatMap(SortOrder.init(rawValue:)) ?? .dateNewest
+        sortOrder = string("sortOrder").flatMap(FileSortOrder.init(rawValue:)) ?? .dateNewest
         let size = defaults.double(forKey: "cardSize")
         cardSize = size == 0 ? 168 : min(320, max(110, size))
         doubleClick = string("doubleClick").flatMap(DoubleClickAction.init(rawValue:)) ?? .preview
