@@ -15,6 +15,7 @@ fi
 rm -f "dist/Ribbon-$VERSION.dmg"
 /tmp/dmgvenv/bin/dmgbuild -s scripts/dmg_settings.py \
   -D app=dist/Ribbon.app -D bg=dist/dmg-background.tiff -D "readme=dist/Read Me First.html" \
+  -D icon=dist/Ribbon.app/Contents/Resources/AppIcon.icns \
   "Ribbon $VERSION" "dist/Ribbon-$VERSION.dmg"
 hdiutil verify "dist/Ribbon-$VERSION.dmg"
 (cd dist && ditto -c -k --keepParent Ribbon.app "Ribbon-$VERSION.zip")

@@ -6,6 +6,7 @@ readme = defines["readme"]
 files = [app, readme]
 symlinks = {"Applications": "/Applications"}
 background = defines["bg"]
+icon = defines.get("icon")
 icon_locations = {
     os.path.basename(app): (165, 185),
     "Applications": (495, 185),
