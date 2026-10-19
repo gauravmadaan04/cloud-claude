@@ -102,11 +102,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.setActivationPolicy(.accessory)
-app.run()
+@main
+enum RibbonMain {
+    static let delegate = AppDelegate()
+
+    static func main() {
+        let app = NSApplication.shared
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        app.run()
+    }
+}
 #else
-print("Ribbon runs on macOS only.")
+@main
+enum RibbonMain {
+    static func main() { print("Ribbon runs on macOS only.") }
+}
 #endif
