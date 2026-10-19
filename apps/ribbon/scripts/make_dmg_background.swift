@@ -22,14 +22,18 @@ func render(scale: CGFloat) -> Data {
                                  NSColor(srgbRed: 0.93, green: 0.92, blue: 0.99, alpha: 1).cgColor] as CFArray, locations: [0, 1])!
     ctx.drawLinearGradient(bg, start: .zero, end: CGPoint(x: 0, y: H), options: [])
 
+    /// Draws text and returns its height.
+    @discardableResult
     func text(_ s: String, _ x: CGFloat, _ y: CGFloat, size: CGFloat, weight: NSFont.Weight = .regular,
-              color: NSColor = NSColor(white: 0.18, alpha: 1), width: CGFloat = 600, center: Bool = false) {
+              color: NSColor = NSColor(white: 0.18, alpha: 1), width: CGFloat = 600, center: Bool = false) -> CGFloat {
         let p = NSMutableParagraphStyle()
         p.alignment = center ? .center : .left
-        p.lineSpacing = 2
+        p.lineSpacing = 1
         let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: size, weight: weight), .foregroundColor: color, .paragraphStyle: p]
-        NSAttributedString(string: s, attributes: attrs).draw(with: CGRect(x: x, y: y, width: width, height: 200),
-                                                              options: [.usesLineFragmentOrigin])
+        let str = NSAttributedString(string: s, attributes: attrs)
+        let h = ceil(str.boundingRect(with: CGSize(width: width, height: 400), options: [.usesLineFragmentOrigin]).height)
+        str.draw(with: CGRect(x: x, y: y, width: width, height: h + 2), options: [.usesLineFragmentOrigin])
+        return h
     }
 
     text("Install Ribbon", 0, 26, size: 26, weight: .bold, width: W, center: true)
@@ -53,16 +57,16 @@ func render(scale: CGFloat) -> Data {
     ctx.fillPath()
     let steps = [
         ("1", "Drag Ribbon onto Applications."),
-        ("2", "Open Ribbon from Applications. If macOS says it couldn't verify it, go to System Settings → Privacy & Security and click Open Anyway."),
-        ("3", "Follow the short welcome tour. It sets up permission and teaches the shortcuts."),
+        ("2", "Open it from Applications. If macOS says it can't verify Ribbon: System Settings → Privacy & Security → Open Anyway."),
+        ("3", "Follow the two-minute welcome tour. It sets up access and teaches the shortcuts."),
     ]
-    var y: CGFloat = 292
+    var y: CGFloat = 290
     for (n, s) in steps {
         ctx.setFillColor(accent.cgColor)
-        ctx.fillEllipse(in: CGRect(x: 38, y: y, width: 20, height: 20))
-        text(n, 38, y + 2, size: 12, weight: .bold, color: .white, width: 20, center: true)
-        text(s, 68, y + 1, size: 12.5, width: 380)
-        y += s.count > 60 ? 48 : 32
+        ctx.fillEllipse(in: CGRect(x: 38, y: y - 1, width: 20, height: 20))
+        text(n, 38, y + 1, size: 12, weight: .bold, color: .white, width: 20, center: true)
+        let h = text(s, 68, y, size: 12.5, width: 384)
+        y += max(20, h) + 9
     }
     text("Need help? Open", 486, 290, size: 12, color: NSColor(white: 0.45, alpha: 1), width: 160, center: true)
     NSGraphicsContext.restoreGraphicsState()
