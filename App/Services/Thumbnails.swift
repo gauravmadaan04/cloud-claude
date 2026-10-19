@@ -1,5 +1,8 @@
 import AppKit
+import AVFoundation
 import HavenCore
+import ImageIO
+import PDFKit
 import QuickLookThumbnailing
 
 final class Thumbnail {
@@ -52,6 +55,42 @@ final class Thumbnails: @unchecked Sendable {
             cache.setObject(t, forKey: k, cost: bucket * bucket * 4)
             return t
         }
+        let pixels = CGFloat(bucket) * max(1, scale)
+        let cost = Int(pixels * pixels * 4)
+        // Pictures: ImageIO is fast and doesn't depend on the Quick Look service.
+        if item.kind == .image, item.ext != "svg" {
+            let url = item.url
+            if let image = await Task.detached(priority: .userInitiated, operation: { Self.imageThumbnail(url, maxPixel: pixels) }).value {
+                let t = Thumbnail(image: image, isIcon: false)
+                cache.setObject(t, forKey: k, cost: cost)
+                return t
+            }
+        }
+        if let t = await quickLook(item, bucket: bucket, scale: scale), !(t.isIcon && (item.kind == .pdf || item.kind == .video)) {
+            cache.setObject(t, forKey: k, cost: cost)
+            return t
+        }
+        // Quick Look gave up: draw PDFs and videos ourselves.
+        let url = item.url
+        let kind = item.kind
+        let fallback: NSImage? = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+            if kind == .pdf { return Self.pdfThumbnail(url, maxPixel: pixels) }
+            return nil
+        }.value
+        if let fallback {
+            let t = Thumbnail(image: fallback, isIcon: false)
+            cache.setObject(t, forKey: k, cost: cost)
+            return t
+        }
+        if kind == .video, let frame = await Self.videoThumbnail(url, maxPixel: pixels) {
+            let t = Thumbnail(image: frame, isIcon: false)
+            cache.setObject(t, forKey: k, cost: cost)
+            return t
+        }
+        return await MainActor.run { Thumbnail(image: NSWorkspace.shared.icon(forFile: item.path), isIcon: true) }
+    }
+
+    private func quickLook(_ item: FileItem, bucket: Int, scale: CGFloat) async -> Thumbnail? {
         let request = QLThumbnailGenerator.Request(
             fileAt: item.url,
             size: CGSize(width: bucket, height: bucket),
@@ -64,11 +103,36 @@ final class Thumbnails: @unchecked Sendable {
             } onCancel: {
                 QLThumbnailGenerator.shared.cancel(request)
             }
-            let t = Thumbnail(image: rep.nsImage, isIcon: rep.type == .icon)
-            cache.setObject(t, forKey: k, cost: Int(CGFloat(bucket * bucket) * scale * scale * 4))
-            return t
+            return Thumbnail(image: rep.nsImage, isIcon: rep.type == .icon)
         } catch {
-            return await MainActor.run { Thumbnail(image: NSWorkspace.shared.icon(forFile: item.path), isIcon: true) }
+            return nil
         }
+    }
+
+    static func imageThumbnail(_ url: URL, maxPixel: CGFloat) -> NSImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixel),
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+    }
+
+    static func pdfThumbnail(_ url: URL, maxPixel: CGFloat) -> NSImage? {
+        guard let page = PDFDocument(url: url)?.page(at: 0) else { return nil }
+        let bounds = page.bounds(for: .mediaBox)
+        let ratio = maxPixel / max(bounds.width, bounds.height, 1)
+        return page.thumbnail(of: CGSize(width: bounds.width * ratio, height: bounds.height * ratio), for: .mediaBox)
+    }
+
+    static func videoThumbnail(_ url: URL, maxPixel: CGFloat) async -> NSImage? {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: maxPixel, height: maxPixel)
+        guard let (cg, _) = try? await generator.image(at: CMTime(seconds: 1, preferredTimescale: 600)) else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 }

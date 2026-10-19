@@ -23,7 +23,7 @@ show_sidebar = False
 sidebar_width = 0
 
 # Content area matches the 720×520 background; the extra height is the title bar.
-window_rect = ((180, 140), (720, 548))
+window_rect = ((180, 140), (720, 562))
 default_view = "icon-view"
 show_icon_preview = False
 include_icon_view_settings = "auto"

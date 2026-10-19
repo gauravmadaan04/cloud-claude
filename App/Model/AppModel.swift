@@ -329,8 +329,7 @@ final class AppModel {
             navigate(to: .saved(existing.id))
             return
         }
-        let symbol = parsed?.chips.first?.symbol ?? "magnifyingglass"
-        let saved = SavedSearch(name: SavedSearch.defaultName(for: text), text: text, symbol: symbol)
+        let saved = SavedSearch(name: SavedSearch.defaultName(for: text), text: text, symbol: "bookmark")
         Prefs.shared.savedSearches.append(saved)
         navigate(to: .saved(saved.id))
         showToast("Saved to the sidebar", symbol: "bookmark")

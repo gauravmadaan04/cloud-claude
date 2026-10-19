@@ -9,7 +9,6 @@ struct PreviewOverlay: View {
     @Bindable private var model = AppModel.shared
     @Environment(\.theme) private var theme
     @Environment(\.undoManager) private var undoManager
-    @FocusState private var focused: Bool
 
     private var list: [FileItem] { model.previewContext.isEmpty ? model.visibleItems : model.previewContext }
 
@@ -33,14 +32,18 @@ struct PreviewOverlay: View {
                 .shadow(color: .black.opacity(0.35), radius: 30, y: 10)
                 .padding(36)
             }
-            .focusable()
-            .focusEffectDisabled()
-            .focused($focused)
-            .onAppear { focused = true }
-            .onKeyPress(.leftArrow) { step(-1); return .handled }
-            .onKeyPress(.rightArrow) { step(1); return .handled }
-            .onKeyPress(.space) { close(); return .handled }
-            .onExitCommand { close() }
+            .background {
+                // Invisible buttons so Esc, Space and the arrows work wherever keyboard focus is.
+                Group {
+                    Button("Close Preview") { close() }.keyboardShortcut(.cancelAction)
+                    Button("Close Preview") { close() }.keyboardShortcut(.space, modifiers: [])
+                    Button("Previous") { step(-1) }.keyboardShortcut(.leftArrow, modifiers: [])
+                    Button("Next") { step(1) }.keyboardShortcut(.rightArrow, modifiers: [])
+                }
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .accessibilityIdentifier("preview.overlay")
         }

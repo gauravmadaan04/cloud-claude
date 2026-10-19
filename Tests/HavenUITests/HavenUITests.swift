@@ -97,9 +97,9 @@ final class HavenUITests: XCTestCase {
         snap("03-onboarding-folders")
         next.click()
         waitFor(app.staticTexts["Pick a look"])
-        app.buttons["onboarding.look.minimal"].click()
+        app.staticTexts["Minimal"].firstMatch.click()
         snap("04-onboarding-look-minimal")
-        app.buttons["onboarding.look.playful"].click()
+        app.staticTexts["Playful"].firstMatch.click()
         next.click()
         waitFor(app.staticTexts["Search the way you talk"])
         app.buttons["screenshots over 5 MB"].click()
@@ -194,6 +194,9 @@ final class HavenUITests: XCTestCase {
         sleep(2)
         snap("22-large-preview")
         app.typeKey(.escape, modifierFlags: [])
+        let closed = NSPredicate(format: "exists == false")
+        expectation(for: closed, evaluatedWith: el("preview.overlay"))
+        waitForExpectations(timeout: 5)
 
         // Music plays in the toolbar.
         el("sidebar.category.music").click()
