@@ -114,7 +114,7 @@ enum KeyboardLayout {
         let status = data.withUnsafeBytes { raw -> OSStatus in
             guard let layout = raw.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return -1 }
             return UCKeyTranslate(layout, UInt16(keyCode), UInt16(kUCKeyActionDisplay), 0, UInt32(LMGetKbdType()),
-                                  OptionBits(kUCKeyTranslateNoDeadKeysBit), &deadKeys, chars.count, &length, &chars)
+                                  OptionBits(kUCKeyTranslateNoDeadKeysMask), &deadKeys, chars.count, &length, &chars)
         }
         guard status == noErr, length > 0 else { return nil }
         let s = String(utf16CodeUnits: chars, count: length).uppercased()

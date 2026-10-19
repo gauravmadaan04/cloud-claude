@@ -33,7 +33,7 @@ final class TrackedWindow {
         constraints.originalHeight = frame.h
     }
 
-    var ref: WindowRef { WindowRef(id: id, bundleID: bundleID, title: title) }
+    var ref: SavedWindow { SavedWindow(id: id, bundleID: bundleID, title: title) }
 }
 
 /// Remembers where a window was so it returns to the same place after being minimised or hidden.
@@ -438,11 +438,12 @@ final class WindowManager {
         }
         let mouse = Displays.mouseLocation
         if let dd = display(at: mouse), dd.uuid != key.display, let newKey = activeKey(for: dd) {
+            let width = s.columns[pl.column].width
             s.remove(w.id)
             strips[key] = s
             var t = strips[newKey] ?? Strip()
             let idx = layouts[newKey].map { Layout.insertionIndex(atScreenX: mouse.x, in: $0, excluding: nil) } ?? t.columns.count
-            t.insert(w.id, width: s.columns.first?.width ?? config.defaultWidth, at: .index(idx), focus: true)
+            t.insert(w.id, width: width, at: .index(idx), focus: true)
             strips[newKey] = t
             w.key = newKey
             Log.info("Dragged \(w.appName) to display \(dd.name)")
@@ -1075,29 +1076,30 @@ final class WindowManager {
 
     func stateJSON() -> String {
         func rect(_ r: Rect?) -> Any { r.map { [$0.x, $0.y, $0.w, $0.h] } ?? NSNull() }
+        func opt(_ v: Any?) -> Any { v ?? NSNull() }
         var root: [String: Any] = [
             "version": AppInfo.version,
             "running": isRunning,
             "tiling": config.tilingEnabled,
             "accessibility": AXPermission.isTrusted,
-            "focused": focusedWindowID.map { Int($0) } ?? NSNull(),
+            "focused": opt(focusedWindowID.map { Int($0) }),
         ]
         root["displays"] = displays.map { d -> [String: Any] in
             [
                 "uuid": d.uuid, "name": d.name, "frame": rect(d.frame), "visible": rect(d.visible), "main": d.isMain,
                 "excluded": config.excludedDisplays.contains(d.uuid),
-                "space": activeKey(for: d).map { Int($0.space) } ?? NSNull(),
+                "space": opt(activeKey(for: d).map { Int($0.space) }),
             ]
         }
         root["strips"] = strips.map { key, s -> [String: Any] in
             let r = layouts[key]
             return [
                 "display": key.display, "space": Int(key.space), "active": isActive(key),
-                "focused": s.focused ?? NSNull(), "scroll": s.scroll,
+                "focused": opt(s.focused), "scroll": s.scroll,
                 "viewport": rect(r?.viewport),
                 "columns": s.columns.enumerated().map { ci, c -> [String: Any] in
                     [
-                        "width": c.width, "mode": c.mode.rawValue, "pin": c.pin?.rawValue ?? NSNull(), "active": c.active,
+                        "width": c.width, "mode": c.mode.rawValue, "pin": opt(c.pin?.rawValue), "active": c.active,
                         "visibility": r.flatMap { $0.columnVisibility.indices.contains(ci) ? $0.columnVisibility[ci].name : nil } ?? "unknown",
                         "windows": c.windows.map { wid -> [String: Any] in
                             let w = windows[wid]

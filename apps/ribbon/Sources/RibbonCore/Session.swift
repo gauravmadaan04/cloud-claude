@@ -1,7 +1,7 @@
 import Foundation
 
 /// What we remember about a window so it can be found again after a restart.
-public struct WindowRef: Codable, Equatable, Hashable {
+public struct SavedWindow: Codable, Equatable, Hashable {
     public var id: WindowID
     public var bundleID: String?
     public var title: String
@@ -11,7 +11,7 @@ public struct WindowRef: Codable, Equatable, Hashable {
 }
 
 public struct ColumnSnapshot: Codable, Equatable {
-    public var windows: [WindowRef]
+    public var windows: [SavedWindow]
     public var width: Double
     public var weights: [Double]
     public var mode: ColumnMode
@@ -27,7 +27,7 @@ public struct StripSnapshot: Codable, Equatable {
     public var focusedIndex: Int?
     public var scroll: Double
 
-    public init(displayUUID: String, spaceID: UInt64, spaceIndex: Int, strip: Strip, ref: (WindowID) -> WindowRef?) {
+    public init(displayUUID: String, spaceID: UInt64, spaceIndex: Int, strip: Strip, ref: (WindowID) -> SavedWindow?) {
         self.displayUUID = displayUUID
         self.spaceID = spaceID
         self.spaceIndex = spaceIndex
@@ -44,9 +44,9 @@ public struct SessionSnapshot: Codable, Equatable {
     public var version = 1
     public var savedAt: Date
     public var strips: [StripSnapshot]
-    public var floating: [WindowRef]
+    public var floating: [SavedWindow]
 
-    public init(savedAt: Date = Date(), strips: [StripSnapshot], floating: [WindowRef]) {
+    public init(savedAt: Date = Date(), strips: [StripSnapshot], floating: [SavedWindow]) {
         self.savedAt = savedAt; self.strips = strips; self.floating = floating
     }
 }
@@ -61,8 +61,8 @@ public enum SessionRestore {
 
     /// Rebuilds a strip from a snapshot using the windows that exist now. Windows are matched by
     /// window number first, then by app + title. Matched windows are added to `used`.
-    public static func restore(_ snap: StripSnapshot, live: [WindowRef], used: inout Set<WindowID>) -> Strip {
-        var byID: [WindowID: WindowRef] = [:]
+    public static func restore(_ snap: StripSnapshot, live: [SavedWindow], used: inout Set<WindowID>) -> Strip {
+        var byID: [WindowID: SavedWindow] = [:]
         for w in live where !used.contains(w.id) { byID[w.id] = w }
         var claimed = Set<WindowID>()
 

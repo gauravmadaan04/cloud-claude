@@ -157,26 +157,25 @@ final class KeyPanel: NSPanel {
 }
 
 /// A borderless, click-through window used for borders, dimming and other decoration.
-final class OverlayWindow: NSWindow {
-    init(level: NSWindow.Level) {
-        super.init(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: true)
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = false
-        ignoresMouseEvents = true
-        isReleasedWhenClosed = false
-        self.level = level
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary, .transient]
-        animationBehavior = .none
-    }
+func makeOverlayWindow(level: NSWindow.Level) -> NSWindow {
+    let w = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: true)
+    w.isOpaque = false
+    w.backgroundColor = .clear
+    w.hasShadow = false
+    w.ignoresMouseEvents = true
+    w.isReleasedWhenClosed = false
+    w.level = level
+    w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary, .transient]
+    w.animationBehavior = .none
+    return w
 }
 
 // MARK: - Focus border and dimming
 
 final class FocusOverlays {
-    private let border = OverlayWindow(level: .floating)
+    private let border = makeOverlayWindow(level: .floating)
     private let borderLayer = CAShapeLayer()
-    private var dims: [WindowID: OverlayWindow] = [:]
+    private var dims: [WindowID: NSWindow] = [:]
     private var focused: WindowID?
 
     init() {
@@ -230,8 +229,8 @@ final class FocusOverlays {
         return false
     }
 
-    private func makeDim() -> OverlayWindow {
-        let w = OverlayWindow(level: .normal)
+    private func makeDim() -> NSWindow {
+        let w = makeOverlayWindow(level: .normal)
         w.contentView = NSView()
         return w
     }

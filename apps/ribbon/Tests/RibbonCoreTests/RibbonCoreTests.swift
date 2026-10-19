@@ -353,15 +353,15 @@ final class SessionTests: XCTestCase {
         s.insert(12, width: 0.5, at: .end, focus: false)
         s.focusColumn(1)
         s.consume(into: .right)  // [10] [12, 11]
-        let refs: [WindowID: WindowRef] = [
-            10: WindowRef(id: 10, bundleID: "a", title: "Doc A"),
-            11: WindowRef(id: 11, bundleID: "b", title: "Doc B"),
-            12: WindowRef(id: 12, bundleID: "c", title: "Doc C"),
+        let refs: [WindowID: SavedWindow] = [
+            10: SavedWindow(id: 10, bundleID: "a", title: "Doc A"),
+            11: SavedWindow(id: 11, bundleID: "b", title: "Doc B"),
+            12: SavedWindow(id: 12, bundleID: "c", title: "Doc C"),
         ]
         let snap = StripSnapshot(displayUUID: "D", spaceID: 5, spaceIndex: 0, strip: s) { refs[$0] }
         // After a restart window 11 has a new number but the same app and title; 12 is gone.
-        let live = [WindowRef(id: 10, bundleID: "a", title: "Doc A"), WindowRef(id: 99, bundleID: "b", title: "Doc B"),
-                    WindowRef(id: 50, bundleID: "z", title: "New")]
+        let live = [SavedWindow(id: 10, bundleID: "a", title: "Doc A"), SavedWindow(id: 99, bundleID: "b", title: "Doc B"),
+                    SavedWindow(id: 50, bundleID: "z", title: "New")]
         var used = Set<WindowID>()
         let r = SessionRestore.restore(snap, live: live, used: &used)
         XCTAssertEqual(r.columns.map(\.windows), [[10], [99]])

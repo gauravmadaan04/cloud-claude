@@ -24,6 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compile (all errors)
+        run: |
+          set +e
+          swift build -c release --arch arm64 --arch x86_64 > /tmp/build.log 2>&1
+          status=$?
+          grep -E "error:|warning: (variable|initialization|will never)" -A 4 /tmp/build.log | head -400
+          tail -5 /tmp/build.log
+          exit $status
+
       - name: Unit tests
         run: swift test 2>&1 | tail -25
 

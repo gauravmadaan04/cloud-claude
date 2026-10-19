@@ -38,11 +38,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             switch ev {
             case .began(let dx):
                 wm.interactiveBegin()
-                wm.interactiveScroll(points: SwipeMath.points(forPadDelta: dx, viewportWidth: Self.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
+                wm.interactiveScroll(points: SwipeMath.points(forPadDelta: dx, viewportWidth: AppDelegate.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
             case .changed(let dx):
-                wm.interactiveScroll(points: SwipeMath.points(forPadDelta: dx, viewportWidth: Self.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
+                wm.interactiveScroll(points: SwipeMath.points(forPadDelta: dx, viewportWidth: AppDelegate.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
             case .ended(let v):
-                wm.interactiveEnd(velocityPoints: SwipeMath.points(forPadDelta: v, viewportWidth: Self.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
+                wm.interactiveEnd(velocityPoints: SwipeMath.points(forPadDelta: v, viewportWidth: AppDelegate.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
             }
         }
         applyInputSettings(store.config)

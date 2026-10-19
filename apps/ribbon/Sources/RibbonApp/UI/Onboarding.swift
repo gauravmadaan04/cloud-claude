@@ -220,8 +220,10 @@ struct WelcomeStep: View {
                 { $0.focusRight() }, { $0.focusRight() }, { $0.cycleWidth(presets: [1.0 / 3, 0.5, 2.0 / 3]) },
                 { $0.focusRight() }, { $0.focusLeft() }, { $0.focusFirst() },
             ]
-            script[tick % script.count](&strip)
-            strip.scroll = Layout.scrollToReveal(strip, demoParams)
+            var s = strip
+            script[tick % script.count](&s)
+            s.scroll = Layout.scrollToReveal(s, demoParams)
+            strip = s
         }
     }
 }

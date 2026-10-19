@@ -127,7 +127,7 @@ enum WindowServer {
                   let pid = (d[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value else { continue }
             let layer = (d[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
             var r = CGRect.zero
-            if let b = d[kCGWindowBounds as String] as? NSDictionary { CGRectMakeWithDictionaryRepresentation(b, &r) }
+            if let b = d[kCGWindowBounds as String], let rr = CGRect(dictionaryRepresentation: b as! CFDictionary) { r = rr }
             let on = (d[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
             out[id] = Info(id: id, pid: pid, layer: layer,
                            bounds: Rect(x: r.origin.x, y: r.origin.y, w: r.width, h: r.height), onScreen: on)
