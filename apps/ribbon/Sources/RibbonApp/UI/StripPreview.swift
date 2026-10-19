@@ -129,24 +129,54 @@ struct StripPreview: View {
         }
     }
 
-    private func tabBar(_ tb: TabBarPlacement, r: LayoutResult, k: CGFloat) -> some View {
-        HStack(spacing: 3 * k + 1) {
-            ForEach(Array(tb.windows.enumerated()), id: \.offset) { i, wid in
-                let app = demoApps[wid] ?? .finder
-                HStack(spacing: 4 * k) {
-                    Image(systemName: app.symbol).font(.system(size: max(6, 15 * k)))
-                    Text(app.title).font(.system(size: max(6, 16 * k), weight: .semibold)).lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(RoundedRectangle(cornerRadius: 7 * k + 1, style: .continuous)
-                    .fill(i == tb.active ? Brand.violet : Color.white.opacity(0.22)))
-                .foregroundStyle(Color.white)
+    private func tabBar(_ tb: RibbonCore.TabBarPlacement, r: LayoutResult, k: CGFloat) -> some View {
+        let x: CGFloat = CGFloat(r.columnRects[tb.column].x) * k
+        let y: CGFloat = CGFloat(tb.frame.y) * k
+        let w: CGFloat = CGFloat(tb.frame.w) * k
+        let h: CGFloat = CGFloat(tb.frame.h - 5) * k
+        return PreviewTabBar(windows: tb.windows, active: tb.active, k: k)
+            .frame(width: w, height: h)
+            .offset(x: x, y: y)
+    }
+}
+
+/// The tab bar of a tabbed column in previews.
+private struct PreviewTabBar: View {
+    let windows: [WindowID]
+    let active: Int
+    let k: CGFloat
+
+    var body: some View {
+        let gap: CGFloat = 3 * k + 1
+        let pad: CGFloat = 3 * k
+        let radius: CGFloat = 9 * k + 1
+        HStack(spacing: gap) {
+            ForEach(Array(windows.enumerated()), id: \.offset) { (pair: (offset: Int, element: WindowID)) in
+                PreviewTab(app: demoApps[pair.element] ?? DemoApp.finder, active: pair.offset == active, k: k)
             }
         }
-        .padding(3 * k)
-        .background(RoundedRectangle(cornerRadius: 9 * k + 1, style: .continuous).fill(Color.black.opacity(0.35)))
-        .frame(width: CGFloat(tb.frame.w) * k, height: CGFloat(tb.frame.h - 5) * k)
-        .offset(x: CGFloat(r.columnRects[tb.column].x) * k, y: CGFloat(tb.frame.y) * k)
+        .padding(pad)
+        .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.black.opacity(0.35)))
+    }
+}
+
+private struct PreviewTab: View {
+    let app: DemoApp
+    let active: Bool
+    let k: CGFloat
+
+    var body: some View {
+        let iconSize: CGFloat = max(6, 15 * k)
+        let textSize: CGFloat = max(6, 16 * k)
+        let radius: CGFloat = 7 * k + 1
+        let fill: Color = active ? Brand.violet : Color.white.opacity(0.22)
+        HStack(spacing: 4 * k) {
+            Image(systemName: app.symbol).font(.system(size: iconSize))
+            Text(app.title).font(.system(size: textSize, weight: .semibold)).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill))
+        .foregroundStyle(Color.white)
     }
 }
 
