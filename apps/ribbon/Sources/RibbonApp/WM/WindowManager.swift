@@ -522,7 +522,10 @@ final class WindowManager {
             let now = CACurrentMediaTime()
             for m in misses() where suspects.contains(m.w.id) {
                 guard let actual = m.w.element.frame else { continue }
-                if m.onScreen, actual.w > m.target.w + 4, (m.w.constraints.minWidth ?? 0) < actual.w - 1 {
+                // A window still wider than asked is at its minimum. Small overshoots (Finder stops at 501pt) only count
+                // once a repair has failed, so a window caught mid-resize isn't mistaken for one.
+                let wider = actual.w > m.target.w + 4 || (actual.w > m.target.w + 1 && !m.w.repairs.filter { now - $0 < 10 }.isEmpty)
+                if m.onScreen, wider, (m.w.constraints.minWidth ?? 0) < actual.w - 1 {
                     m.w.constraints.minWidth = actual.w
                     touched.insert(m.key)
                     Log.info("\(m.w.appName) won't go narrower than \(Int(actual.w))pt")

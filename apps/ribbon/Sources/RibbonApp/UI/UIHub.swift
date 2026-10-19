@@ -106,7 +106,7 @@ final class UIHub {
         if let c = cheatSheet, c.isVisible { c.orderOut(nil); return }
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         let vf = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let size = NSSize(width: min(940, vf.width - 60), height: min(620, vf.height - 60))
+        let size = NSSize(width: min(1080, vf.width - 60), height: min(680, vf.height - 60))
         // Rebuilt each time so it reflects the current shortcuts and fits the current screen.
         let panel = makeCheatSheet(size: size)
         cheatSheet?.orderOut(nil)
@@ -478,7 +478,8 @@ struct CheatSheetView: View {
             .padding(.bottom, 2)
             ForEach(cmds, id: \.self) { (cmd: Command) in
                 HStack(spacing: 8) {
-                    Text(cmd == .focus1 ? "Jump to window 1–9" : cmd.title).font(.system(size: 12.5)).lineLimit(1)
+                    Text(cmd == .focus1 ? "Jump to window 1–9" : cmd.title).font(.system(size: 12.5))
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true).layoutPriority(1)
                     Spacer(minLength: 6)
                     if let combo = store.config.combos(for: cmd).first {
                         ShortcutKeys(combo: combo, size: .small)

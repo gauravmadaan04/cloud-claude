@@ -324,7 +324,7 @@ struct PermissionStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             StepTitle(eyebrow: "One permission", title: "Let Ribbon arrange your windows.",
-                      subtitle: "macOS asks once. Ribbon only moves and resizes windows; it never reads what's in them, and nothing leaves your Mac.")
+                      subtitle: "macOS asks once. Switch Ribbon on in Accessibility and the tour comes right back.")
             mockSettings
             HStack(spacing: 12) {
                 if trusted {
@@ -341,6 +341,13 @@ struct PermissionStep: View {
                 }
                 Spacer()
             }
+            HStack(spacing: 10) {
+                promise("hand.raised.fill", BadgeColors.blue, "Moves and resizes only", "It never reads what's inside a window.")
+                promise("wifi.slash", BadgeColors.green, "Nothing leaves your Mac", "No account, no analytics, no network.")
+                promise("arrow.uturn.backward", BadgeColors.orange, "Easy to undo", "Turn the switch off any time to stop it.")
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 720)
             if !trusted {
                 DisclosureGroup(isExpanded: $showHelp) {
                     Text("In Privacy & Security → Accessibility, click **+**, open **Applications** and choose **Ribbon**. After installing a newer version, select Ribbon, click **–**, then add it again.")
@@ -352,17 +359,15 @@ struct PermissionStep: View {
                 .frame(maxWidth: 520)
             }
             Spacer(minLength: 0)
-            HStack(spacing: 10) {
-                promise("hand.raised.fill", BadgeColors.blue, "Moves and resizes only", "It never reads what's inside a window.")
-                promise("wifi.slash", BadgeColors.green, "Nothing leaves your Mac", "No account, no analytics, no network.")
-                promise("arrow.uturn.backward", BadgeColors.orange, "Easy to undo", "Turn the switch off any time to stop it.")
-            }
         }
         .onReceive(timer) { _ in
             let now = AXPermission.isTrusted
             if now != trusted {
                 withAnimation(Brand.spring) { trusted = now }
-                if now { WindowManager.shared.start() }
+                if now {
+                    WindowManager.shared.start()
+                    NSApp.activate(ignoringOtherApps: true)   // back from System Settings to the tour
+                }
             }
         }
         .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
@@ -377,7 +382,7 @@ struct PermissionStep: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .card(padding: 12, radius: 14)
     }
 
