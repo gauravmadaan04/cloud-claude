@@ -176,8 +176,16 @@ struct PreviewOverlay: View {
             }
         }
         .frame(maxWidth: min(760, CGFloat(window.count) * 54 + 32), maxHeight: 54)
-        .glassBackground(Capsule(), fallback: .ultraThinMaterial)
-        .overlay(Capsule().strokeBorder(.white.opacity(0.08)))
+        .mask {
+            // Thumbnails fade out at the ends instead of being cut off.
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 16)
+                Color.black
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 16)
+            }
+        }
+        .glassBackground(RoundedRectangle(cornerRadius: 16, style: .continuous), fallback: .ultraThinMaterial)
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.08)))
         .accessibilityIdentifier("preview.filmstrip")
     }
 
