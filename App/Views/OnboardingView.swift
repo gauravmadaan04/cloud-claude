@@ -524,6 +524,7 @@ struct FlowRow<Item: Hashable, Content: View>: View {
 
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
+    var centered = true
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? 600
@@ -558,7 +559,7 @@ struct FlowLayout: Layout {
         var y = bounds.minY
         for row in rows {
             let rowWidth = row.reduce(0) { $0 + $1.1.width } + spacing * CGFloat(max(0, row.count - 1))
-            var rx = bounds.minX + (bounds.width - rowWidth) / 2
+            var rx = centered ? bounds.minX + (bounds.width - rowWidth) / 2 : bounds.minX
             let h = row.map { $0.1.height }.max() ?? 0
             for (s, size) in row {
                 s.place(at: CGPoint(x: rx, y: y), proposal: ProposedViewSize(size))

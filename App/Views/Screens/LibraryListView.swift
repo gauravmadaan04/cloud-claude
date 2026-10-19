@@ -177,9 +177,11 @@ struct SearchResultsView: View {
     private var model: AppModel { .shared }
 
     var body: some View {
+        let lead = parsed.chips.first { $0.kind != .sort && $0.kind != .text }
         LibraryListView(
-            title: "Results",
-            symbol: "magnifyingglass",
+            title: parsed.headline,
+            subtitle: parsed.headline == parsed.text ? "Search results" : "Results for “\(parsed.text)”",
+            symbol: lead?.symbol ?? "magnifyingglass",
             source: .query(parsed.query),
             sourceKey: "q:" + parsed.text,
             usesRelevance: true,
@@ -222,14 +224,18 @@ struct DetailView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Group {
+        ZStack {
             if let parsed = model.parsed {
                 SearchResultsView(parsed: parsed)
+                    .transition(.opacity)
             } else {
                 page(model.selection ?? .home)
                     .id(model.selection)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.16), value: model.selection)
+        .animation(.easeInOut(duration: 0.16), value: model.parsed == nil)
     }
 
     @ViewBuilder

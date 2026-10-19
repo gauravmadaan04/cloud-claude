@@ -112,8 +112,18 @@ final class AppModel {
             parsed = trimmed.isEmpty ? nil : QueryParser.parse(trimmed, customRoots: customRootWords)
             searchSortOverride = nil
             selectedIDs = []
+            rememberTask?.cancel()
+            if !trimmed.isEmpty {
+                rememberTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.6))
+                    if !Task.isCancelled { Prefs.shared.rememberSearch(trimmed) }
+                }
+            }
         }
     }
+    @ObservationIgnored private var rememberTask: Task<Void, Never>?
+    /// The toolbar search field has keyboard focus (shows suggestions while it's empty).
+    var searchFieldFocused = false
     private(set) var parsed: ParsedQuery?
     var isSearching: Bool { parsed != nil }
     var searchSortOverride: FileSortOrder?

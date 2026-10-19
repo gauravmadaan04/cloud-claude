@@ -2,7 +2,32 @@ import AppKit
 import HavenCore
 import SwiftUI
 
-/// A file's thumbnail: photos fill the frame, documents and icons sit inside it.
+// MARK: - Glass
+
+extension View {
+    /// Liquid Glass on macOS 26, a material on earlier systems.
+    @ViewBuilder
+    func glassBackground<S: Shape>(_ shape: S, fallback: Material = .regularMaterial) -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self.background(fallback, in: shape)
+        }
+    }
+
+    /// Lifts a card a little under the pointer.
+    func hoverLift(_ active: Bool, radius: CGFloat = 12) -> some View {
+        self
+            .scaleEffect(active ? 1.018 : 1)
+            .shadow(color: .black.opacity(active ? 0.16 : 0.05), radius: active ? 12 : 3, y: active ? 6 : 1)
+            .animation(.snappy(duration: 0.2), value: active)
+    }
+}
+
+// MARK: - Thumbnails
+
+/// A file's thumbnail: photos fill the frame, documents sit on a soft sheet, everything else gets a
+/// designed tile for its type instead of a generic icon.
 struct ThumbnailView: View {
     let item: FileItem
     let side: CGFloat
@@ -15,51 +40,58 @@ struct ThumbnailView: View {
     @State private var thumb: Thumbnail?
 
     private var h: CGFloat { height ?? side }
-    private var fills: Bool {
-        guard let t = thumb, !t.isIcon else { return false }
-        return item.kind == .image || item.kind == .video
-    }
+    private var showsRealIcon: Bool { item.kind == .app || item.kind == .folder }
 
     var body: some View {
         ZStack {
-            if showsFrame {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(theme.fill(for: item.kind).opacity(thumb == nil || thumb!.isIcon ? 1 : 0.6))
-            }
-            if let thumb {
-                if fills {
+            if let thumb, !thumb.isIcon {
+                if item.kind == .image || item.kind == .video {
                     Image(nsImage: thumb.image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: side, height: h)
                         .clipped()
-                } else if thumb.isIcon {
-                    Image(nsImage: thumb.image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: min(side, h) * 0.66, height: min(side, h) * 0.66)
+                        .transition(.opacity)
                 } else {
+                    // A page (PDF, document, text): show it like a sheet of paper.
+                    ZStack {
+                        LinearGradient(colors: [theme.fill(for: item.kind), theme.fill(for: item.kind).opacity(0.55)],
+                                       startPoint: .top, endPoint: .bottom)
+                        Image(nsImage: thumb.image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                            .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+                            .padding(.horizontal, side * 0.14)
+                            .padding(.top, h * 0.1)
+                            .padding(.bottom, h * 0.06)
+                    }
+                    .transition(.opacity)
+                }
+            } else if let thumb, showsRealIcon {
+                ZStack {
+                    if showsFrame { theme.fill(for: item.kind).opacity(0.55) }
                     Image(nsImage: thumb.image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .padding(min(side, h) * 0.08)
-                        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                        .frame(width: min(side, h) * 0.68, height: min(side, h) * 0.68)
+                        .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
                 }
             } else {
-                Image(systemName: theme.symbol(item.kind.symbolName))
-                    .font(.system(size: min(side, h) * 0.3, weight: .regular))
-                    .foregroundStyle(theme.tint(for: item.kind).opacity(0.7))
+                FileTypeTile(item: item, compact: min(side, h) < 60)
             }
-            if item.kind == .video, thumb != nil, !(thumb!.isIcon) {
+            if item.kind == .video, let thumb, !thumb.isIcon {
                 Image(systemName: "play.fill")
-                    .font(.system(size: max(10, min(side, h) * 0.12)))
+                    .font(.system(size: max(9, min(side, h) * 0.11), weight: .bold))
                     .foregroundStyle(.white)
-                    .padding(min(side, h) * 0.07)
-                    .background(.black.opacity(0.35), in: Circle())
+                    .padding(min(side, h) * 0.075)
+                    .background(.black.opacity(0.32), in: Circle())
+                    .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1))
             }
         }
         .frame(width: side, height: h)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .animation(.easeOut(duration: 0.2), value: thumb == nil)
         .task(id: "\(item.path)|\(item.modified.timeIntervalSince1970)|\(Thumbnails.bucket(max(side, h)))") {
             if let hit = Thumbnails.shared.cached(item, side: max(side, h)) {
                 thumb = hit
@@ -71,6 +103,99 @@ struct ThumbnailView: View {
     }
 }
 
+/// A designed tile for files without a picture: soft colour of the kind, a symbol, and the extension.
+struct FileTypeTile: View {
+    let item: FileItem
+    var compact = false
+    @Environment(\.theme) private var theme
+
+    private var symbol: String {
+        switch item.kind {
+        case .audio: return "waveform"
+        case .pdf: return "doc.richtext.fill"
+        case .document: return "doc.text.fill"
+        case .spreadsheet: return "tablecells.fill"
+        case .presentation: return "play.rectangle.on.rectangle.fill"
+        case .text: return "doc.plaintext.fill"
+        case .code: return "chevron.left.forwardslash.chevron.right"
+        case .archive: return "doc.zipper"
+        case .installer: return "shippingbox.fill"
+        case .app: return "app.dashed"
+        case .font: return "textformat"
+        case .image: return "photo.fill"
+        case .video: return "film.fill"
+        case .folder: return "folder.fill"
+        case .other: return "doc.fill"
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let s = min(geo.size.width, geo.size.height)
+            let tint = theme.tint(for: item.kind)
+            ZStack {
+                theme.fill(for: item.kind)
+                LinearGradient(colors: [.white.opacity(theme.isPlayful ? 0.35 : 0.0), tint.opacity(theme.isPlayful ? 0.16 : 0.06)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                if item.kind == .audio && !compact {
+                    WaveformArt(seed: item.name, color: tint.opacity(0.75))
+                        .frame(width: geo.size.width * 0.66, height: s * 0.36)
+                } else {
+                    Image(systemName: symbol)
+                        .font(.system(size: s * (compact ? 0.42 : 0.3), weight: .medium))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(tint)
+                }
+                if !compact && !item.ext.isEmpty && item.kind != .folder {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Text(item.ext.uppercased())
+                                .font(.system(size: max(8, s * 0.075), weight: .bold, design: .rounded))
+                                .foregroundStyle(tint)
+                                .padding(.horizontal, s * 0.05)
+                                .padding(.vertical, s * 0.018)
+                                .background(.white.opacity(0.85), in: Capsule())
+                            Spacer()
+                        }
+                    }
+                    .padding(s * 0.07)
+                }
+            }
+        }
+    }
+}
+
+/// Decorative waveform bars, stable for a given name.
+struct WaveformArt: View {
+    let seed: String
+    let color: Color
+
+    private var heights: [CGFloat] {
+        var x: UInt32 = seed.unicodeScalars.reduce(2_166_136_261) { ($0 ^ $1.value) &* 16_777_619 }
+        return (0..<22).map { i in
+            x ^= x << 13; x ^= x >> 17; x ^= x << 5
+            let wave = 0.55 + 0.45 * sin(Double(i) / 3.2)
+            return CGFloat(0.25 + 0.75 * wave * (0.55 + Double(x % 100) / 220))
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let bars = heights
+            let w = geo.size.width / CGFloat(bars.count * 2 - 1)
+            HStack(alignment: .center, spacing: w) {
+                ForEach(Array(bars.enumerated()), id: \.offset) { _, h in
+                    Capsule().fill(color).frame(width: w, height: max(w, geo.size.height * h))
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+// MARK: - Badges & headers
+
 /// A coloured circle naming where a download came from.
 struct SourceBadge: View {
     let source: DownloadSource
@@ -79,7 +204,7 @@ struct SourceBadge: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(theme.sourceColor(source.tint))
+            Circle().fill(theme.sourceColor(source.tint).gradient)
             if source.isWebsite {
                 Text(source.monogram)
                     .font(.system(size: size * 0.48, weight: .bold, design: .rounded))
@@ -91,6 +216,7 @@ struct SourceBadge: View {
             }
         }
         .frame(width: size, height: size)
+        .overlay(Circle().strokeBorder(.white.opacity(0.75), lineWidth: max(1, size * 0.06)))
         .help("Downloaded from \(source.name)")
     }
 }
@@ -104,7 +230,7 @@ struct SectionHeader<Accessory: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(title)
-                .font(.system(.title3, design: theme.headingDesign).weight(.semibold))
+                .font(.system(size: 19, weight: .semibold, design: theme.headingDesign))
             if let subtitle {
                 Text(subtitle)
                     .font(.callout)
@@ -124,6 +250,28 @@ extension SectionHeader where Accessory == EmptyView {
     }
 }
 
+/// "See All ›" link used on Home sections.
+struct SeeAllButton: View {
+    let action: () -> Void
+    @Environment(\.theme) private var theme
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Text("See All")
+                Image(systemName: "chevron.right").font(.caption.weight(.bold))
+            }
+            .font(.callout.weight(.medium))
+            .foregroundStyle(theme.accent.opacity(hovering ? 1 : 0.85))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
+// MARK: - States
+
 struct EmptyStateView: View {
     let symbol: String
     let title: String
@@ -133,22 +281,35 @@ struct EmptyStateView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(theme.isPlayful ? theme.accent.opacity(0.7) : .secondary)
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(colors: [theme.accent.opacity(0.18), theme.accent.opacity(0.05)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 96, height: 96)
+                Circle()
+                    .strokeBorder(theme.accent.opacity(0.15), lineWidth: 1)
+                    .frame(width: 96, height: 96)
+                Image(systemName: symbol)
+                    .font(.system(size: 38, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(theme.isPlayful ? theme.accent : Color.secondary)
+            }
+            .padding(.bottom, 4)
             Text(title)
-                .font(.system(.title3, design: theme.headingDesign).weight(.semibold))
+                .font(.system(size: 20, weight: .semibold, design: theme.headingDesign))
             Text(message)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 380)
+                .frame(maxWidth: 400)
+                .fixedSize(horizontal: false, vertical: true)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .tint(theme.accent)
-                    .padding(.top, 4)
+                    .padding(.top, 6)
             }
         }
         .padding(40)
@@ -163,33 +324,42 @@ struct TipBanner: View {
     let title: String
     let message: String
     @Environment(\.theme) private var theme
+    @State private var hoveringClose = false
     private var prefs: Prefs { .shared }
 
     var body: some View {
         if !prefs.isTipDismissed(id) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
                 Image(systemName: symbol)
-                    .font(.title2)
+                    .font(.system(size: 17, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(theme.accent)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.headline)
+                    .frame(width: 38, height: 38)
+                    .background(theme.accent.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.system(size: 13.5, weight: .semibold))
                     Text(message).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
+                Spacer(minLength: 8)
                 Button {
-                    withAnimation { prefs.dismissTip(id) }
+                    withAnimation(.snappy) { prefs.dismissTip(id) }
                 } label: {
-                    Image(systemName: "xmark").font(.caption.weight(.bold))
+                    Text("Got it")
+                        .font(.callout.weight(.medium))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(Color.primary.opacity(hoveringClose ? 0.1 : 0.06), in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Got it")
+                .onHover { hoveringClose = $0 }
                 .accessibilityIdentifier("tip.dismiss.\(id)")
             }
-            .padding(14)
-            .background(theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(theme.accent.opacity(0.18)))
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .background(theme.cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(theme.cardStroke))
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+            .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 }
@@ -201,30 +371,36 @@ struct ToastView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: toast.symbol)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(theme.isPlayful ? theme.accent : .primary)
+                .symbolEffect(.bounce, value: toast.id)
             Text(toast.message)
                 .lineLimit(2)
             if let id = toast.undoEntry {
-                Button("Undo") {
+                Divider().frame(height: 16)
+                Button {
                     FileOps.shared.undo(id)
                     AppModel.shared.toast = nil
+                } label: {
+                    Text("Undo").fontWeight(.semibold)
                 }
-                .buttonStyle(.borderless)
-                .fontWeight(.semibold)
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.accent)
                 .keyboardShortcut("z", modifiers: .command)
                 .accessibilityIdentifier("toast.undo")
             }
         }
         .font(.callout)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
-        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+        .glassBackground(Capsule())
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("toast")
     }
 }
+
+// MARK: - Shapes & bits
 
 /// A folder silhouette with a tab, used for the library tiles.
 struct FolderShape: Shape {
@@ -290,22 +466,35 @@ func fileSubtitle(_ item: FileItem) -> String {
     return parts.joined(separator: " · ")
 }
 
-/// Accessibility-friendly progress capsule used for scans.
+/// Small status capsule used for scans.
 struct ProgressPill: View {
     let text: String
     var progress: Double? = nil
+    @Environment(\.theme) private var theme
 
     var body: some View {
         HStack(spacing: 8) {
             if let progress {
-                ProgressView(value: progress).progressViewStyle(.circular).controlSize(.small)
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.12), lineWidth: 2.5)
+                    Circle()
+                        .trim(from: 0, to: max(0.03, progress))
+                        .stroke(theme.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeOut(duration: 0.3), value: progress)
+                }
+                .frame(width: 13, height: 13)
             } else {
                 ProgressView().controlSize(.small)
             }
-            Text(text).font(.caption).foregroundStyle(.secondary)
+            Text(text)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
         .background(Color.primary.opacity(0.05), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06)))
     }
 }

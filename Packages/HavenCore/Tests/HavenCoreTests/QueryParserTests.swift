@@ -193,6 +193,12 @@ final class QueryParserTests: XCTestCase {
         XCTAssertTrue(p.query.terms.isEmpty)
     }
 
+    func testHeadline() {
+        XCTAssertEqual(QueryParser.parse("pdfs from last week").headline, "PDFs · Last week")
+        XCTAssertEqual(QueryParser.parse("largest photos from whatsapp").headline, "Images · From WhatsApp")
+        XCTAssertEqual(QueryParser.parse("the").headline, "the")
+    }
+
     func testEmpty() {
         XCTAssertTrue(QueryParser.parse("").query.isEmpty)
         XCTAssertTrue(QueryParser.parse("   ").chips.isEmpty)

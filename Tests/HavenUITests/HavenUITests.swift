@@ -13,9 +13,9 @@ final class HavenUITests: XCTestCase {
         app?.terminate()
     }
 
-    func launch(onboarding: Bool) {
+    func launch(onboarding: Bool, extra: [String] = []) {
         app = XCUIApplication()
-        app.launchArguments = [
+        app.launchArguments = extra + [
             "-HavenFixtureRoot", Self.fixtureRoot,
             "-HavenMakeFixtures", "YES",
             "-HavenResetState", "YES",
@@ -164,6 +164,14 @@ final class HavenUITests: XCTestCase {
         waitFor(file("invoice-4821.png"), 10)
         snap("16-search-from-gmail")
         clearSearch()
+
+        // An empty, focused search field suggests recent searches and ideas.
+        app.textFields["search.field"].click()
+        waitFor(el("search.suggestions"), 5, "Suggestions should drop down under the search field")
+        sleep(1)
+        snap("16b-search-suggestions")
+        app.typeKey(.escape, modifierFlags: [])
+        sleep(1)
 
         app.typeKey("j", modifierFlags: [.command, .shift])
         waitFor(el("source.card.gmail"), 15, "Downloaded From groups")
@@ -329,5 +337,55 @@ final class HavenUITests: XCTestCase {
             }
             app.typeKey(.escape, modifierFlags: [])
         }
+    }
+
+    func test06_DarkMode() throws {
+        launch(onboarding: false, extra: ["-HavenAppearance", "dark"])
+        requireHome("dark")
+        sleep(4)
+        snap("50-dark-home")
+
+        el("sidebar.category.images").click()
+        waitFor(file("Goa Beach.jpg"), 15)
+        file("Goa Beach.jpg").click()
+        sleep(2)
+        snap("51-dark-images-grid")
+        app.typeKey("i", modifierFlags: .command)
+        waitFor(el("inspector"), 10)
+        sleep(2)
+        snap("52-dark-inspector")
+        app.typeKey("i", modifierFlags: .command)
+
+        search("pdfs from last week")
+        waitFor(file("Q3-report.pdf"), 20)
+        sleep(1)
+        snap("53-dark-search")
+        clearSearch()
+
+        app.typeKey("d", modifierFlags: [.command, .shift])
+        waitFor(el("dupes.freeup"), 90, "Duplicates should be found")
+        sleep(2)
+        snap("54-dark-duplicates")
+
+        app.typeKey("k", modifierFlags: [.command, .shift])
+        waitFor(el("cleanup.card.oldInstallers"), 15)
+        sleep(1)
+        snap("55-dark-cleanup")
+
+        el("sidebar.category.images").click()
+        waitFor(file("IMG_2041.jpg"), 15)
+        file("IMG_2041.jpg").doubleClick()
+        waitFor(el("preview.overlay"), 10)
+        sleep(2)
+        snap("56-dark-preview")
+        app.typeKey(.escape, modifierFlags: [])
+        sleep(1)
+
+        app.typeKey("t", modifierFlags: [.command, .control])
+        el("sidebar.home").click()
+        waitFor(el("home.tile.images"), 10)
+        sleep(2)
+        snap("57-dark-home-minimal")
+        app.typeKey("t", modifierFlags: [.command, .control])
     }
 }

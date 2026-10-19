@@ -118,7 +118,7 @@ struct FileCollectionView<Header: View>: View {
     }
 
     static func columnCount(width: CGFloat, card: Double) -> Int {
-        max(1, Int((width - 44 + 14) / (CGFloat(card) + 14)))
+        max(1, Int((width - 44 + 16) / (CGFloat(card) + 16)))
     }
 
     // MARK: Filter bar
@@ -178,10 +178,10 @@ struct FileCollectionView<Header: View>: View {
 
     private func grid(_ list: [FileItem], width: CGFloat) -> some View {
         let cols = max(1, columns)
-        let spacing: CGFloat = 14
+        let spacing: CGFloat = 16
         let side = max(80, floor((width - 44 - spacing * CGFloat(cols - 1)) / CGFloat(cols)) - 0.5)
         return LazyVGrid(columns: Array(repeating: GridItem(.fixed(side), spacing: spacing, alignment: .top), count: cols),
-                         alignment: .leading, spacing: 16) {
+                         alignment: .leading, spacing: 20) {
             ForEach(list) { item in
                 FileCard(
                     item: item,
@@ -311,7 +311,8 @@ struct SourceCount: Identifiable {
     var id: String { source.id }
 }
 
-/// One card in the grid: big thumbnail, name, size and date.
+/// One card in the grid: big thumbnail, name, size and date. Lifts under the pointer; selection draws
+/// a ring and a check like Photos, and highlights the name like Finder.
 struct FileCard: View {
     let item: FileItem
     let side: CGFloat
@@ -322,37 +323,62 @@ struct FileCard: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
+        let thumbW = side - 12
+        let radius: CGFloat = theme.isPlayful ? 12 : 8
         ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 7) {
-                ThumbnailView(item: item, side: side - 12, height: (side - 12) * 0.78, cornerRadius: theme.isPlayful ? 12 : 8)
+            VStack(alignment: .leading, spacing: 8) {
+                ThumbnailView(item: item, side: thumbW, height: thumbW * 0.78, cornerRadius: radius)
+                    .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
                     .overlay(alignment: .bottomLeading) {
                         if let s = item.source {
                             SourceBadge(source: s, size: 20)
-                                .padding(6)
-                                .shadow(color: .black.opacity(0.2), radius: 2)
+                                .padding(7)
+                                .shadow(color: .black.opacity(0.22), radius: 2, y: 1)
                         }
                     }
+                    .shadow(color: .black.opacity(isHovered ? 0.2 : (theme.isPlayful ? 0.07 : 0.04)),
+                            radius: isHovered ? 11 : 3, y: isHovered ? 6 : 1)
+                    .scaleEffect(isHovered && !isSelected ? 1.02 : 1)
+                    .overlay {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: radius + 4, style: .continuous)
+                                .strokeBorder(theme.accent, lineWidth: 2.5)
+                                .padding(-4.5)
+                                .transition(.opacity)
+                        }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 19, weight: .semibold))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(theme.onAccent, theme.accent)
+                                .overlay(Circle().strokeBorder(theme.onAccent, lineWidth: 1.5))
+                                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                                .padding(7)
+                                .transition(.scale(scale: 0.4).combined(with: .opacity))
+                        }
+                    }
+                    .animation(.snappy(duration: 0.2), value: isHovered)
+                    .animation(.snappy(duration: 0.2), value: isSelected)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name)
                         .font(.system(size: 12.5, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .foregroundStyle(isSelected ? theme.onAccent : Color.primary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(isSelected ? theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .padding(.horizontal, -5)
                     Text(fileSubtitle(item))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 3)
             }
             .padding(6)
-            .background(
-                RoundedRectangle(cornerRadius: theme.isPlayful ? 16 : 10, style: .continuous)
-                    .fill(isSelected ? theme.accent.opacity(0.16) : (isHovered ? Color.primary.opacity(0.045) : .clear))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: theme.isPlayful ? 16 : 10, style: .continuous)
-                    .strokeBorder(isSelected ? theme.accent.opacity(0.7) : .clear, lineWidth: 1.5)
-            )
             interaction
             if isHovered, item.kind == .image || item.kind == .pdf {
                 Button {
@@ -361,12 +387,13 @@ struct FileCard: View {
                     Label("Copy Text", systemImage: "text.quote")
                         .labelStyle(.iconOnly)
                         .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 26, height: 26)
-                        .background(.regularMaterial, in: Circle())
+                        .frame(width: 28, height: 28)
+                        .glassBackground(Circle())
                 }
                 .buttonStyle(.plain)
                 .help("Copy the text in this \(item.kind == .pdf ? "PDF" : "image")")
-                .padding(12)
+                .padding(13)
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 .accessibilityIdentifier("card.copyText")
             }
         }
@@ -378,7 +405,7 @@ struct FileCard: View {
     }
 }
 
-/// One row in list view.
+/// One row in list view; selection is a solid accent bar like Finder.
 struct FileRow: View {
     let item: FileItem
     let isSelected: Bool
@@ -387,34 +414,40 @@ struct FileRow: View {
 
     @Environment(\.theme) private var theme
 
+    private var secondary: AnyShapeStyle {
+        isSelected ? AnyShapeStyle(theme.onAccent.opacity(0.78)) : AnyShapeStyle(.secondary)
+    }
+
     var body: some View {
         ZStack {
             HStack(spacing: 10) {
                 ThumbnailView(item: item, side: 26, cornerRadius: 5)
+                    .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
                 Text(item.name)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(theme.onAccent) : AnyShapeStyle(.primary))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if let s = item.source {
                     SourceBadge(source: s, size: 16)
                 }
                 Text(item.kind.displayName)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondary)
                     .frame(width: 100, alignment: .leading)
                 Text(item.kind == .folder ? "—" : ByteSize.format(item.size))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondary)
                     .monospacedDigit()
                     .frame(width: 80, alignment: .trailing)
                 Text(HavenFormat.friendlyDate(item.activityDate))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondary)
                     .frame(width: 150, alignment: .leading)
             }
             .font(.system(size: 12.5))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? theme.accent.opacity(0.18) : (isStriped ? Color.primary.opacity(0.025) : .clear))
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isSelected ? theme.accent.opacity(theme.isPlayful ? 0.92 : 0.85) : (isStriped ? Color.primary.opacity(0.03) : .clear))
             )
             interaction
         }

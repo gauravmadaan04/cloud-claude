@@ -85,6 +85,7 @@ final class Prefs {
     var onboardingDone: Bool { didSet { defaults.set(onboardingDone, forKey: "onboardingDone") } }
     var dismissedTips: Set<String> { didSet { defaults.set(Array(dismissedTips), forKey: "dismissedTips") } }
     var lastRulesRun: Date? { didSet { defaults.set(lastRulesRun, forKey: "lastRulesRun") } }
+    var recentSearches: [String] { didSet { defaults.set(recentSearches, forKey: "recentSearches") } }
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
@@ -116,6 +117,11 @@ final class Prefs {
         onboardingDone = bool("onboardingDone", false)
         dismissedTips = Set(defaults.stringArray(forKey: "dismissedTips") ?? [])
         lastRulesRun = defaults.object(forKey: "lastRulesRun") as? Date
+        recentSearches = defaults.stringArray(forKey: "recentSearches") ?? []
+        // Launch overrides (screenshots, demos) apply for this run only.
+        let opts = LaunchOptions.current
+        if let a = opts.appearance.flatMap(AppearanceMode.init(rawValue:)) { appearance = a }
+        if let l = opts.look.flatMap(Look.init(rawValue:)) { look = l }
     }
 
     private func saveJSON<T: Encodable>(_ value: T, _ key: String) {
@@ -137,5 +143,18 @@ final class Prefs {
     var enabledRoots: [IndexRoot] { roots.filter(\.enabled) }
 
     func isTipDismissed(_ id: String) -> Bool { dismissedTips.contains(id) }
+
+    /// Remembers a search for the suggestions list (newest first, no repeats).
+    func rememberSearch(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count >= 2 else { return }
+        var list = recentSearches.filter { $0.caseInsensitiveCompare(t) != .orderedSame }
+        // Typing "pdfs fr" then "pdfs from gmail" keeps only the finished search.
+        list.removeAll { t.lowercased().hasPrefix($0.lowercased()) }
+        list.insert(t, at: 0)
+        recentSearches = Array(list.prefix(8))
+    }
+
+    func forgetSearches() { recentSearches = [] }
     func dismissTip(_ id: String) { dismissedTips.insert(id) }
 }

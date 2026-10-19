@@ -6,6 +6,8 @@ import Foundation
 ///   -HavenMakeFixtures YES      fill the fixture root with sample files first (debug builds)
 ///   -HavenResetState YES        forget settings and caches (fresh onboarding)
 ///   -HavenSkipOnboarding YES    go straight to the app
+///   -HavenAppearance dark       start in light/dark/system appearance (not saved)
+///   -HavenLook minimal          start in the playful/minimal look (not saved)
 struct LaunchOptions {
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -13,6 +15,8 @@ struct LaunchOptions {
     let makeFixtures: Bool
     let resetState: Bool
     let skipOnboarding: Bool
+    let appearance: String?
+    let look: String?
 
     init(arguments: [String]) {
         func value(_ flag: String) -> String? {
@@ -27,6 +31,8 @@ struct LaunchOptions {
         makeFixtures = flag("-HavenMakeFixtures")
         resetState = flag("-HavenResetState")
         skipOnboarding = flag("-HavenSkipOnboarding")
+        appearance = value("-HavenAppearance")?.lowercased()
+        look = value("-HavenLook")?.lowercased()
     }
 
     var isFixtureMode: Bool { fixtureRoot != nil }

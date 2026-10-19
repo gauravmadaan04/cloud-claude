@@ -166,7 +166,7 @@ jobs:
           open /Volumes/Haven
           sleep 5
           mkdir -p build/screenshots/named
-          screencapture -x build/screenshots/named/50-dmg-window.png || true
+          screencapture -x build/screenshots/named/90-dmg-window.png || true
           osascript -e 'tell application "Finder" to close every window' || true
           hdiutil detach /Volumes/Haven || true
           ls -la build/Haven-1.0.0.dmg

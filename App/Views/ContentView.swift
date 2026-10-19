@@ -16,6 +16,14 @@ struct ContentView: View {
                     .navigationSplitViewColumnWidth(min: 200, ideal: 228, max: 320)
             } detail: {
                 DetailView()
+                    .overlay(alignment: .top) {
+                        if model.searchFieldFocused && model.searchText.isEmpty && !model.showOnboarding && model.previewItem == nil {
+                            SearchSuggestionsView()
+                                .padding(.top, 10)
+                                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        }
+                    }
+                    .animation(.snappy(duration: 0.2), value: model.searchFieldFocused && model.searchText.isEmpty)
                     .inspector(isPresented: $model.showInspector) {
                         InspectorView()
                             .inspectorColumnWidth(min: 260, ideal: 300, max: 440)
@@ -102,7 +110,7 @@ struct SearchField: View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Search in plain English, like “pdfs from last week”", text: $model.searchText)
+            TextField("Search, like “pdfs from last week”", text: $model.searchText)
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .onSubmit { model.focusResultsRequest += 1 }
@@ -132,12 +140,25 @@ struct SearchField: View {
                 .help("What can I type?")
             }
         }
-        .padding(.horizontal, 9)
+        .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(focused ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(focused ? 0.03 : 0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .strokeBorder(focused ? Color.accentColor.opacity(0.55) : Color.primary.opacity(0.08), lineWidth: focused ? 1.5 : 1))
+        .animation(.easeOut(duration: 0.15), value: focused)
         .frame(minWidth: 200, idealWidth: 340, maxWidth: 420)
         .onChange(of: model.searchFocusRequest) { _, _ in focused = true }
+        .onChange(of: focused) { _, isFocused in
+            if isFocused {
+                model.searchFieldFocused = true
+            } else {
+                // Let a click on a suggestion land before the list goes away.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    if !focused { model.searchFieldFocused = false }
+                }
+            }
+        }
     }
 }
 

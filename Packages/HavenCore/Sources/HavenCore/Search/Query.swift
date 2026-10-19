@@ -229,6 +229,12 @@ public struct ParsedQuery: Hashable, Sendable {
     /// The original words, as typed (quoted phrases kept together).
     public let tokens: [String]
 
+    /// A short readable title for the results: "PDFs · Last week · From Gmail".
+    public var headline: String {
+        let parts = chips.filter { $0.kind != .sort }.map(\.label)
+        return parts.isEmpty ? text : parts.joined(separator: " · ")
+    }
+
     /// The search text with the words behind `chip` removed, so removing a chip edits the search.
     public func text(removing chip: QueryChip) -> String {
         let drop = Set(chip.tokenIndexes)

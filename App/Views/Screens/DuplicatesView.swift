@@ -187,6 +187,7 @@ struct DuplicateGroupCard: View {
                         tile(item)
                     }
                 }
+                .padding(.vertical, 2)
             }
         }
         .cardStyle(theme, padding: 14)
@@ -196,21 +197,58 @@ struct DuplicateGroupCard: View {
 
     private func tile(_ item: FileItem) -> some View {
         let keep = keeps(item)
+        let best = item.path == group.suggestedKeep
+        let keepColor = theme.isPlayful ? Color(hex: 0x189E63) : Color.primary
+        let trashColor = Color(hex: 0xE5484D)
         return VStack(alignment: .leading, spacing: 6) {
-            ThumbnailView(item: item, side: 150, height: 110, cornerRadius: 10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(keep ? Color.green.opacity(0.8) : Color.red.opacity(0.55), lineWidth: 2)
-                )
-                .opacity(keep ? 1 : 0.6)
+            ThumbnailView(item: item, side: 156, height: 116, cornerRadius: 11)
+                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
+                .saturation(keep ? 1 : 0.2)
+                .opacity(keep ? 1 : 0.7)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(keep ? keepColor.opacity(0.85) : trashColor.opacity(0.6), lineWidth: 2.5)
+                        .padding(-3.5)
+                }
+                .overlay(alignment: .topLeading) {
+                    if best {
+                        Label("Best copy", systemImage: "star.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .foregroundStyle(.white)
+                            .background(Capsule().fill(keepColor.gradient))
+                            .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                            .padding(7)
+                            .help(group.kind == .identical
+                                  ? "Haven keeps this one: the original name, outside Downloads, the oldest copy"
+                                  : "Haven keeps this one: the most pixels of the set")
+                    }
+                }
+                .overlay {
+                    if !keep {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Circle().fill(trashColor.opacity(0.9)))
+                            .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .animation(.snappy(duration: 0.2), value: keep)
+                .padding(4)
                 .onTapGesture { model.preview(item, in: group.items) }
                 .contextMenu {
                     Button("Show in Finder") { model.revealInFinder([item]) }
                     Button("Open") { NSWorkspace.shared.open(item.url) }
                 }
-            Text(item.name).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
-            Text("\(item.parentName) · \(ByteSize.format(item.size))").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-            Text(HavenFormat.friendlyDate(item.created)).font(.caption2).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.name).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
+                Text("\(item.parentName) · \(ByteSize.format(item.size))").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text(HavenFormat.friendlyDate(item.created)).font(.caption2).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
             Button {
                 toggle(item)
             } label: {
@@ -218,13 +256,15 @@ struct DuplicateGroupCard: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .foregroundStyle(keep ? Color.green : Color.red)
-                    .background((keep ? Color.green : Color.red).opacity(0.12), in: Capsule())
+                    .foregroundStyle(keep ? keepColor : trashColor)
+                    .background((keep ? keepColor : trashColor).opacity(0.12), in: Capsule())
+                    .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, 4)
             .help(keep ? "Haven will keep this copy. Click to trash it instead." : "This copy goes to the Trash. Click to keep it.")
             .accessibilityIdentifier(keep ? "dupes.keep" : "dupes.trashmark")
         }
-        .frame(width: 150)
+        .frame(width: 164)
     }
 }
