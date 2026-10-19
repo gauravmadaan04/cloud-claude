@@ -1,0 +1,128 @@
+import HavenCore
+import SwiftUI
+
+struct QuickSearchView: View {
+    @Bindable var model: QuickSearchModel
+    let onCommit: (NSEvent.ModifierFlags) -> Void
+    @FocusState private var fieldFocused: Bool
+
+    private var theme: Theme { Theme(look: Prefs.shared.look) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.secondary)
+                TextField("Find a file, like “invoice pdf from gmail”", text: $model.text)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 22, weight: .regular))
+                    .focused($fieldFocused)
+                    .accessibilityIdentifier("quicksearch.field")
+                if !model.text.isEmpty {
+                    Button { model.text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, model.chips.isEmpty ? 14 : 8)
+
+            if !model.chips.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(model.chips) { chip in ChipView(chip: chip) }
+                    }
+                    .padding(.horizontal, 18)
+                }
+                .padding(.bottom, 10)
+            }
+            Divider()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        if model.text.isEmpty && !model.results.isEmpty {
+                            HStack {
+                                Text("Recent").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.top, 8)
+                        }
+                        ForEach(Array(model.results.enumerated()), id: \.element.id) { index, item in
+                            QuickSearchRow(item: item, selected: index == model.selectedIndex)
+                                .id(index)
+                                .onTapGesture(count: 2) {
+                                    model.selectedIndex = index
+                                    onCommit([])
+                                }
+                                .onTapGesture { model.selectedIndex = index }
+                                .onDrag { NSItemProvider(object: item.url as NSURL) }
+                        }
+                        if model.results.isEmpty {
+                            Text(model.text.isEmpty ? "Haven is still indexing…" : "No matches")
+                                .foregroundStyle(.secondary)
+                                .padding(30)
+                        }
+                    }
+                    .padding(8)
+                }
+                .onChange(of: model.selectedIndex) { _, i in proxy.scrollTo(i) }
+            }
+            Divider()
+            HStack(spacing: 14) {
+                hint("↩", "Open")
+                hint("⌘↩", "Show in Haven")
+                hint("⌥↩", "Show in Finder")
+                hint("⌘C", "Copy file")
+                Spacer()
+                hint("esc", "Close")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+        }
+        .frame(width: 680, height: 460)
+        .background(VisualEffectBackground(material: .popover))
+        .environment(\.theme, theme)
+        .onChange(of: model.focusToken, initial: true) { _, _ in
+            DispatchQueue.main.async { fieldFocused = true }
+        }
+    }
+
+    private func hint(_ key: String, _ label: String) -> some View {
+        HStack(spacing: 5) {
+            Text(key)
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct QuickSearchRow: View {
+    let item: FileItem
+    let selected: Bool
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ThumbnailView(item: item, side: 38, cornerRadius: 7)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name).font(.system(size: 13.5, weight: .medium)).lineLimit(1).truncationMode(.middle)
+                Text("\(item.parentName) · \(fileSubtitle(item))").font(.caption).foregroundStyle(selected ? Color.primary : Color.secondary).lineLimit(1)
+            }
+            Spacer()
+            if let s = item.source { SourceBadge(source: s, size: 18) }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(selected ? theme.accent.opacity(0.2) : .clear)
+        )
+        .contentShape(Rectangle())
+        .accessibilityIdentifier("quicksearch.row")
+    }
+}

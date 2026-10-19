@@ -1,0 +1,148 @@
+name: Haven macOS
+
+on:
+  push:
+    branches: [haven-mac]
+  workflow_dispatch:
+
+concurrency:
+  group: haven-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-package:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      DD: build/dd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Core logic tests (HavenCore)
+        run: cd Packages/HavenCore && swift test 2>&1 | tail -25
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build app and tests (Debug)
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project Haven.xcodeproj -scheme Haven -destination 'platform=macOS' \
+            -derivedDataPath "$DD" CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES 2>&1 | tee build-debug.log | grep -E "error:|BUILD|\*\*" || true
+          grep -q "TEST BUILD SUCCEEDED\|BUILD SUCCEEDED" build-debug.log
+
+      - name: Compiler errors
+        if: failure()
+        run: grep -E "error:" build-debug.log | sort -u | head -150 || true
+
+      - name: Allow UI automation
+        run: sudo automationmodetool enable-automationmode-without-authentication || true
+
+      - name: Integration tests (OCR, PDFs, metadata, duplicates, trash/undo)
+        id: unit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Haven.xcodeproj -scheme Haven -destination 'platform=macOS' \
+            -derivedDataPath "$DD" -only-testing:HavenTests -resultBundlePath build/UnitTests.xcresult 2>&1 \
+            | tee unit.log | grep -E "Test Case|error:|passed|failed|Executed|OCR|distance" | tail -120
+
+      - name: UI tests (end to end, with screenshots)
+        id: ui
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Haven.xcodeproj -scheme Haven -destination 'platform=macOS' \
+            -derivedDataPath "$DD" -only-testing:HavenUITests -resultBundlePath build/UITests.xcresult 2>&1 \
+            | tee ui.log | grep -E "Test Case|error:|passed|failed|Executed|XCTAssert" | tail -150
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p build/screenshots
+          xcrun xcresulttool export attachments --path build/UITests.xcresult --output-path build/screenshots >/dev/null 2>&1 || true
+          cp /private/tmp/haven-shots/*.png build/screenshots/ 2>/dev/null || true
+          ls build/screenshots | head -80
+
+      - name: Build release (Apple silicon + Intel)
+        run: |
+          set -o pipefail
+          xcodebuild -project Haven.xcodeproj -scheme Haven -configuration Release -destination 'generic/platform=macOS' \
+            -derivedDataPath build/rel ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGN_IDENTITY=- build 2>&1 \
+            | tee build-release.log | grep -E "error:|BUILD SUCCEEDED|BUILD FAILED" || true
+          grep -q "BUILD SUCCEEDED" build-release.log
+
+      - name: Sign (ad hoc) and check the app
+        run: |
+          APP=build/rel/Build/Products/Release/Haven.app
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          lipo -info "$APP/Contents/MacOS/Haven"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist"
+          ls "$APP/Contents/Resources"
+          du -sh "$APP"
+
+      - name: Smoke test the release build
+        run: |
+          APP=build/rel/Build/Products/Release/Haven.app
+          mkdir -p /private/tmp/haven-smoke/Downloads
+          "$APP/Contents/MacOS/Haven" -HavenFixtureRoot /private/tmp/haven-smoke -HavenSkipOnboarding YES -HavenResetState YES &
+          PID=$!
+          sleep 12
+          if kill -0 $PID 2>/dev/null; then echo "Release app is running fine"; kill $PID; else echo "Release app exited early"; exit 1; fi
+
+      - name: Package DMG
+        run: |
+          scripts/build_dmg.sh build/rel/Build/Products/Release/Haven.app build/Haven-1.0.0.dmg
+          hdiutil verify build/Haven-1.0.0.dmg
+          MNT=$(mktemp -d)
+          hdiutil attach build/Haven-1.0.0.dmg -nobrowse -readonly -mountpoint "$MNT"
+          ls -la "$MNT"
+          codesign --verify --deep --strict "$MNT/Haven.app"
+          hdiutil detach "$MNT"
+          shasum -a 256 build/Haven-1.0.0.dmg | tee build/Haven-1.0.0.dmg.sha256
+          ls -lh build/Haven-1.0.0.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Haven-dmg
+          path: |
+            build/Haven-1.0.0.dmg
+            build/Haven-1.0.0.dmg.sha256
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: build/screenshots
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs
+          path: |
+            unit.log
+            ui.log
+            build-debug.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Fail if tests failed
+        if: steps.unit.outcome == 'failure' || steps.ui.outcome == 'failure'
+        run: |
+          echo "Unit: ${{ steps.unit.outcome }}  UI: ${{ steps.ui.outcome }}"
+          grep -E "error:|failed" unit.log ui.log | head -80 || true
+          exit 1
