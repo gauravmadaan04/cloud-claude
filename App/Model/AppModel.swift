@@ -18,6 +18,7 @@ enum SidebarItem: Hashable, Codable {
     case activity
     case folder(String)
 
+    @MainActor
     var title: String {
         switch self {
         case .home: return "Home"

@@ -1,4 +1,5 @@
 import HavenCore
+import QuickLook
 import SwiftUI
 
 struct ContentView: View {

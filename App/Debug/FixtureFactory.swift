@@ -171,10 +171,7 @@ enum FixtureFactory {
     }
 
     static func tag(_ path: String, _ tags: [String]) {
-        var url = URL(fileURLWithPath: path)
-        var values = URLResourceValues()
-        values.tagNames = tags
-        try? url.setResourceValues(values)
+        try? (URL(fileURLWithPath: path) as NSURL).setResourceValue(tags, forKey: .tagNamesKey)
     }
 
     static func text(_ s: String, to path: String, date: Date) {
