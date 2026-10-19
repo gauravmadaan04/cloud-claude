@@ -36,8 +36,8 @@ jobs:
           tail -3 /tmp/build.log
           exit $status
 
-      - name: Unit tests
-        run: swift test 2>&1 | tail -25
+      - name: Unit tests (layout engine)
+        run: cd Core && swift test 2>&1 | grep -E "Executed|error|failed" | tail -20
 
       - name: Build universal app
         id: build

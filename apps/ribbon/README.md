@@ -24,12 +24,12 @@ settings, guided onboarding, universal binary (Apple silicon + Intel), macOS 13 
 
 ## Layout of the code
 ```
-Sources/RibbonCore     pure Swift (also builds on Linux): strip model, layout, scrolling, springs,
+Core/                  pure Swift (also builds on Linux): strip model, layout, scrolling, springs,
                        config, shortcuts, swipe recogniser, session restore, IPC types
 Sources/RibbonApp      the app: AX window control, Spaces, hotkeys, trackpad, overlays, SwiftUI UI
 Sources/RibbonCLI      the `ribbon` command-line tool (talks to the app over a CFMessagePort)
 Sources/RibbonFixture  a window-making app used only by the end-to-end tests
-Tests/RibbonCoreTests  unit tests (swift test)
+Core/Tests             unit tests (cd Core && swift test)
 e2e/run_e2e.py         end-to-end tests against a real macOS session
 scripts/               build_app.sh (universal .app, ad-hoc signed), make_dmg.sh (DMG + zip),
                        icon and DMG background generators
