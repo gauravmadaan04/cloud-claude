@@ -60,6 +60,39 @@ final class IndexCodecTests: XCTestCase {
         XCTAssertEqual(FileSortOrder.nameZA.sorted(items).map(\.name).first, "file10.txt")
     }
 
+    func testBigSortsMatchASimpleSort() {
+        // Large enough to be split across cores and merged.
+        let items = SyntheticLibrary.make(count: 60_000, seed: 11)
+        let keys = items.map { NaturalOrder.key($0.searchName) }
+        func simple(_ less: (Int, Int) -> Bool) -> [String] {
+            Array(items.indices).sorted(by: less).map { items[$0].path }
+        }
+        XCTAssertEqual(FileSortOrder.nameAZ.sorted(items).map(\.path), simple { a, b in
+            let c = NaturalOrder.compare(keys[a], keys[b]); return c != 0 ? c < 0 : a < b
+        })
+        XCTAssertEqual(FileSortOrder.nameZA.sorted(items).map(\.path), simple { a, b in
+            let c = NaturalOrder.compare(keys[a], keys[b]); return c != 0 ? c > 0 : a < b
+        })
+        XCTAssertEqual(FileSortOrder.kind.sorted(items).map(\.path), simple { a, b in
+            let ka = items[a].kind.rawValue, kb = items[b].kind.rawValue
+            if ka != kb { return ka < kb }
+            let c = NaturalOrder.compare(keys[a], keys[b]); return c != 0 ? c < 0 : a < b
+        })
+        XCTAssertEqual(FileSortOrder.sizeLargest.sorted(items).map(\.path), simple { a, b in
+            items[a].size != items[b].size ? items[a].size > items[b].size : a < b
+        })
+        XCTAssertEqual(FileSortOrder.dateOldest.sorted(items).map(\.path), simple { a, b in
+            items[a].activityDate != items[b].activityDate ? items[a].activityDate < items[b].activityDate : a < b
+        })
+        let flat = NaturalKeys(items.map(\.searchName))
+        flat.withComparator { cmp in
+            for (i, j) in [(0, 1), (5, 59_999), (31_000, 2), (7, 7)] {
+                XCTAssertEqual(cmp(i, j).signum(), NaturalOrder.compare(keys[i], keys[j]).signum())
+            }
+        }
+        XCTAssertEqual(FileSortOrder.nameAZ.sorted([]), [])
+    }
+
     func testParallelSearchMatchesSequential() {
         let items = SyntheticLibrary.make(count: 30_000, seed: 3)
         for q in ["invoice", "beach 12", "pdfs from last year", "largest zips", "café notes", "#work", "a"] {

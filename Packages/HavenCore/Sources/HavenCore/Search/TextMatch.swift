@@ -69,27 +69,33 @@ public enum NaturalOrder {
     public static func key(_ folded: String) -> [UInt8] {
         var out: [UInt8] = []
         out.reserveCapacity(folded.utf8.count + 4)
-        var digits: [UInt8] = []
-        func flush() {
-            guard !digits.isEmpty else { return }
-            var start = 0
-            while start < digits.count - 1 && digits[start] == 48 { start += 1 }
-            let run = digits[start...]
-            out.append(48)
-            out.append(UInt8(min(run.count, 255)))
-            out.append(contentsOf: run.prefix(255))
-            digits.removeAll(keepingCapacity: true)
-        }
-        for b in folded.utf8 {
-            if b >= 48 && b <= 57 {
-                digits.append(b)
-            } else {
-                flush()
-                out.append(b)
+        appendKey(folded, to: &out)
+        return out
+    }
+
+    /// Writes the key for `folded` onto the end of `out` (no temporary arrays).
+    public static func appendKey(_ folded: String, to out: inout [UInt8]) {
+        var s = folded
+        s.withUTF8 { u in
+            var i = 0
+            while i < u.count {
+                let b = u[i]
+                guard b >= 48 && b <= 57 else {
+                    out.append(b)
+                    i += 1
+                    continue
+                }
+                var end = i
+                while end < u.count && u[end] >= 48 && u[end] <= 57 { end += 1 }
+                var start = i
+                while start < end - 1 && u[start] == 48 { start += 1 }
+                let length = min(end - start, 255)
+                out.append(48)
+                out.append(UInt8(length))
+                out.append(contentsOf: UnsafeBufferPointer(rebasing: u[start..<(start + length)]))
+                i = end
             }
         }
-        flush()
-        return out
     }
 
     @inline(__always)
@@ -100,5 +106,67 @@ public enum NaturalOrder {
             b.withUnsafeBufferPointer { pb in memcmp(pa.baseAddress!, pb.baseAddress!, n) }
         }
         return c == 0 ? a.count - b.count : Int(c)
+    }
+}
+
+/// Natural-order keys for many names in one buffer, built on every core: comparing two is a single memcmp
+/// with no reference counting, which keeps sorting 300,000 names by name quick.
+public struct NaturalKeys: Sendable {
+    let bytes: [UInt8]
+    /// Key `i` is bytes[offsets[i]..<offsets[i + 1]].
+    let offsets: [Int]
+
+    public var count: Int { offsets.count - 1 }
+
+    public init(_ folded: [String]) {
+        let n = folded.count
+        let parts = n >= 20_000 ? min(max(1, ProcessInfo.processInfo.activeProcessorCount), 16) : 1
+        let size = (n + parts - 1) / parts
+        var chunks = [(bytes: [UInt8], ends: [Int])](repeating: ([], []), count: parts)
+        chunks.withUnsafeMutableBufferPointer { out in
+            DispatchQueue.concurrentPerform(iterations: parts) { p in
+                let lo = p * size, hi = min(n, lo + size)
+                guard lo < hi else { return }
+                var bytes: [UInt8] = []
+                bytes.reserveCapacity((hi - lo) * 24)
+                var ends: [Int] = []
+                ends.reserveCapacity(hi - lo)
+                for i in lo..<hi {
+                    NaturalOrder.appendKey(folded[i], to: &bytes)
+                    ends.append(bytes.count)
+                }
+                out[p] = (bytes, ends)
+            }
+        }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(chunks.reduce(0) { $0 + $1.bytes.count })
+        var offsets: [Int] = [0]
+        offsets.reserveCapacity(n + 1)
+        for c in chunks {
+            let base = bytes.count
+            bytes.append(contentsOf: c.bytes)
+            for e in c.ends { offsets.append(base + e) }
+        }
+        self.bytes = bytes
+        self.offsets = offsets
+    }
+
+    /// Runs `body` with a comparator (<0, 0, >0) over key indices that touches only raw memory.
+    public func withComparator<R>(_ body: ((Int, Int) -> Int) throws -> R) rethrows -> R {
+        try bytes.withUnsafeBufferPointer { b in
+            try offsets.withUnsafeBufferPointer { o in
+                let base = b.baseAddress
+                return try body { i, j in
+                    let ai = o[i], an = o[i + 1] - ai
+                    let bj = o[j], bn = o[j + 1] - bj
+                    let n = min(an, bn)
+                    if n > 0, let base {
+                        let c = memcmp(base + ai, base + bj, n)
+                        if c != 0 { return Int(c) }
+                    }
+                    return an - bn
+                }
+            }
+        }
     }
 }

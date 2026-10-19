@@ -394,7 +394,7 @@ final class HavenUITests: XCTestCase {
         sleep(1)
 
         app.typeKey("t", modifierFlags: [.command, .control])
-        el("sidebar.home").click()
+        app.typeKey("h", modifierFlags: [.command, .shift]) // Go › Home
         waitFor(el("home.tile.images"), 10)
         sleep(2)
         snap("57-dark-home-minimal")

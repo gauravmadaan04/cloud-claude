@@ -284,36 +284,95 @@ public enum FileSortOrder: String, Codable, CaseIterable, Sendable, Identifiable
         case .sizeLargest: return Self.ordered(items, items.map(\.size), descending: true)
         case .sizeSmallest: return Self.ordered(items, items.map(\.size), descending: false)
         case .nameAZ, .nameZA:
-            let keys = items.map { NaturalOrder.key($0.searchName) }
+            let keys = NaturalKeys(items.map(\.searchName))
             let desc = self == .nameZA
-            var order = Array(items.indices)
-            order.sort { a, b in
-                let c = NaturalOrder.compare(keys[a], keys[b])
-                if c != 0 { return desc ? c > 0 : c < 0 }
-                return a < b
+            let order = keys.withComparator { cmp in
+                Self.sortedOrder(items.count) { a, b in
+                    let c = cmp(a, b)
+                    if c != 0 { return desc ? c > 0 : c < 0 }
+                    return a < b
+                }
             }
             return order.map { items[$0] }
         case .kind:
-            let keys = items.map { NaturalOrder.key($0.searchName) }
-            let kinds = items.map(\.kind.rawValue)
-            var order = Array(items.indices)
-            order.sort { a, b in
-                if kinds[a] != kinds[b] { return kinds[a] < kinds[b] }
-                let c = NaturalOrder.compare(keys[a], keys[b])
-                return c != 0 ? c < 0 : a < b
+            let keys = NaturalKeys(items.map(\.searchName))
+            let kinds = items.map { Self.kindRank[$0.kind] ?? 0 }
+            let order = kinds.withUnsafeBufferPointer { k in
+                keys.withComparator { cmp in
+                    Self.sortedOrder(items.count) { a, b in
+                        if k[a] != k[b] { return k[a] < k[b] }
+                        let c = cmp(a, b)
+                        return c != 0 ? c < 0 : a < b
+                    }
+                }
             }
             return order.map { items[$0] }
         }
     }
 
+    /// Kinds in alphabetical order of their names.
+    static let kindRank: [FileKind: Int] = Dictionary(uniqueKeysWithValues:
+        FileKind.allCases.sorted { $0.rawValue < $1.rawValue }.enumerated().map { ($1, $0) })
+
     /// Sorts by a precomputed key (cheap to compare), keeping the incoming order for ties.
     public static func ordered<K: Comparable>(_ items: [FileItem], _ keys: [K], descending: Bool) -> [FileItem] {
-        var order = Array(items.indices)
-        order.sort { a, b in
-            if keys[a] != keys[b] { return descending ? keys[a] > keys[b] : keys[a] < keys[b] }
-            return a < b
+        let order = keys.withUnsafeBufferPointer { k in
+            sortedOrder(items.count) { a, b in
+                if k[a] != k[b] { return descending ? k[a] > k[b] : k[a] < k[b] }
+                return a < b
+            }
         }
         return order.map { items[$0] }
+    }
+
+    /// The positions 0..<count in `less` order. Big lists are sorted in slices on every core, then merged.
+    /// `less` must be a strict total order (break ties by position) and safe to call from several threads.
+    static func sortedOrder(_ count: Int, by less: (Int, Int) -> Bool) -> [Int] {
+        var order = Array(0..<count)
+        let parts = count >= 40_000 ? min(max(1, ProcessInfo.processInfo.activeProcessorCount), 16) : 1
+        guard parts > 1 else {
+            order.sort(by: less)
+            return order
+        }
+        let size = (count + parts - 1) / parts
+        order.withUnsafeMutableBufferPointer { buf in
+            DispatchQueue.concurrentPerform(iterations: parts) { p in
+                let lo = p * size, hi = min(count, lo + size)
+                guard lo < hi else { return }
+                var slice = UnsafeMutableBufferPointer(rebasing: buf[lo..<hi])
+                slice.sort(by: less)
+            }
+        }
+        var runs = stride(from: 0, to: count, by: size).map { $0..<min(count, $0 + size) }
+        var other = [Int](repeating: 0, count: count)
+        while runs.count > 1 {
+            let pairs = (runs.count + 1) / 2
+            let current = runs
+            order.withUnsafeBufferPointer { src in
+                other.withUnsafeMutableBufferPointer { dst in
+                    DispatchQueue.concurrentPerform(iterations: pairs) { k in
+                        let a = current[2 * k]
+                        guard 2 * k + 1 < current.count else {
+                            for i in a { dst[i] = src[i] }
+                            return
+                        }
+                        let b = current[2 * k + 1]
+                        var i = a.lowerBound, j = b.lowerBound, o = a.lowerBound
+                        while i < a.upperBound && j < b.upperBound {
+                            if less(src[j], src[i]) { dst[o] = src[j]; j += 1 } else { dst[o] = src[i]; i += 1 }
+                            o += 1
+                        }
+                        while i < a.upperBound { dst[o] = src[i]; i += 1; o += 1 }
+                        while j < b.upperBound { dst[o] = src[j]; j += 1; o += 1 }
+                    }
+                }
+            }
+            swap(&order, &other)
+            runs = (0..<pairs).map { k in
+                2 * k + 1 < current.count ? current[2 * k].lowerBound..<current[2 * k + 1].upperBound : current[2 * k]
+            }
+        }
+        return order
     }
 
     public init(hint: SortHint) {
