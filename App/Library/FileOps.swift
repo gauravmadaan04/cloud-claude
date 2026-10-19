@@ -25,9 +25,17 @@ final class FileOps {
 
     /// Selected items inside other selected folders go along with their folder.
     static func outermost(_ items: [FileItem]) -> [FileItem] {
-        let folders = items.filter { $0.kind == .folder || $0.kind == .app }.map { $0.path + "/" }
+        let folders = Set(items.filter { $0.kind == .folder || $0.kind == .app }.map(\.path))
         guard !folders.isEmpty else { return items }
-        return items.filter { item in !folders.contains { item.path.hasPrefix($0) } }
+        // Walk up each file's folders (a handful of steps) instead of comparing against every selected folder.
+        return items.filter { item in
+            var parent = FileItem.parent(of: item.path)
+            while parent.count > 1 {
+                if folders.contains(parent) { return false }
+                parent = FileItem.parent(of: parent)
+            }
+            return true
+        }
     }
 
     private init() {
