@@ -22,7 +22,7 @@ args = ap.parse_args()
 
 APP = os.path.abspath(args.app)
 BIN = os.path.join(APP, "Contents/MacOS/Ribbon")
-CLI = os.path.join(APP, "Contents/MacOS/ribbon")
+CLI = os.path.join(APP, "Contents/Helpers/ribbon")
 FIX = os.path.abspath(args.fixture)
 OUT = os.path.abspath(args.out)
 FDIR = "/tmp/ribbon-fixture"
@@ -186,7 +186,7 @@ def start_ribbon():
     env = dict(os.environ, RIBBON_DEBUG="1")
     out = open(os.path.join(OUT, "ribbon-stderr.log"), "a")
     procs["ribbon"] = subprocess.Popen([BIN, "--skip-onboarding", "--e2e"], stdout=out, stderr=out, env=env)
-    wait(lambda: cli("ping", check=False).strip() == "pong", timeout=15, what="Ribbon to answer")
+    wait(lambda: cli("ping", check=False, timeout=4).strip() == "pong", timeout=20, what="Ribbon to answer")
 
 
 def geometry(st):
@@ -576,10 +576,14 @@ def main():
     with open(os.path.join(FDIR, "frames.json")) as fh:
         say("fixture:", fh.read())
     shot("before-ribbon")
-    start_ribbon()
-    time.sleep(1.0)
-    for t in TESTS:
-        t()
+    try:
+        start_ribbon()
+        time.sleep(1.0)
+        for t in TESTS:
+            t()
+    except Exception as e:
+        results.append({"name": "start Ribbon", "ok": False, "error": f"{type(e).__name__}: {e}", "secs": 0})
+        say(traceback.format_exc())
     passed = sum(r["ok"] for r in results)
     report = {"passed": passed, "failed": len(results) - passed, "results": results, "screenshots": shots}
     with open(os.path.join(OUT, "report.json"), "w") as fh:

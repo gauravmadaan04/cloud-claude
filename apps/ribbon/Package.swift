@@ -6,7 +6,8 @@ let package = Package(
     platforms: [.macOS(.v13)],
     products: [
         .executable(name: "Ribbon", targets: ["RibbonApp"]),
-        .executable(name: "ribbon", targets: ["RibbonCLI"]),
+        // Named ribbon-cli so it never collides with "Ribbon" on case-insensitive disks; installed as `ribbon`.
+        .executable(name: "ribbon-cli", targets: ["RibbonCLI"]),
         .executable(name: "RibbonFixture", targets: ["RibbonFixture"]),
     ],
     dependencies: [

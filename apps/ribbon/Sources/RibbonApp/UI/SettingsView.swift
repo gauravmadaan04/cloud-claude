@@ -621,7 +621,7 @@ struct AutomationPane: View {
     }
 
     private func installCLI() {
-        let src = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/ribbon").path
+        let src = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/ribbon").path
         guard FileManager.default.fileExists(atPath: src) else { message = "The tool isn't inside this copy of Ribbon."; return }
         let script = "do shell script \"mkdir -p /usr/local/bin && ln -sf '\(src)' /usr/local/bin/ribbon\" with administrator privileges"
         var err: NSDictionary?
