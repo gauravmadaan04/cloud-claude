@@ -1,0 +1,46 @@
+name: Ribbon macOS app
+
+on:
+  push:
+    branches: ['claude/ribbon-mac-wm']
+    paths: ['apps/ribbon/**', '.github/workflows/ribbon.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ribbon-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ribbon
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe the runner
+        run: |
+          set -x
+          sw_vers; uname -m; xcodebuild -version; swift --version
+          csrutil status || true
+          system_profiler SPDisplaysDataType | grep -iE "resolution|display|main" || true
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" ".schema access" || true
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "select service, client, client_type, auth_value from access" || true
+          sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "select service, client, auth_value from access" || true
+          who; ps aux | grep -iE "loginwindow|Finder|Dock|WindowServer" | grep -v grep | head
+          screencapture -x /tmp/probe.png && ls -la /tmp/probe.png || echo "screencapture failed"
+          defaults read com.apple.AppleMultitouchTrackpad 2>/dev/null | head -20 || true
+      - name: Build
+        run: |
+          time swift build -c release --arch arm64 --arch x86_64 2>&1 | tail -20
+          ls -la .build/apple/Products/Release/ || true
+      - name: Unit tests
+        run: swift test 2>&1 | tail -5
