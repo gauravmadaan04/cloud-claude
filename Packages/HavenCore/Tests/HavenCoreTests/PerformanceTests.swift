@@ -95,6 +95,12 @@ final class PerformanceTests: XCTestCase {
         for order in FileSortOrder.allCases {
             _ = time("sort \(order.rawValue)") { order.sorted(items) }
         }
+        let sorted = FileSortOrder.dateNewest.sorted(items)
+        let dir = sorted[100].parentPath
+        let listing = sorted.filter { $0.parentPath == dir }
+        let merged = time("live update: merge one folder", repeat: 3) { IndexMerge.apply(base: sorted, listed: [dir: listing]) }
+        XCTAssertEqual(merged.count, sorted.count)
+        _ = time("forget 3 files", repeat: 3) { IndexMerge.removing(Set(sorted.prefix(3).map(\.path)), from: sorted) }
         let data = try time("JSON encode") { try JSONEncoder().encode(IndexSnapshot(rootPaths: ["/Users/me"], items: items)) }
         if Self.bench { print("BENCH JSON size \(data.count / 1024) KB") }
         let back = try time("JSON decode") { try JSONDecoder().decode(IndexSnapshot.self, from: data) }

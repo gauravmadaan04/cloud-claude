@@ -242,7 +242,8 @@ final class ScannerAndFormatTests: XCTestCase {
         XCTAssertTrue(items.allSatisfy { $0.rootID == "test" })
 
         let listing = FileScanner.list(directory: root.path, rootID: "test")
-        XCTAssertEqual(Set(listing.map(\.name)), ["node_modules", "Photos", "Screenshot 2026-01-01 at 10.00.00.png", "notes.md"])
+        // Live updates list folders the same way the full scan does: no node_modules.
+        XCTAssertEqual(Set(listing.map(\.name)), ["Photos", "Screenshot 2026-01-01 at 10.00.00.png", "notes.md"])
     }
 
     func testStandardRoots() {

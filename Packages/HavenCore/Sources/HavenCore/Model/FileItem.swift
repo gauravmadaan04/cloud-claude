@@ -1,7 +1,8 @@
 import Foundation
 
-/// One file or folder Haven knows about. Value type, cheap to copy, safe to pass between threads.
-public struct FileItem: Identifiable, Hashable, Codable, Sendable {
+/// One file or folder Haven knows about. Immutable and shared: big lists hold references, so sorting,
+/// filtering and passing 300,000 of them around copies pointers instead of whole records.
+public final class FileItem: Identifiable, Hashable, Codable, Sendable {
     public var id: String { path }
 
     public let path: String
@@ -10,7 +11,7 @@ public struct FileItem: Identifiable, Hashable, Codable, Sendable {
     public let ext: String
     public let kind: FileKind
     /// Logical size in bytes (for apps: the bundle size once measured, else 0).
-    public var size: Int64
+    public let size: Int64
     public let created: Date
     public let modified: Date
     /// When the file arrived in its folder (download time for Downloads).
@@ -158,20 +159,38 @@ public struct FileItem: Identifiable, Hashable, Codable, Sendable {
 
     /// Returns a copy with a different size (used when app bundle sizes are measured later).
     public func withSize(_ newSize: Int64) -> FileItem {
-        var copy = self
-        copy.size = newSize
-        return copy
+        FileItem(stored: path, name: name, ext: ext, kind: kind, size: newSize, created: created, modified: modified,
+                 added: added, lastOpened: lastOpened, rootID: rootID, tags: tags, whereFroms: whereFroms,
+                 quarantineAgent: quarantineAgent, isScreenshot: isScreenshot, isCloudOnly: isCloudOnly, source: source,
+                 searchName: searchName, searchParent: searchParent)
     }
-}
 
-extension FileItem {
+    // MARK: Equality (by value, like the struct it used to be)
+
+    public static func == (a: FileItem, b: FileItem) -> Bool {
+        if a === b { return true }
+        return a.path == b.path && a.name == b.name && a.ext == b.ext && a.kind == b.kind && a.size == b.size
+            && a.created == b.created && a.modified == b.modified && a.added == b.added && a.lastOpened == b.lastOpened
+            && a.rootID == b.rootID && a.tags == b.tags && a.whereFroms == b.whereFroms
+            && a.quarantineAgent == b.quarantineAgent && a.isScreenshot == b.isScreenshot && a.isCloudOnly == b.isCloudOnly
+            && a.source == b.source && a.searchName == b.searchName && a.searchParent == b.searchParent
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(path)
+        hasher.combine(modified)
+        hasher.combine(size)
+    }
+
+    // MARK: Codable
+
     enum CodingKeys: String, CodingKey {
         case path, name, ext, kind, size, created, modified, added, lastOpened, rootID, tags, whereFroms, quarantineAgent
         case isScreenshot, isCloudOnly, source, searchName, searchParent
     }
 
     /// Reads items saved by any version (older ones had no `searchParent`).
-    public init(from decoder: Decoder) throws {
+    public required init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         path = try c.decode(String.self, forKey: .path)
         name = try c.decode(String.self, forKey: .name)
@@ -192,6 +211,28 @@ extension FileItem {
         searchName = try c.decodeIfPresent(String.self, forKey: .searchName) ?? FileItem.fold(name)
         searchParent = try c.decodeIfPresent(String.self, forKey: .searchParent)
             ?? FileItem.fold(FileItem.lastComponent(FileItem.parent(of: path)))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(path, forKey: .path)
+        try c.encode(name, forKey: .name)
+        try c.encode(ext, forKey: .ext)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(size, forKey: .size)
+        try c.encode(created, forKey: .created)
+        try c.encode(modified, forKey: .modified)
+        try c.encodeIfPresent(added, forKey: .added)
+        try c.encodeIfPresent(lastOpened, forKey: .lastOpened)
+        try c.encode(rootID, forKey: .rootID)
+        try c.encode(tags, forKey: .tags)
+        try c.encode(whereFroms, forKey: .whereFroms)
+        try c.encodeIfPresent(quarantineAgent, forKey: .quarantineAgent)
+        try c.encode(isScreenshot, forKey: .isScreenshot)
+        try c.encode(isCloudOnly, forKey: .isCloudOnly)
+        try c.encodeIfPresent(source, forKey: .source)
+        try c.encode(searchName, forKey: .searchName)
+        try c.encode(searchParent, forKey: .searchParent)
     }
 }
 

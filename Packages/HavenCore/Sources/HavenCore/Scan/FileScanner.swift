@@ -81,6 +81,7 @@ public enum FileScanner {
             return []
         }
         let rootDepth = rootURL.standardizedFileURL.pathComponents.count
+        var parentNames: [String: String] = [:]
         while let obj = en.nextObject() {
             if cancelled() { break }
             guard let url = obj as? URL else { continue }
@@ -100,13 +101,13 @@ public enum FileScanner {
             if isPackage && KindClassifier.ignoredPackageExtensions.contains(ext) { continue }
             if root.appsOnly {
                 if ext == "app" {
-                    if let item = makeItem(url: url, values: values, rootID: root.id, options: options) { out.append(item) }
+                    if let item = makeItem(url: url, values: values, rootID: root.id, options: options, parentNames: &parentNames) { out.append(item) }
                 } else if isDir && depth >= 2 {
                     en.skipDescendants()
                 }
                 continue
             }
-            if let item = makeItem(url: url, values: values, rootID: root.id, options: options) {
+            if let item = makeItem(url: url, values: values, rootID: root.id, options: options, parentNames: &parentNames) {
                 out.append(item)
                 if out.count % 2_000 == 0 { progress?(out.count) }
                 if out.count >= options.maxItems { break }
@@ -120,23 +121,34 @@ public enum FileScanner {
     public static func item(at url: URL, rootID: String, options: ScanOptions = ScanOptions()) -> FileItem? {
         let values = try? url.resourceValues(forKeys: Set(resourceKeys))
         if values?.isSymbolicLink == true { return nil }
-        return makeItem(url: url, values: values, rootID: rootID, options: options)
+        var names: [String: String] = [:]
+        return makeItem(url: url, values: values, rootID: rootID, options: options, parentNames: &names)
     }
 
-    /// Direct children of a folder, hidden files skipped.
+    /// Direct children of a folder, skipping hidden files and the same folders a full scan skips.
     public static func list(directory: String, rootID: String, options: ScanOptions = ScanOptions()) -> [FileItem] {
         let url = URL(fileURLWithPath: directory, isDirectory: true)
         guard let urls = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: resourceKeys, options: [.skipsHiddenFiles]) else {
             return []
         }
+        var names: [String: String] = [:]
         return urls.compactMap { child in
             let ext = child.pathExtension.lowercased()
             if KindClassifier.ignoredPackageExtensions.contains(ext) { return nil }
-            return item(at: child, rootID: rootID, options: options)
+            let values = try? child.resourceValues(forKeys: Set(resourceKeys))
+            if values?.isSymbolicLink == true { return nil }
+            if values?.isDirectory == true, values?.isPackage != true, isSkipped(folderNamed: child.lastPathComponent, options) { return nil }
+            return makeItem(url: child, values: values, rootID: rootID, options: options, parentNames: &names)
         }
     }
 
-    static func makeItem(url: URL, values: URLResourceValues?, rootID: String, options: ScanOptions) -> FileItem? {
+    /// Folders Haven never looks inside (and doesn't list): node_modules, .git, caches, *.noindex…
+    public static func isSkipped(folderNamed name: String, _ options: ScanOptions) -> Bool {
+        options.skipFolderNames.contains(name) || name.hasSuffix(".noindex")
+    }
+
+    static func makeItem(url: URL, values: URLResourceValues?, rootID: String, options: ScanOptions,
+                         parentNames: inout [String: String]) -> FileItem? {
         let path = url.path
         let isDir = values?.isDirectory ?? false
         let isPackage = values?.isPackage ?? false
@@ -179,10 +191,20 @@ public enum FileScanner {
         if !screenshot && (kind == .image || kind == .video) {
             screenshot = looksLikeScreenshotName(url.lastPathComponent)
         }
+        // Files in one folder share its folded name; work it out once per folder.
+        let parent = FileItem.parent(of: path)
+        let parentName: String
+        if let known = parentNames[parent] {
+            parentName = known
+        } else {
+            parentName = FileItem.fold(FileItem.lastComponent(parent))
+            if parentNames.count > 4_096 { parentNames.removeAll(keepingCapacity: true) }
+            parentNames[parent] = parentName
+        }
         return FileItem(
             path: path, name: url.lastPathComponent, kind: kind, size: size, created: created, modified: modified,
             added: added, lastOpened: lastOpened, rootID: rootID, tags: tags, whereFroms: whereFroms,
-            quarantineAgent: agent, isScreenshot: screenshot, isCloudOnly: cloudOnly
+            quarantineAgent: agent, isScreenshot: screenshot, isCloudOnly: cloudOnly, searchParent: parentName
         )
     }
 
