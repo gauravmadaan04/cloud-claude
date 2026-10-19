@@ -167,17 +167,18 @@ struct FileTypeTile: View {
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(tint)
                 }
+                // Bottom right: the bottom left corner is where cards show where a file came from.
                 if !compact && !item.ext.isEmpty && item.kind != .folder {
                     VStack {
                         Spacer()
                         HStack {
+                            Spacer()
                             Text(item.ext.uppercased())
                                 .font(.system(size: max(8, s * 0.075), weight: .bold, design: .rounded))
                                 .foregroundStyle(tint)
                                 .padding(.horizontal, s * 0.05)
                                 .padding(.vertical, s * 0.018)
                                 .background(.white.opacity(0.85), in: Capsule())
-                            Spacer()
                         }
                     }
                     .padding(s * 0.07)
