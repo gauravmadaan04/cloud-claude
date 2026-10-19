@@ -16,13 +16,8 @@ struct FileCollectionView<Header: View>: View {
     @Bindable private var model = AppModel.shared
     @Environment(\.theme) private var theme
     @FocusState private var focused: Bool
-    /// Where a ⇧-click or ⇧-arrow selection starts, and where it currently ends.
-    @State private var anchorID: String?
-    @State private var leadID: String?
     @State private var columns = 4
     @State private var presentSources: [SourceCount] = []
-    @State private var typed = ""
-    @State private var typedAt = Date.distantPast
 
     private var prefs: Prefs { .shared }
 
@@ -72,7 +67,14 @@ struct FileCollectionView<Header: View>: View {
                         if dir == .left { model.stepPreview(-1) } else if dir == .right { model.stepPreview(1) }
                         return
                     }
-                    move(dir, in: list, proxy: proxy)
+                    // Usually the shortcut router gets arrows first; this covers anything it lets through.
+                    switch dir {
+                    case .left: model.moveSelection(.left, extend: false)
+                    case .right: model.moveSelection(.right, extend: false)
+                    case .up: model.moveSelection(.up, extend: false)
+                    case .down: model.moveSelection(.down, extend: false)
+                    @unknown default: break
+                    }
                 }
                 .onKeyPress(.space) {
                     if model.isPreviewing { model.closePreview() } else { model.toggleQuickLook() }
@@ -88,9 +90,6 @@ struct FileCollectionView<Header: View>: View {
                     if press.characters == "-" { model.smaller() } else { model.bigger() }
                     return .handled
                 }
-                .onKeyPress(characters: .alphanumerics.union(.punctuationCharacters)) { press in
-                    typeToSelect(press, in: list, proxy: proxy)
-                }
                 .onCopyCommand {
                     model.selectedItems.map { NSItemProvider(object: $0.url as NSURL) }
                 }
@@ -99,35 +98,40 @@ struct FileCollectionView<Header: View>: View {
                 }
                 .onChange(of: geo.size.width, initial: true) { _, w in
                     columns = Self.columnCount(width: w, card: prefs.cardSize)
+                    model.gridColumns = columns
                 }
                 .onChange(of: prefs.cardSize) { _, size in
                     columns = Self.columnCount(width: geo.size.width, card: size)
+                    model.gridColumns = columns
                 }
                 .onChange(of: model.revealRequest) { _, _ in
-                    guard let id = model.selectedIDs.first else { return }
-                    anchorID = id
-                    leadID = id
+                    guard let target = model.scrollTarget else { return }
                     focused = true
-                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id, anchor: .center) }
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        proxy.scrollTo(target.id, anchor: target.centered ? .center : nil)
+                    }
                 }
             }
         }
         .background(theme.canvas)
+        .onAppear {
+            model.fileListsOnScreen += 1
+            // Like Finder: the files take the keyboard when a page opens (not while you type a search).
+            if !model.isSearching && !model.searchFieldFocused { focused = true }
+        }
+        .onDisappear { model.fileListsOnScreen -= 1 }
         .onChange(of: listID, initial: true) { _, _ in
             model.setVisible(shown)
             refreshSources()
-            if let reveal = model.selectedIDs.first, model.pendingReveal == nil {
-                anchorID = reveal
-                leadID = reveal
-            }
+            model.gridColumns = columns
         }
         .onChange(of: model.sourceFilter) { _, _ in model.setVisible(shown) }
         .onChange(of: model.focusResultsRequest) { _, _ in
             focused = true
             if model.selectedIDs.isEmpty, let first = shown.first {
                 model.selectedIDs = [first.id]
-                anchorID = first.id
-                leadID = first.id
+                model.selectionAnchor = first.id
+                model.selectionLead = first.id
             }
         }
     }
@@ -237,75 +241,19 @@ struct FileCollectionView<Header: View>: View {
         }
         if mods.contains(.command) {
             if model.selectedIDs.contains(item.id) { model.selectedIDs.remove(item.id) } else { model.selectedIDs.insert(item.id) }
-            anchorID = item.id
-            leadID = item.id
-        } else if mods.contains(.shift), let anchor = anchorID,
+            model.selectionAnchor = item.id
+            model.selectionLead = item.id
+        } else if mods.contains(.shift), let anchor = model.selectionAnchor,
                   let a = list.firstIndex(where: { $0.id == anchor }), let b = list.firstIndex(where: { $0.id == item.id }) {
             let range = a <= b ? a...b : b...a
             model.selectedIDs = Set(list[range].map(\.id))
-            leadID = item.id
+            model.selectionLead = item.id
         } else {
             if !model.selectedIDs.contains(item.id) { model.selectedIDs = [item.id] }
-            anchorID = item.id
-            leadID = item.id
+            model.selectionAnchor = item.id
+            model.selectionLead = item.id
         }
         if model.quickLookURL != nil { model.quickLookURL = item.url }
-    }
-
-    /// Arrow keys move the selection; with ⇧ they grow or shrink it from where it started.
-    private func move(_ dir: MoveCommandDirection, in list: [FileItem], proxy: ScrollViewProxy) {
-        guard !list.isEmpty else { return }
-        let isGrid = prefs.viewMode == .grid
-        let step: Int
-        switch dir {
-        case .left: step = isGrid ? -1 : 0
-        case .right: step = isGrid ? 1 : 0
-        case .up: step = isGrid ? -columns : -1
-        case .down: step = isGrid ? columns : 1
-        @unknown default: step = 0
-        }
-        guard step != 0 else { return }
-        let extend = NSEvent.modifierFlags.contains(.shift)
-        let from = (leadID ?? anchorID).flatMap { id in list.firstIndex { $0.id == id } }
-            ?? list.firstIndex { model.selectedIDs.contains($0.id) }
-        let next = from.map { max(0, min(list.count - 1, $0 + step)) } ?? 0
-        let target = list[next]
-        if extend, let anchor = anchorID, let a = list.firstIndex(where: { $0.id == anchor }) {
-            let range = a <= next ? a...next : next...a
-            model.selectedIDs = Set(list[range].map(\.id))
-        } else {
-            model.selectedIDs = [target.id]
-            anchorID = target.id
-        }
-        leadID = target.id
-        withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(target.id) }
-        if model.quickLookURL != nil { model.quickLookURL = target.url }
-    }
-
-    /// Typing the start of a name jumps to the first file that begins with it, like Finder.
-    private func typeToSelect(_ press: KeyPress, in list: [FileItem], proxy: ScrollViewProxy) -> KeyPress.Result {
-        guard press.modifiers.subtracting(.shift).isEmpty, !press.characters.isEmpty, !list.isEmpty else { return .ignored }
-        let now = Date()
-        typed = now.timeIntervalSince(typedAt) > 1.0 ? press.characters : typed + press.characters
-        typedAt = now
-        // One pass: of the names that start with what was typed, the first in name order.
-        let prefix = Array(FileItem.fold(typed).utf8)
-        var best: FileItem?
-        var bestKey: [UInt8] = []
-        for item in list where TextMatch.starts(with: prefix, item.searchName) {
-            let key = NaturalOrder.key(item.searchName)
-            if best == nil || NaturalOrder.compare(key, bestKey) < 0 {
-                best = item
-                bestKey = key
-            }
-        }
-        guard let hit = best else { return .handled }
-        model.selectedIDs = [hit.id]
-        anchorID = hit.id
-        leadID = hit.id
-        withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(hit.id, anchor: .center) }
-        if model.quickLookURL != nil { model.quickLookURL = hit.url }
-        return .handled
     }
 }
 

@@ -219,8 +219,10 @@ final class AppModel {
         if let url = quickLookURL { quickLookURLs = Self.window(around: url, in: items) }
         if let path = pendingReveal, !Self.present([path], in: items).isEmpty {
             selectedIDs = [path]
+            selectionAnchor = path
+            selectionLead = path
             pendingReveal = nil
-            revealRequest += 1
+            reveal(path, centered: true)
             return
         }
         guard !selectedIDs.isEmpty else { return }
@@ -352,7 +354,9 @@ final class AppModel {
             // Already there: select it right away (a pending reveal would never be used).
             pendingReveal = nil
             selectedIDs = [item.id]
-            revealRequest += 1
+            selectionAnchor = item.id
+            selectionLead = item.id
+            reveal(item.id, centered: true)
         } else {
             navigate(to: folder)
             pendingReveal = item.path
@@ -416,6 +420,90 @@ final class AppModel {
         // The large preview steps over what's gone.
         if !previewContext.isEmpty { previewContext.removeAll { ids.contains($0.id) } }
         if let p = previewItem, ids.contains(p.id) { previewItem = nil }
+    }
+
+    @ObservationIgnored private var typedName = ""
+    @ObservationIgnored private var typedAt = Date.distantPast
+    /// Where a ⇧-click or ⇧-arrow selection starts, and the file at its moving end.
+    @ObservationIgnored var selectionAnchor: String?
+    @ObservationIgnored var selectionLead: String?
+    /// Columns in the grid on screen (for ↑/↓).
+    @ObservationIgnored var gridColumns = 1
+    /// How many file grids/lists are on screen (browser keys only act on those pages).
+    @ObservationIgnored var fileListsOnScreen = 0
+    /// The file the list should scroll to on the next `revealRequest`.
+    @ObservationIgnored private(set) var scrollTarget: (id: String, centered: Bool)?
+
+    enum MoveDirection { case left, right, up, down }
+
+    /// Scrolls the list on screen to a file (centred for jumps, just into view for arrow keys).
+    func reveal(_ id: String, centered: Bool) {
+        scrollTarget = (id, centered)
+        revealRequest += 1
+    }
+
+    private func index(of id: String?, in list: [FileItem]) -> Int? {
+        guard let id else { return nil }
+        let length = id.utf8.count
+        return list.firstIndex { $0.path.utf8.count == length && $0.path == id }
+    }
+
+    /// Arrow keys: move the selection; with ⇧ grow or shrink it from where it started.
+    @discardableResult
+    func moveSelection(_ direction: MoveDirection, extend: Bool) -> Bool {
+        let list = visibleItems
+        guard !list.isEmpty, !isPreviewing else { return false }
+        let isGrid = Prefs.shared.viewMode == .grid
+        let step: Int
+        switch direction {
+        case .left: step = isGrid ? -1 : 0
+        case .right: step = isGrid ? 1 : 0
+        case .up: step = isGrid ? -max(1, gridColumns) : -1
+        case .down: step = isGrid ? max(1, gridColumns) : 1
+        }
+        guard step != 0 else { return false }
+        let from = index(of: selectionLead, in: list) ?? index(of: selectionAnchor, in: list)
+            ?? list.firstIndex { selectedIDs.contains($0.id) }
+        let next = from.map { max(0, min(list.count - 1, $0 + step)) } ?? 0
+        let target = list[next]
+        if extend, let a = index(of: selectionAnchor, in: list) {
+            let range = a <= next ? a...next : next...a
+            selectedIDs = Set(list[range].map(\.id))
+        } else {
+            selectedIDs = [target.id]
+            selectionAnchor = target.id
+        }
+        selectionLead = target.id
+        reveal(target.id, centered: false)
+        if quickLookURL != nil { quickLookURL = target.url }
+        return true
+    }
+
+    /// Typing the start of a name selects the first file (in name order) that begins with it, like Finder.
+    /// Keys typed within a second of each other add up ("inv" → invoice.pdf).
+    @discardableResult
+    func typeAhead(_ characters: String) -> Bool {
+        guard !visibleItems.isEmpty, !isPreviewing, !characters.isEmpty else { return false }
+        let now = Date()
+        typedName = now.timeIntervalSince(typedAt) > 1 ? characters : typedName + characters
+        typedAt = now
+        let prefix = Array(FileItem.fold(typedName).utf8)
+        var best: FileItem?
+        var bestKey: [UInt8] = []
+        for item in visibleItems where TextMatch.starts(with: prefix, item.searchName) {
+            let key = NaturalOrder.key(item.searchName)
+            if best == nil || NaturalOrder.compare(key, bestKey) < 0 {
+                best = item
+                bestKey = key
+            }
+        }
+        guard let hit = best else { return true }
+        selectedIDs = [hit.id]
+        selectionAnchor = hit.id
+        selectionLead = hit.id
+        reveal(hit.id, centered: true)
+        if quickLookURL != nil { quickLookURL = hit.url }
+        return true
     }
 
     /// ⌘↑: the folder that contains the one on screen (up to the top of an indexed folder).

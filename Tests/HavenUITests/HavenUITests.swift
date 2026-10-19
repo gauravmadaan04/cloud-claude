@@ -399,4 +399,79 @@ final class HavenUITests: XCTestCase {
         snap("57-dark-home-minimal")
         app.typeKey("t", modifierFlags: [.command, .control])
     }
+
+    /// Finder's everyday keys work in the file browser (and leave text fields alone).
+    func test07_StandardShortcuts() throws {
+        launch(onboarding: false)
+        requireHome("shortcuts")
+
+        // ⌘A selects every file on the page.
+        el("sidebar.category.images").click()
+        waitFor(file("Goa Beach.jpg"), 15)
+        file("Goa Beach.jpg").click()
+        app.typeKey("a", modifierFlags: .command)
+        let summary = el("results.count")
+        expectation(for: NSPredicate(format: "value CONTAINS ' selected'"), evaluatedWith: summary)
+        waitForExpectations(timeout: 5)
+        let text = summary.value as? String ?? ""
+        let total = String(text.prefix { $0.isNumber || $0 == "," })
+        XCTAssertTrue(text.contains(" \(total) selected"), "⌘A should select all \(total) files: \(text)")
+        snap("60-select-all")
+
+        // ⇧→ grows the selection from a single file.
+        file("Goa Beach.jpg").click()
+        app.typeKey(.rightArrow, modifierFlags: .shift)
+        app.typeKey(.rightArrow, modifierFlags: .shift)
+        let three = NSPredicate(format: "value CONTAINS ' 3 selected'")
+        expectation(for: three, evaluatedWith: summary)
+        waitForExpectations(timeout: 5)
+
+        // ⌘C puts the file itself on the clipboard.
+        file("Goa Beach.jpg").click()
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: .command)
+        sleep(1)
+        let copied = NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] ?? []
+        XCTAssertEqual(copied.map(\.lastPathComponent), ["Goa Beach.jpg"], "⌘C should copy the selected file")
+
+        // ⌘V in a folder pastes a copy, never replacing anything.
+        let downloads = Self.fixtureRoot + "/Downloads"
+        func beachCopies() -> [String] {
+            ((try? FileManager.default.contentsOfDirectory(atPath: downloads)) ?? []).filter { $0.hasPrefix("Goa Beach") }.sorted()
+        }
+        let before = beachCopies()
+        app.typeKey("l", modifierFlags: [.command, .option])
+        waitFor(file("Zoom-6.2.pkg"), 15)
+        app.typeKey("v", modifierFlags: .command)
+        waitFor(file("Goa Beach.jpg"), 15, "The pasted copy should show up in Downloads")
+        app.typeKey("v", modifierFlags: .command)
+        sleep(2)
+        let after = beachCopies()
+        XCTAssertEqual(after.count, before.count + 2, "Two pastes, two new copies: \(after)")
+        XCTAssertTrue(Set(before).isSubset(of: Set(after)), "Nothing that was there is replaced")
+        snap("61-pasted")
+
+        // Typing a name jumps to it.
+        app.typeKey("z", modifierFlags: [])
+        app.typeKey("o", modifierFlags: [])
+        let zoom = NSPredicate(format: "value CONTAINS ' 1 selected'")
+        expectation(for: zoom, evaluatedWith: summary)
+        waitForExpectations(timeout: 5)
+        XCTAssertTrue(file("Zoom-6.2.pkg").isSelected, "Typing “zo” should select Zoom-6.2.pkg")
+
+        // ⌘↓ opens a folder in Haven, ⌘↑ goes back up to the folder around it.
+        app.typeKey("h", modifierFlags: [])
+        app.typeKey("o", modifierFlags: [])
+        app.typeKey("l", modifierFlags: [])
+        app.typeKey(.downArrow, modifierFlags: .command)
+        waitFor(file("beach-day.jpg"), 10, "⌘↓ should open the holiday-photos folder")
+        app.typeKey(.upArrow, modifierFlags: .command)
+        waitFor(file("Zoom-6.2.pkg"), 10, "⌘↑ should go back to Downloads")
+
+        // In the search field the same keys edit text instead.
+        search("invoice")
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey(.delete, modifierFlags: [])
+        XCTAssertEqual(app.textFields["search.field"].value as? String ?? "", "", "⌘A in the search field selects its text")
+    }
 }

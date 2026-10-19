@@ -23,6 +23,8 @@ final class ShortcutRouter {
         guard let window = event.window, window === AppModel.mainWindow, window.isKeyWindow,
               window.attachedSheet == nil, NSApp.modalWindow == nil, !model.showOnboarding else { return false }
         if Self.isEditingText(window) { return false }
+        // Browser keys belong to pages that show a grid or list of files.
+        let browsing = model.fileListsOnScreen > 0
 
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
@@ -43,11 +45,21 @@ final class ShortcutRouter {
         if mods == .command && code == 126 { // ⌘↑
             return model.goToEnclosingFolder()
         }
+        // Arrows (⇧ to extend) move through the files, unless the sidebar has the keyboard.
+        if browsing, mods.subtracting(.shift).isEmpty, let direction = Self.direction(code),
+           !(window.firstResponder is NSTableView) {
+            return model.moveSelection(direction, extend: mods.contains(.shift))
+        }
+        // Letters, digits and punctuation without ⌘/⌃/⌥: jump to a file by name.
+        if browsing, mods.subtracting(.shift).isEmpty, let chars = event.characters, let scalar = chars.unicodeScalars.first,
+           CharacterSet.alphanumerics.union(.punctuationCharacters).union(.symbols).contains(scalar) {
+            return model.typeAhead(chars)
+        }
 
         guard mods == [.command] else { return false }
         switch key {
         case "a":
-            guard !model.visibleItems.isEmpty else { return false }
+            guard browsing, !model.visibleItems.isEmpty else { return false }
             model.selectAll()
             return true
         case "c":
@@ -66,10 +78,22 @@ final class ShortcutRouter {
         }
     }
 
-    /// A text field or text view has the keyboard.
+    static func direction(_ keyCode: UInt16) -> AppModel.MoveDirection? {
+        switch keyCode {
+        case 123: return .left
+        case 124: return .right
+        case 125: return .down
+        case 126: return .up
+        default: return nil
+        }
+    }
+
+    /// A text field has the keyboard, or some read-only text is selected (so ⌘C copies that text).
     static func isEditingText(_ window: NSWindow) -> Bool {
         guard let responder = window.firstResponder else { return false }
-        if let text = responder as? NSTextView { return text.isEditable || text.isFieldEditor }
+        if let text = responder as? NSTextView {
+            return text.isEditable || text.isFieldEditor || text.selectedRange().length > 0
+        }
         return responder is NSTextField
     }
 }
