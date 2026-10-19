@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ribbon: install guide</title>
+<style>
+  :root {
+    --bg: #f7f6fc; --card: #ffffff; --text: #1d1d24; --muted: #5f5d70; --accent: #6f45c8; --accent-soft: #efe9fb;
+    --line: #e4e1ef; --kbd: #f1eff7; --warn: #a55a00; --warn-soft: #fff4e5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16151c; --card: #201f28; --text: #ecebf3; --muted: #a9a6ba; --accent: #b294f5; --accent-soft: #2c2540;
+            --line: #33313f; --kbd: #2b2936; --warn: #ffb35c; --warn-soft: #3a2a14; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 48px 20px 80px; }
+  header { display: flex; gap: 18px; align-items: center; margin-bottom: 8px; }
+  .logo { width: 64px; height: 64px; border-radius: 15px; background: linear-gradient(135deg, #33429e, #784ac7 60%, #ed6990); position: relative; flex: none; box-shadow: 0 6px 18px rgba(80,50,160,.3); }
+  .logo i { position: absolute; top: 20px; height: 24px; border-radius: 4px; background: rgba(255,255,255,.4); }
+  .logo i:nth-child(1) { left: 6px; width: 14px; } .logo i:nth-child(2) { left: 22px; width: 20px; background: #fff; } .logo i:nth-child(3) { left: 44px; width: 14px; }
+  h1 { font-size: 34px; margin: 0; letter-spacing: -.02em; }
+  .lede { color: var(--muted); font-size: 18px; margin: 4px 0 32px; }
+  h2 { font-size: 22px; margin: 44px 0 14px; letter-spacing: -.01em; }
+  .steps { counter-reset: s; display: grid; gap: 14px; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 18px 64px; position: relative; }
+  .step::before { counter-increment: s; content: counter(s); position: absolute; left: 18px; top: 18px; width: 30px; height: 30px; border-radius: 50%;
+                  background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; }
+  .step h3 { margin: 2px 0 6px; font-size: 17px; }
+  .step p { margin: 6px 0; color: var(--muted); }
+  .note { background: var(--warn-soft); color: var(--text); border-radius: 12px; padding: 14px 16px; margin: 12px 0; border-left: 4px solid var(--warn); }
+  .note b { color: var(--warn); }
+  code, pre { font: 14px ui-monospace, "SF Mono", Menlo, monospace; }
+  pre { background: var(--kbd); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 8px 0; user-select: all; }
+  kbd { font: 600 13px -apple-system, sans-serif; background: var(--kbd); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--accent-soft); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  td:last-child { white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: var(--muted); }
+  .five { display: grid; gap: 10px; }
+  .five div { display: flex; justify-content: space-between; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  ul { padding-left: 20px; } li { margin: 6px 0; }
+  footer { color: var(--muted); font-size: 14px; margin-top: 50px; }
+  @media (max-width: 560px) { td:last-child { white-space: normal; } .step { padding-left: 56px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div>
+      <h1>Welcome to Ribbon</h1>
+    </div>
+  </header>
+  <p class="lede">A scrolling window manager for your Mac. Every window is a column on one long strip that runs past the edges of the screen, so opening a window never squeezes the others.</p>
+
+  <h2>Install in three steps</h2>
+  <div class="steps">
+    <div class="step">
+      <h3>Drag Ribbon into Applications</h3>
+      <p>In the window this guide came from, drag the <b>Ribbon</b> icon onto the <b>Applications</b> folder. Then eject the “Ribbon” disk.</p>
+    </div>
+    <div class="step">
+      <h3>Open it the first time</h3>
+      <p>Open <b>Applications</b> and double-click <b>Ribbon</b>. This is a private build that isn't notarised by Apple, so the first time macOS shows a warning that it “could not verify” Ribbon. That's expected. Click <b>Done</b>, then:</p>
+      <p>1. Open <b>System Settings → Privacy &amp; Security</b>.<br>
+         2. Scroll down to the line “Ribbon was blocked…” and click <b>Open Anyway</b>.<br>
+         3. Enter your password and click <b>Open Anyway</b> again.</p>
+      <p>You only do this once. Prefer Terminal? This one line does the same:</p>
+      <pre>xattr -dr com.apple.quarantine /Applications/Ribbon.app &amp;&amp; open /Applications/Ribbon.app</pre>
+    </div>
+    <div class="step">
+      <h3>Follow the welcome tour</h3>
+      <p>Ribbon opens a short tour. It asks for <b>Accessibility</b> access (that's how any window manager moves windows), checks your Mac's settings, and lets you practise the five shortcuts you'll use most. It takes about two minutes.</p>
+    </div>
+  </div>
+
+  <div class="note"><b>Updating later?</b> After replacing Ribbon with a newer copy, macOS may keep an old Accessibility entry that no longer works. Open <b>Privacy &amp; Security → Accessibility</b>, select Ribbon, click <b>–</b>, then open Ribbon again and allow it.</div>
+
+  <h2>The five shortcuts to learn first</h2>
+  <div class="five">
+    <div><span>Focus the next window (the strip scrolls to show it)</span><span><kbd>⌃⌥→</kbd> <kbd>⌃⌥←</kbd></span></div>
+    <div><span>Move the focused window along the strip</span><span><kbd>⌃⌥⇧→</kbd> <kbd>⌃⌥⇧←</kbd></span></div>
+    <div><span>Cycle preset widths (¼, ⅓, ½, ⅔, ¾)</span><span><kbd>⌃⌥R</kbd></span></div>
+    <div><span>Stack a window under its left neighbour</span><span><kbd>⌃⌥[</kbd></span></div>
+    <div><span>Show every shortcut</span><span><kbd>⌃⌥/</kbd></span></div>
+  </div>
+  <p>⌃ is Control, ⌥ is Option, ⇧ is Shift, ⌘ is Command. Every shortcut can be changed in <b>Settings → Shortcuts</b>.</p>
+
+  <h2>All default shortcuts</h2>
+  <table>
+    <tr><th>Do this</th><th>Press</th></tr>
+    <tr><td>Focus left / down / up / right</td><td><kbd>⌃⌥H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> or <kbd>⌃⌥</kbd> + arrows</td></tr>
+    <tr><td>Focus first / last window</td><td><kbd>⌃⌥⌘←</kbd> <kbd>⌃⌥⌘→</kbd></td></tr>
+    <tr><td>Jump to window 1–9</td><td><kbd>⌃⌥1</kbd> … <kbd>⌃⌥9</kbd></td></tr>
+    <tr><td>Back to the previous window</td><td><kbd>⌃⌥⇥</kbd></td></tr>
+    <tr><td>Move window left / right (or up / down in a stack)</td><td><kbd>⌃⌥⇧</kbd> + the focus keys</td></tr>
+    <tr><td>Move window to the start / end</td><td><kbd>⌃⌥⇧⌘←</kbd> <kbd>⌃⌥⇧⌘→</kbd></td></tr>
+    <tr><td>Send window to the next / previous display</td><td><kbd>⌃⌥N</kbd> <kbd>⌃⌥⇧N</kbd></td></tr>
+    <tr><td>Cycle widths forwards / backwards</td><td><kbd>⌃⌥R</kbd> <kbd>⌃⌥⇧R</kbd></td></tr>
+    <tr><td>Full width (press again to go back)</td><td><kbd>⌃⌥F</kbd></td></tr>
+    <tr><td>Centre the window on screen</td><td><kbd>⌃⌥C</kbd></td></tr>
+    <tr><td>Wider / narrower</td><td><kbd>⌃⌥=</kbd> <kbd>⌃⌥-</kbd></td></tr>
+    <tr><td>Taller / shorter in a stack, equalise heights</td><td><kbd>⌃⌥⇧=</kbd> <kbd>⌃⌥⇧-</kbd> <kbd>⌃⌥0</kbd></td></tr>
+    <tr><td>Stack into the left / right column</td><td><kbd>⌃⌥[</kbd> <kbd>⌃⌥]</kbd></td></tr>
+    <tr><td>Pop out of a stack to the left / right</td><td><kbd>⌃⌥⇧[</kbd> <kbd>⌃⌥⇧]</kbd></td></tr>
+    <tr><td>Turn a stack into tabs (and back)</td><td><kbd>⌃⌥⇧T</kbd></td></tr>
+    <tr><td>Float / tile the window</td><td><kbd>⌃⌥T</kbd></td></tr>
+    <tr><td>Pin to the left / right edge (press again to unpin)</td><td><kbd>⌃⌥P</kbd> <kbd>⌃⌥⇧P</kbd></td></tr>
+    <tr><td>Scroll the strip without the mouse</td><td><kbd>⌃⌥,</kbd> <kbd>⌃⌥.</kbd></td></tr>
+    <tr><td>Show the strip map</td><td><kbd>⌃⌥I</kbd> or hold <kbd>⌃⌥</kbd></td></tr>
+    <tr><td>Pause / resume Ribbon</td><td><kbd>⌃⌥Q</kbd></td></tr>
+  </table>
+
+  <h2>Mouse and trackpad</h2>
+  <div class="grid">
+    <div class="card"><h3>Swipe</h3><p>Slide three fingers left or right and the strip follows, then settles on the nearest window. You can switch to four fingers in Settings.</p></div>
+    <div class="card"><h3>Scroll wheel</h3><p>Hold <kbd>⌃⌥</kbd> and scroll to move the strip with a mouse.</p></div>
+    <div class="card"><h3>Drag to reorder</h3><p>Drag a window by its title bar and drop it between two others. Drop it on another display to move it there.</p></div>
+    <div class="card"><h3>Resize</h3><p>Drag a window's edge as usual; Ribbon remembers the new width for that column.</p></div>
+    <div class="card"><h3>Strip map</h3><p>Hold <kbd>⌃⌥</kbd>: a map of the strip appears. Click a tile to jump to it, drag tiles to reorder.</p></div>
+    <div class="card"><h3>Menu bar</h3><p>The three-column icon in the menu bar has Pause, Settings, Mac Setup, the window list and the tour.</p></div>
+  </div>
+
+  <h2>If something isn't right</h2>
+  <ul>
+    <li><b>Nothing moves.</b> Check System Settings → Privacy &amp; Security → Accessibility has Ribbon switched on. If it already is, remove it with <b>–</b> and add it again.</li>
+    <li><b>Windows jump back after you move them.</b> Another window manager (Rectangle, Magnet, Moom, Amethyst…) is running, or macOS edge tiling is on. Ribbon's <b>Mac Setup</b> page finds both.</li>
+    <li><b>A swipe changes desktops instead.</b> macOS uses the same number of fingers. In System Settings → Trackpad → More Gestures, set “Swipe between full-screen applications” to four fingers (or off), or switch Ribbon to four fingers.</li>
+    <li><b>A shortcut does nothing.</b> Another app may own it; Settings → Shortcuts shows taken shortcuts in orange and lets you pick another.</li>
+    <li><b>Windows are stuck at the screen edge after quitting.</b> Ribbon brings them back when it pauses or quits. If it ever crashes, open it again and press <kbd>⌃⌥Q</kbd> twice.</li>
+  </ul>
+
+  <h2>Extras</h2>
+  <ul>
+    <li><b>URL scheme:</b> every command is a link, e.g. <code>open -g "ribbon://focus-right"</code>. Use it from Shortcuts, Keyboard Maestro or a Stream Deck.</li>
+    <li><b>Command-line tool:</b> Settings → Automation → Install. Then <code>ribbon help</code>, <code>ribbon state</code>, <code>ribbon config set innerGap 6</code>.</li>
+    <li><b>Raycast:</b> Settings → Automation → Export Raycast Commands, then add the folder in Raycast.</li>
+    <li><b>Privacy:</b> no account, no telemetry, no network. Ribbon only moves windows and never reads what's on screen.</li>
+  </ul>
+
+  <h2>Uninstall</h2>
+  <p>Quit Ribbon from its menu bar icon, drag it from Applications to the Bin, and remove it from Privacy &amp; Security → Accessibility. Settings live in <code>~/Library/Preferences/in.thegent.ribbon.plist</code> and layouts in <code>~/Library/Application Support/Ribbon</code>.</p>
+
+  <footer>Ribbon 1.0 · requires macOS 13 Ventura or later · runs natively on Apple silicon and Intel Macs.</footer>
+</main>
+</body>
+</html>

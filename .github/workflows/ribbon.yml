@@ -14,33 +14,54 @@ permissions:
   contents: write
 
 jobs:
-  probe:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-15, macos-26]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 40
     defaults:
       run:
+        shell: bash
         working-directory: apps/ribbon
     steps:
       - uses: actions/checkout@v4
-      - name: Probe the runner
-        run: |
-          set -x
-          sw_vers; uname -m; xcodebuild -version; swift --version
-          csrutil status || true
-          system_profiler SPDisplaysDataType | grep -iE "resolution|display|main" || true
-          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" ".schema access" || true
-          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "select service, client, client_type, auth_value from access" || true
-          sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "select service, client, auth_value from access" || true
-          who; ps aux | grep -iE "loginwindow|Finder|Dock|WindowServer" | grep -v grep | head
-          screencapture -x /tmp/probe.png && ls -la /tmp/probe.png || echo "screencapture failed"
-          defaults read com.apple.AppleMultitouchTrackpad 2>/dev/null | head -20 || true
-      - name: Build
-        run: |
-          time swift build -c release --arch arm64 --arch x86_64 2>&1 | tail -20
-          ls -la .build/apple/Products/Release/ || true
+
       - name: Unit tests
-        run: swift test 2>&1 | tail -5
+        run: swift test 2>&1 | tail -25
+
+      - name: Build universal app
+        run: VERSION=1.0.0 BUILD=${{ github.run_number }} scripts/build_app.sh 2>&1 | grep -vE "^\[[0-9]+/[0-9]+\]|^[0-9]+%:" | tail -60
+
+      # Ribbon is started straight from this job's shell, so it runs with the runner's own
+      # existing Accessibility setup; the tests check and report AXIsProcessTrusted().
+      - name: End-to-end tests
+        id: e2e
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python3 e2e/run_e2e.py --app dist/Ribbon.app --fixture .build/apple/Products/Release/RibbonFixture --out dist/e2e
+
+      - name: Package DMG
+        if: always()
+        run: |
+          cp ~/Library/Logs/Ribbon/ribbon.log dist/e2e/ 2>/dev/null || true
+          VERSION=1.0.0 scripts/make_dmg.sh
+
+      - name: Publish build to the ribbon-dist branch
+        if: always()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rm -rf /tmp/pub && mkdir -p /tmp/pub
+          cp dist/*.dmg dist/*.zip /tmp/pub/ 2>/dev/null || true
+          cp -R dist/e2e /tmp/pub/e2e 2>/dev/null || true
+          cp dist/dmg-background.png /tmp/pub/ 2>/dev/null || true
+          cp dist/AppIcon.iconset/icon_512x512.png /tmp/pub/icon.png 2>/dev/null || true
+          { echo "commit: $GITHUB_SHA"; echo "run: ${{ github.run_number }}"; echo "e2e: ${{ steps.e2e.outcome }}"; sw_vers; } > /tmp/pub/BUILD_INFO.txt
+          cd /tmp/pub
+          git init -q
+          git checkout -q -b ribbon-dist
+          git add -A
+          git -c user.name="ribbon-ci" -c user.email="ribbon-ci@users.noreply.github.com" commit -qm "Ribbon build ${GITHUB_SHA::7} (run ${{ github.run_number }}, e2e ${{ steps.e2e.outcome }})"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" ribbon-dist
+
+      - name: Fail if the end-to-end tests failed
+        if: steps.e2e.outcome == 'failure'
+        run: cat dist/e2e/REPORT.md; exit 1
