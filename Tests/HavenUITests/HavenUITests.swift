@@ -98,7 +98,7 @@ final class HavenUITests: XCTestCase {
     /// the newer pieces of the window?
     func test00_SearchFocusDiagnostics() throws {
         var table: [String] = []
-        for flags in ["", "nosuggest", "plaindetail", "nosuggest,plaindetail"] {
+        for flags in ["", "oldfield", "nohome", "nobridge"] {
             launch(onboarding: false, extra: flags.isEmpty ? [] : ["-HavenDebug", flags])
             guard el("home.tile.images").waitForExistence(timeout: 60) else {
                 table.append("[\(flags)] home missing")

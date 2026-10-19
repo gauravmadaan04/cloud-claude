@@ -99,6 +99,67 @@ struct NavButtons: View {
 }
 
 struct SearchField: View {
+    var body: some View {
+        if LaunchOptions.current.debug("oldfield") {
+            LegacySearchField()
+        } else {
+            ToolbarSearchField()
+        }
+    }
+}
+
+/// The search box in the toolbar. Focus is tracked through AppKit (SwiftUI's focus state doesn't follow
+/// toolbar fields), and its look never changes with focus so the toolbar item isn't rebuilt mid-click.
+private struct ToolbarSearchField: View {
+    @Bindable private var model = AppModel.shared
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search, like “pdfs from last week”", text: $model.searchText)
+                .textFieldStyle(.plain)
+                .onSubmit { model.focusResultsRequest += 1 }
+                .onKeyPress(.downArrow) {
+                    model.focusResultsRequest += 1
+                    return .handled
+                }
+                .onExitCommand {
+                    model.searchText = ""
+                    SearchFieldBridge.shared.resign()
+                }
+                .accessibilityIdentifier("search.field")
+            if !model.searchText.isEmpty {
+                Button {
+                    model.searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear search")
+                .accessibilityIdentifier("search.clear")
+            } else {
+                Button { model.showSearchTips = true } label: {
+                    Image(systemName: "questionmark.circle").foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("What can I type?")
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .background {
+            if !LaunchOptions.current.debug("nobridge") { SearchFieldAnchor() }
+        }
+        .frame(minWidth: 200, idealWidth: 340, maxWidth: 420)
+        .onChange(of: model.searchFocusRequest) { _, _ in SearchFieldBridge.shared.focus() }
+    }
+}
+
+/// The field as it was before suggestions (kept to compare in diagnostics runs).
+private struct LegacySearchField: View {
     @Bindable private var model = AppModel.shared
     @FocusState private var focused: Bool
 
@@ -106,7 +167,7 @@ struct SearchField: View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Search, like “pdfs from last week”", text: $model.searchText)
+            TextField("Search in plain English, like “pdfs from last week”", text: $model.searchText)
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .onSubmit { model.focusResultsRequest += 1 }
@@ -136,29 +197,98 @@ struct SearchField: View {
                 .help("What can I type?")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(focused ? 0.03 : 0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .strokeBorder(focused ? Color.accentColor.opacity(0.55) : Color.primary.opacity(0.08), lineWidth: focused ? 1.5 : 1))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(focused ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08)))
         .frame(minWidth: 200, idealWidth: 340, maxWidth: 420)
         .onChange(of: model.searchFocusRequest) { _, _ in focused = true }
-        .onChange(of: focused) { _, isFocused in
-            #if DEBUG
-            FocusProbe.write("SwiftUI focus state: \(isFocused)")
-            #endif
-            guard !LaunchOptions.current.debug("nosuggest") else { return }
-            if isFocused {
-                model.searchFieldFocused = true
-            } else {
-                // Let a click on a suggestion land before the list goes away.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(250))
-                    if !focused { model.searchFieldFocused = false }
+    }
+}
+
+/// Finds the AppKit text field behind the toolbar search box, focuses it on ⌘F and reports when it has
+/// keyboard focus (the window's first responder is its field editor).
+@MainActor
+final class SearchFieldBridge: NSObject {
+    static let shared = SearchFieldBridge()
+
+    private weak var field: NSTextField?
+    private var observation: NSKeyValueObservation?
+    private weak var observedWindow: NSWindow?
+
+    func attach(_ field: NSTextField) {
+        self.field = field
+        guard let window = field.window, window !== observedWindow else { return }
+        observedWindow = window
+        observation = window.observe(\.firstResponder, options: [.new]) { [weak self] window, _ in
+            MainActor.assumeIsolated { self?.update(window) }
+        }
+        update(window)
+    }
+
+    private func update(_ window: NSWindow) {
+        let editing = (window.firstResponder as? NSText)?.delegate as? NSTextField
+        let focused = editing != nil && editing === field
+        if focused {
+            AppModel.shared.searchFieldFocused = true
+        } else if AppModel.shared.searchFieldFocused {
+            // Let a click on a suggestion land before the list goes away.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                if let w = self.observedWindow, ((w.firstResponder as? NSText)?.delegate as? NSTextField) !== self.field {
+                    AppModel.shared.searchFieldFocused = false
                 }
             }
         }
     }
+
+    func focus() {
+        guard let field, let window = field.window else { return }
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(field)
+    }
+
+    func resign() {
+        guard let window = field?.window else { return }
+        window.makeFirstResponder(nil)
+    }
+}
+
+/// Invisible view behind the search box that hands its text field to `SearchFieldBridge`.
+private struct SearchFieldAnchor: NSViewRepresentable {
+    final class Anchor: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil else { return }
+            DispatchQueue.main.async { [weak self] in self?.connect() }
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        private func connect() {
+            // The text field shares an ancestor with this view inside the toolbar item.
+            var ancestor: NSView? = superview
+            for _ in 0..<6 {
+                guard let a = ancestor else { break }
+                if let field = Self.textField(in: a) {
+                    SearchFieldBridge.shared.attach(field)
+                    return
+                }
+                ancestor = a.superview
+            }
+        }
+
+        private static func textField(in view: NSView) -> NSTextField? {
+            if let f = view as? NSTextField, f.isEditable { return f }
+            for sub in view.subviews {
+                if let f = textField(in: sub) { return f }
+            }
+            return nil
+        }
+    }
+
+    func makeNSView(context: Context) -> Anchor { Anchor() }
+    func updateNSView(_ nsView: Anchor, context: Context) {}
 }
 
 /// Recent searches and ideas under the toolbar field while it's focused and empty.

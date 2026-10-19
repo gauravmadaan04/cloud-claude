@@ -253,7 +253,13 @@ struct DetailView: View {
     private func page(_ item: SidebarItem) -> some View {
         switch item {
         case .home:
-            HomeView()
+            if LaunchOptions.current.debug("nohome") {
+                Text("Home (diagnostics)")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityIdentifier("home.tile.images")
+            } else {
+                HomeView()
+            }
         case .recents:
             LibraryListView(title: "Recents", subtitle: "Everything that arrived or changed lately", symbol: "clock",
                             source: .recents, sourceKey: "recents")
