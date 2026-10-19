@@ -141,10 +141,15 @@ struct BigCleanupCard: View {
     }
 }
 
-/// Review page for one Clean Up card: everything is ticked; untick what to keep.
+/// Review page for one Clean Up card: everything is ticked; untick what to keep. Files that join the card
+/// while you look start unticked, and the confirmation trashes exactly the files it counted.
 struct CleanupReviewView: View {
     let kind: CleanupKind
-    @State private var unticked: Set<String> = []
+    @State private var ticked: Set<String> = []
+    /// Files already shown on this page (later arrivals aren't ticked for you).
+    @State private var seen: Set<String> = []
+    /// The exact files a confirmation is about.
+    @State private var pending: [FileItem] = []
     @State private var confirmAll = false
     @State private var confirmSelected = false
     @Environment(\.theme) private var theme
@@ -159,7 +164,7 @@ struct CleanupReviewView: View {
 
     var body: some View {
         let all = items
-        let selected = all.filter { !unticked.contains($0.id) }
+        let selected = all.filter { ticked.contains($0.id) }
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 PageHeader(title: kind.title, subtitle: kind.explanation(prefs.cleanup), symbol: kind.symbolName)
@@ -179,25 +184,38 @@ struct CleanupReviewView: View {
             .padding(.vertical, 22)
         }
         .background(theme.canvas)
-        .onAppear { model.setVisible(all) }
-        .confirmationDialog("Move \(HavenFormat.count(all.count, "item")) to the Trash?", isPresented: $confirmAll) {
-            Button("Move All to Trash · \(ByteSize.format(all.totalSize))", role: .destructive) {
-                model.trash(all, reason: "Clean Up · \(kind.title)", undoManager: undoManager)
+        .onAppear {
+            model.setVisible(all)
+            noteShown(all.map(\.id))
+        }
+        .onChange(of: all.map(\.id)) { _, ids in noteShown(ids) }
+        .confirmationDialog("Move \(HavenFormat.count(pending.count, "item")) to the Trash?", isPresented: $confirmAll) {
+            Button("Move All to Trash · \(ByteSize.format(pending.totalSize))", role: .destructive) {
+                model.trash(pending, reason: "Clean Up · \(kind.title)", undoManager: undoManager)
+                pending = []
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) { pending = [] }
         } message: {
             Text("You can put them back with Undo or from the Trash.")
         }
-        .confirmationDialog("Move \(HavenFormat.count(selected.count, "item")) to the Trash?", isPresented: $confirmSelected) {
-            Button("Move to Trash · \(ByteSize.format(selected.totalSize))", role: .destructive) {
-                model.trash(selected, reason: "Clean Up · \(kind.title)", undoManager: undoManager)
-                unticked = []
+        .confirmationDialog("Move \(HavenFormat.count(pending.count, "item")) to the Trash?", isPresented: $confirmSelected) {
+            Button("Move to Trash · \(ByteSize.format(pending.totalSize))", role: .destructive) {
+                model.trash(pending, reason: "Clean Up · \(kind.title)", undoManager: undoManager)
+                ticked.subtract(pending.map(\.id))
+                pending = []
             }
             .accessibilityIdentifier("cleanup.confirm")
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) { pending = [] }
         } message: {
             Text("You can put them back with Undo or from the Trash.")
         }
+    }
+
+    /// The first files shown start ticked; files that turn up later start unticked.
+    private func noteShown(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        if seen.isEmpty { ticked = Set(ids) }
+        seen.formUnion(ids)
     }
 
     private func actionBar(all: [FileItem], selected: [FileItem]) -> some View {
@@ -206,16 +224,20 @@ struct CleanupReviewView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("cleanup.selection")
-            Button(unticked.isEmpty ? "Select None" : "Select All") {
-                unticked = unticked.isEmpty ? Set(all.map(\.id)) : []
+            Button(selected.count == all.count ? "Select None" : "Select All") {
+                ticked = selected.count == all.count ? [] : Set(all.map(\.id))
             }
             .buttonStyle(.link)
             Spacer()
-            Button("Trash Selected") { confirmSelected = true }
+            Button("Trash Selected") {
+                pending = selected
+                confirmSelected = true
+            }
                 .buttonStyle(.bordered)
                 .disabled(selected.isEmpty)
                 .accessibilityIdentifier("cleanup.trashSelected")
             Button {
+                pending = all
                 confirmAll = true
             } label: {
                 Label("Trash All", systemImage: "trash")
@@ -228,14 +250,14 @@ struct CleanupReviewView: View {
     }
 
     private func reviewRow(_ item: FileItem, all: [FileItem]) -> some View {
-        let ticked = !unticked.contains(item.id)
+        let isTicked = ticked.contains(item.id)
         return HStack(spacing: 12) {
             Button {
-                if ticked { unticked.insert(item.id) } else { unticked.remove(item.id) }
+                if isTicked { ticked.remove(item.id) } else { ticked.insert(item.id) }
             } label: {
-                Image(systemName: ticked ? "checkmark.circle.fill" : "circle")
+                Image(systemName: isTicked ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(ticked ? theme.accent : .secondary)
+                    .foregroundStyle(isTicked ? theme.accent : .secondary)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("cleanup.tick")

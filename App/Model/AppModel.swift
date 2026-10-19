@@ -98,6 +98,8 @@ final class AppModel {
             selectedIDs = []
             sourceFilter = nil
             if searchText.isEmpty == false && !keepSearchOnNavigate { searchText = "" }
+            pageSortOverride = nil
+            pendingReveal = nil
             // Going somewhere else ends typing in the search box (and closes its suggestions).
             SearchFieldBridge.shared.resign()
         }
@@ -134,13 +136,25 @@ final class AppModel {
     /// Bumped to move keyboard focus from the search field into the results (↓ or ↩ in the field).
     var focusResultsRequest = 0
 
-    var selectedIDs: Set<String> = []
+    var selectedIDs: Set<String> = [] { didSet { selectionVersion &+= 1 } }
     /// The list currently on screen (for Quick Look arrows, Select All and menu commands).
-    private(set) var visibleItems: [FileItem] = []
-    private(set) var visibleURLs: [URL] = []
+    private(set) var visibleItems: [FileItem] = [] { didSet { selectionVersion &+= 1 } }
+    /// Files Quick Look can step through: built only while Quick Look is open, around the current file.
+    private(set) var quickLookURLs: [URL] = []
+    @ObservationIgnored private var selectionVersion = 0
+    @ObservationIgnored private var selectedCache: (version: Int, items: [FileItem]) = (-1, [])
+    /// Bumped when a file should be scrolled into view (Show in Haven).
+    var revealRequest = 0
+    /// Pages with their own order (Large Files: biggest first) keep it until you pick another sort there.
+    var pageSortOverride: FileSortOrder?
     var sourceFilter: String?
 
-    var quickLookURL: URL?
+    var quickLookURL: URL? {
+        didSet {
+            guard let url = quickLookURL else { quickLookURLs = []; return }
+            if !quickLookURLs.contains(url) { quickLookURLs = Self.window(around: url, in: visibleItems) }
+        }
+    }
     var previewItem: FileItem?
     /// The list the large preview steps through with the arrow keys (defaults to the visible list).
     var previewContext: [FileItem] = []
@@ -202,18 +216,68 @@ final class AppModel {
 
     func setVisible(_ items: [FileItem]) {
         visibleItems = items
-        visibleURLs = items.map(\.url)
-        let ids = Set(items.map(\.id))
-        if !selectedIDs.isSubset(of: ids) { selectedIDs = selectedIDs.intersection(ids) }
-        if let path = pendingReveal, ids.contains(path) {
+        if let url = quickLookURL { quickLookURLs = Self.window(around: url, in: items) }
+        if let path = pendingReveal, !Self.present([path], in: items).isEmpty {
             selectedIDs = [path]
             pendingReveal = nil
+            revealRequest += 1
+            return
         }
+        guard !selectedIDs.isEmpty else { return }
+        let still = Self.present(selectedIDs, in: items)
+        if still.count != selectedIDs.count { selectedIDs = still }
+    }
+
+    /// Which of these paths are in the list. Comparing lengths first skips hashing nearly every file.
+    static func present(_ ids: Set<String>, in items: [FileItem]) -> Set<String> {
+        let lengths = Set(ids.map(\.utf8.count))
+        var found = Set<String>()
+        for item in items where lengths.contains(item.path.utf8.count) && ids.contains(item.path) {
+            found.insert(item.path)
+            if found.count == ids.count { break }
+        }
+        return found
+    }
+
+    /// Up to a thousand files around `url`, for Quick Look's arrows (URLs are cheap, but not 300,000 of them).
+    static func window(around url: URL, in items: [FileItem]) -> [URL] {
+        let path = url.path
+        let i = items.firstIndex { $0.path == path } ?? 0
+        let lo = max(0, i - 500)
+        let hi = min(items.count, i + 500)
+        var urls = items[lo..<hi].map(\.url)
+        if !urls.contains(url) { urls.insert(url, at: 0) }
+        return urls
     }
 
     var selectedItems: [FileItem] {
         guard !selectedIDs.isEmpty else { return [] }
-        return visibleItems.filter { selectedIDs.contains($0.id) }
+        if selectedCache.version == selectionVersion { return selectedCache.items }
+        let ids = selectedIDs
+        let lengths = Set(ids.map(\.utf8.count))
+        let items = visibleItems.filter { lengths.contains($0.path.utf8.count) && ids.contains($0.path) }
+        selectedCache = (selectionVersion, items)
+        return items
+    }
+
+    // MARK: Sorting
+
+    static func naturalSort(for item: SidebarItem?) -> FileSortOrder? {
+        item == .largeFiles ? .sizeLargest : nil
+    }
+
+    /// The order the current page uses.
+    var pageSort: FileSortOrder { pageSortOverride ?? Self.naturalSort(for: selection) ?? Prefs.shared.sortOrder }
+
+    /// The sort shown as active: nil means best match (search without a picked sort).
+    var activeSort: FileSortOrder? { isSearching ? searchSortOverride : pageSort }
+
+    func pickSort(_ order: FileSortOrder?) {
+        if isSearching {
+            searchSortOverride = order
+        } else if let order {
+            if Self.naturalSort(for: selection) != nil { pageSortOverride = order } else { Prefs.shared.sortOrder = order }
+        }
     }
 
     var firstSelected: FileItem? {
@@ -280,11 +344,19 @@ final class AppModel {
         NSWorkspace.shared.activateFileViewerSelecting(items.map(\.url))
     }
 
-    /// Opens the item's folder inside Haven with the item selected.
+    /// Opens the item's folder inside Haven with the item selected and scrolled into view.
     func showInHaven(_ item: FileItem) {
         bringMainWindowForward()
-        pendingReveal = item.path
-        navigate(to: .folder(item.parentPath))
+        let folder = SidebarItem.folder(item.parentPath)
+        if selection == folder && !isSearching {
+            // Already there: select it right away (a pending reveal would never be used).
+            pendingReveal = nil
+            selectedIDs = [item.id]
+            revealRequest += 1
+        } else {
+            navigate(to: folder)
+            pendingReveal = item.path
+        }
     }
 
     func toggleQuickLook() {
@@ -339,8 +411,32 @@ final class AppModel {
     func trash(_ items: [FileItem], reason: String, undoManager: UndoManager? = nil) {
         guard !items.isEmpty else { return }
         FileOps.shared.trash(items, reason: reason, undoManager: undoManager)
-        selectedIDs.subtract(items.map(\.id))
-        if let p = previewItem, items.contains(where: { $0.id == p.id }) { previewItem = nil }
+        let ids = Set(items.map(\.id))
+        selectedIDs.subtract(ids)
+        // The large preview steps over what's gone.
+        if !previewContext.isEmpty { previewContext.removeAll { ids.contains($0.id) } }
+        if let p = previewItem, ids.contains(p.id) { previewItem = nil }
+    }
+
+    /// ⌘↑: the folder that contains the one on screen (up to the top of an indexed folder).
+    @discardableResult
+    func goToEnclosingFolder() -> Bool {
+        guard !isSearching, case .folder(let path)? = selection,
+              let root = LibraryStore.shared.root(for: path), path != root.path else { return false }
+        let child = path
+        navigate(to: .folder(FileItem.parent(of: path)))
+        pendingReveal = child
+        return true
+    }
+
+    /// ⌘V in a folder: copies the files on the clipboard into it.
+    @discardableResult
+    func pasteFiles() -> Bool {
+        guard !isSearching, case .folder(let dir)? = selection else { return false }
+        let urls = NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        guard !urls.isEmpty else { return false }
+        FileOps.shared.copy(urls, into: dir)
+        return true
     }
 
     func togglePin(_ path: String) {

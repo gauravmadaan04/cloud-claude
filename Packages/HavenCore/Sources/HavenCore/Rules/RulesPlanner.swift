@@ -17,7 +17,7 @@ public enum AutoRule: String, Codable, CaseIterable, Sendable, Identifiable, Has
     public func detail(_ s: RuleSettings) -> String {
         switch self {
         case .trashOldInstallers:
-            return ".dmg, .pkg and other installers older than \(s.installerDays) days go to the Trash (you can put them back)."
+            return "Downloaded .dmg, .pkg and other installers left in Downloads for \(s.installerDays) days go to the Trash (you can put them back). Disk images you made are never touched."
         case .fileScreenshots:
             return "Screenshots older than a day move from your Desktop into \(tildePath(s.screenshotFolder))/<year-month>."
         case .archiveOldDownloads:
@@ -88,9 +88,15 @@ public enum RulesPlanner {
     ) -> [RuleAction] {
         switch rule {
         case .trashOldInstallers:
+            // Runs by itself, so it only touches installers that were downloaded (macOS marked them on arrival)
+            // and still sit loose in Downloads. Disk images you made, and .iso files, are never touched.
             let cutoff = now.addingTimeInterval(-Double(settings.installerDays) * 86_400)
-            return items.filter { $0.kind == .installer && !$0.isCloudOnly && $0.arrivalDate < cutoff }
-                .map { RuleAction(rule: rule, item: $0, operation: .trash) }
+            return items.filter {
+                $0.kind == .installer && !$0.isCloudOnly && $0.arrivalDate < cutoff && $0.ext != "iso"
+                    && $0.parentPath == downloadsFolder
+                    && ($0.quarantineAgent != nil || !$0.whereFroms.isEmpty)
+            }
+            .map { RuleAction(rule: rule, item: $0, operation: .trash) }
         case .fileScreenshots:
             let cutoff = now.addingTimeInterval(-Double(settings.screenshotMinAgeHours) * 3_600)
             return items.filter { $0.isScreenshot && !$0.isCloudOnly && screenshotSources.contains($0.parentPath) && $0.created < cutoff }

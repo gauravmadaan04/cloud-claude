@@ -14,6 +14,17 @@ public enum TextMatch {
         find(needle, in: hay) != nil
     }
 
+    /// True when `s` begins with these bytes.
+    public static func starts(with prefix: [UInt8], _ s: String) -> Bool {
+        var i = prefix.startIndex
+        for b in s.utf8 {
+            if i == prefix.endIndex { return true }
+            if b != prefix[i] { return false }
+            i += 1
+        }
+        return i == prefix.endIndex
+    }
+
     static func find(_ needle: [UInt8], in hay: UnsafeBufferPointer<UInt8>) -> Int? {
         let n = needle.count
         let h = hay.count

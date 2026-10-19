@@ -45,7 +45,24 @@ final class Thumbnails: @unchecked Sendable {
         Thumbnail(image: NSWorkspace.shared.icon(forFile: item.path), isIcon: true)
     }
 
+    /// Only a few thumbnails are drawn at once, newest request first: when you scroll fast, the cards on
+    /// screen win, and cards that already scrolled away are skipped instead of drawn.
+    private static let gate = WorkGate(limit: max(3, ProcessInfo.processInfo.activeProcessorCount - 2))
+
     func thumbnail(for item: FileItem, side: CGFloat, scale: CGFloat) async -> Thumbnail {
+        let k = key(item, Self.bucket(side))
+        if let hit = cache.object(forKey: k) { return hit }
+        await Self.gate.enter()
+        if Task.isCancelled {
+            await Self.gate.leave()
+            return Thumbnail(image: NSImage(), isIcon: true)
+        }
+        let t = await render(item, side: side, scale: scale)
+        await Self.gate.leave()
+        return t
+    }
+
+    private func render(_ item: FileItem, side: CGFloat, scale: CGFloat) async -> Thumbnail {
         let bucket = Self.bucket(side)
         let k = key(item, bucket)
         if let hit = cache.object(forKey: k) { return hit }
@@ -154,5 +171,30 @@ final class Thumbnails: @unchecked Sendable {
         generator.maximumSize = CGSize(width: maxPixel, height: maxPixel)
         guard let (cg, _) = try? await generator.image(at: CMTime(seconds: 1, preferredTimescale: 600)) else { return nil }
         return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+    }
+}
+
+/// Lets a limited number of tasks through at a time; the most recent waiter goes next.
+actor WorkGate {
+    private let limit: Int
+    private var running = 0
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) { self.limit = limit }
+
+    func enter() async {
+        if running < limit {
+            running += 1
+            return
+        }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func leave() {
+        if waiting.isEmpty {
+            running -= 1
+        } else {
+            waiting.removeLast().resume()
+        }
     }
 }

@@ -22,6 +22,12 @@ final class TextStore: @unchecked Sendable {
         return folded[path]
     }
 
+    /// A copy of all folded text, for searches that check thousands of files on many threads at once.
+    func foldedSnapshot() -> [String: String] {
+        lock.lock(); defer { lock.unlock() }
+        return folded
+    }
+
     func raw(for path: String) -> String? {
         lock.lock(); defer { lock.unlock() }
         return entries[path]?.t
@@ -85,25 +91,34 @@ final class TextIndex {
     @ObservationIgnored private var queue: [FileItem] = []
     @ObservationIgnored private var worker: Task<Void, Never>?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    /// Bumped by "Forget text": anything started before stops touching the state.
+    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var lastVersionBump = Date.distantPast
 
     private var cacheURL: URL { LaunchOptions.current.supportDirectory.appendingPathComponent("text.json") }
 
-    /// For search: folded text for a path.
+    /// For search: folded text for a path (a snapshot, so searching never waits on the reader).
     nonisolated var lookup: SearchEngine.TextLookup {
-        let store = self.store
-        return { store.folded(for: $0) }
+        let snapshot = store.foldedSnapshot()
+        return { snapshot[$0] }
     }
 
     var readCount: Int { store.count }
 
-    func load() {
-        store.load(from: cacheURL)
+    /// Reads the saved text off the main thread.
+    func load() async {
+        let store = self.store
+        let url = cacheURL
+        await Task.detached(priority: .userInitiated) { store.load(from: url) }.value
         version += 1
     }
 
     func clearCache() {
+        generation += 1
         worker?.cancel()
         worker = nil
+        saveTask?.cancel()
+        saveTask = nil
         queue = []
         store.clear()
         try? FileManager.default.removeItem(at: cacheURL)
@@ -114,7 +129,7 @@ final class TextIndex {
     }
 
     /// Which files to read, newest first, for the chosen scope.
-    static func candidates(_ items: [FileItem], scope: OCRScope, now: Date = Date()) -> [FileItem] {
+    nonisolated static func candidates(_ items: [FileItem], scope: OCRScope, now: Date = Date()) -> [FileItem] {
         let yearAgo = now.addingTimeInterval(-365 * 86_400)
         return items.filter { item in
             guard !item.isCloudOnly, item.size > 0 else { return false }
@@ -146,38 +161,47 @@ final class TextIndex {
         }
     }
 
+    /// Queues files to read. Picking them out of a big index happens in the background.
     func enqueue(_ items: [FileItem], scope: OCRScope) {
         let store = self.store
-        let fresh = Self.candidates(items, scope: scope).filter { !store.isFresh($0) }
-        guard !fresh.isEmpty else { return }
-        let existing = Set(queue.map(\.path))
-        queue.append(contentsOf: fresh.filter { !existing.contains($0.path) })
-        total = processed + queue.count
-        startWorker()
+        let gen = generation
+        Task {
+            let fresh = await Task.detached(priority: .utility) {
+                TextIndex.candidates(items, scope: scope).filter { !store.isFresh($0) }
+            }.value
+            guard gen == self.generation, !fresh.isEmpty else { return }
+            let existing = Set(self.queue.map(\.path))
+            self.queue.append(contentsOf: fresh.filter { !existing.contains($0.path) })
+            self.total = self.processed + self.queue.count
+            self.startWorker()
+        }
     }
 
     private func startWorker() {
         guard worker == nil, !queue.isEmpty else { return }
         isWorking = true
+        let gen = generation
         worker = Task { [weak self] in
-            while let self, !Task.isCancelled {
+            while let self, !Task.isCancelled, gen == self.generation {
                 guard !self.queue.isEmpty else { break }
                 let batch = Array(self.queue.prefix(4))
                 self.queue.removeFirst(batch.count)
                 let store = self.store
-                await Task.detached(priority: .utility) {
+                let job = Task.detached(priority: .utility) {
                     for item in batch {
                         if Task.isCancelled { return }
                         let text = TextExtractor.extract(item) ?? ""
                         store.set(text, for: item)
                     }
-                }.value
+                }
+                await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
+                guard gen == self.generation else { return }
                 self.processed += batch.count
-                self.version += 1
+                self.bumpVersion(force: false)
                 self.scheduleSave()
             }
-            guard let self else { return }
-            self.version += 1
+            guard let self, gen == self.generation else { return }
+            self.bumpVersion(force: true)
             self.isWorking = false
             self.worker = nil
             self.scheduleSave()
@@ -185,14 +209,26 @@ final class TextIndex {
         }
     }
 
+    /// Search results re-run when `version` changes; while reading, that happens every few seconds, not per batch.
+    private func bumpVersion(force: Bool) {
+        let now = Date()
+        if force || now.timeIntervalSince(lastVersionBump) > 3 {
+            version += 1
+            lastVersionBump = now
+        }
+    }
+
+    /// Saves at most every few seconds while reading, so quitting midway keeps what was read.
     private func scheduleSave() {
-        saveTask?.cancel()
+        guard saveTask == nil else { return }
         let store = self.store
         let url = cacheURL
-        saveTask = Task.detached(priority: .background) {
-            try? await Task.sleep(for: .seconds(4))
-            if Task.isCancelled { return }
-            store.save(to: url)
+        let gen = generation
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled else { return }
+            await Task.detached(priority: .background) { store.save(to: url) }.value
+            if let self, gen == self.generation { self.saveTask = nil }
         }
     }
 

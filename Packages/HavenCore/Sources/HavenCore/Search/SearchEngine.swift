@@ -307,7 +307,7 @@ public enum FileSortOrder: String, Codable, CaseIterable, Sendable, Identifiable
     }
 
     /// Sorts by a precomputed key (cheap to compare), keeping the incoming order for ties.
-    static func ordered<K: Comparable>(_ items: [FileItem], _ keys: [K], descending: Bool) -> [FileItem] {
+    public static func ordered<K: Comparable>(_ items: [FileItem], _ keys: [K], descending: Bool) -> [FileItem] {
         var order = Array(items.indices)
         order.sort { a, b in
             if keys[a] != keys[b] { return descending ? keys[a] > keys[b] : keys[a] < keys[b] }

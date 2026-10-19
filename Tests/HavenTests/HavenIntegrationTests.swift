@@ -194,7 +194,11 @@ final class FixtureLibraryTests: XCTestCase {
         XCTAssertTrue(goa?.suggestedKeep.hasSuffix("Pictures/Trips/Goa Beach.jpg") ?? false)
 
         let photos = items.filter { $0.kind == .image && !$0.isScreenshot }
-        let similar = SimilarPhotoFinder.groups(in: photos, threshold: DuplicateService.similarityThreshold)
+        var prints: [String: Data] = [:]
+        let similar = SimilarPhotoFinder.groups(in: photos, threshold: DuplicateService.similarityThreshold, cache: &prints)
+        XCTAssertFalse(prints.isEmpty, "fingerprints are kept for the next run")
+        let again = SimilarPhotoFinder.groups(in: photos, threshold: DuplicateService.similarityThreshold, cache: &prints)
+        XCTAssertEqual(again.map(\.id), similar.map(\.id), "cached fingerprints give the same groups")
         let pair = similar.first { g in g.items.contains { $0.name == "IMG_2041.jpg" } }
         XCTAssertEqual(Set(pair?.items.map(\.name) ?? []), ["IMG_2041.jpg", "IMG_2041.heic"])
     }

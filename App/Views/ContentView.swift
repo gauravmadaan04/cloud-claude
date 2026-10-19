@@ -43,7 +43,7 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .quickLookPreview($model.quickLookURL, in: model.visibleURLs)
+        .quickLookPreview($model.quickLookURL, in: model.quickLookURLs)
         .sheet(isPresented: $model.showShortcuts) { ShortcutsHelpView() }
         .sheet(isPresented: $model.showSearchTips) { SearchTipsView() }
         .environment(\.theme, theme)
@@ -271,17 +271,16 @@ struct ViewOptions: View {
 
         Menu {
             if model.isSearching {
-                Button { model.searchSortOverride = nil } label: {
+                Button { model.pickSort(nil) } label: {
                     if model.searchSortOverride == nil { Label("Best Match", systemImage: "checkmark") } else { Text("Best Match") }
                 }
                 Divider()
             }
             ForEach(FileSortOrder.allCases) { order in
                 Button {
-                    if model.isSearching { model.searchSortOverride = order } else { prefs.sortOrder = order }
+                    model.pickSort(order)
                 } label: {
-                    let active = model.isSearching ? model.searchSortOverride == order : prefs.sortOrder == order
-                    if active { Label(order.title, systemImage: "checkmark") } else { Text(order.title) }
+                    if model.activeSort == order { Label(order.title, systemImage: "checkmark") } else { Text(order.title) }
                 }
             }
         } label: {

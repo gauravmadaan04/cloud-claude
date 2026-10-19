@@ -10,11 +10,14 @@ public struct ActivityEntry: Codable, Identifiable, Hashable, Sendable {
         public let from: String
         public let to: String
         public let size: Int64
+        /// The file's number on disk where it was put, so Undo only ever moves back that same file.
+        public let fileID: UInt64?
 
-        public init(from: String, to: String, size: Int64 = 0) {
+        public init(from: String, to: String, size: Int64 = 0, fileID: UInt64? = nil) {
             self.from = from
             self.to = to
             self.size = size
+            self.fileID = fileID
         }
     }
 

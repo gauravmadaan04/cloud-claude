@@ -63,9 +63,43 @@ final class DuplicateFinderTests: XCTestCase {
         let small = groups.first { $0.items.count == 2 }!
         XCTAssertTrue(small.suggestedKeep.hasSuffix("Documents/small.txt"))
         XCTAssertFalse(cache.isEmpty)
+        // Head hashes of every same-size file are remembered, so the next run reads nothing that hasn't changed.
+        XCTAssertEqual(cache.keys.filter { $0.hasPrefix("head|") }.count, 6)
         // Cached hashes are reused.
         let again = DuplicateFinder.identicalGroups(in: items, hashCache: &cache)
         XCTAssertEqual(again.map(\.id).sorted(), groups.map(\.id).sorted())
+    }
+
+    func testTrashingDuplicatesAlwaysLeavesACopy() {
+        let d = Date()
+        let a = FileItem(path: "/x/a.jpg", size: 10, created: d, modified: d)
+        let b = FileItem(path: "/x/b.jpg", size: 10, created: d, modified: d)
+        let c = FileItem(path: "/x/c.jpg", size: 10, created: d, modified: d)
+        let group = DuplicateGroup(id: "g", kind: .identical, items: [a, b, c], suggestedKeep: a.path)
+        // The user marked every copy Trash: Haven's pick stays.
+        let all = DuplicateFinder.safeToTrash(groups: [group], keeps: { _, _ in false }, unchanged: { _ in true })
+        XCTAssertEqual(Set(all.map(\.path)), [b.path, c.path])
+        // The kept copy changed or vanished since the check: nothing in the group is touched.
+        let keeperGone = DuplicateFinder.safeToTrash(groups: [group], keeps: { i, g in i.path == g.suggestedKeep },
+                                                     unchanged: { $0.path != a.path })
+        XCTAssertTrue(keeperGone.isEmpty)
+        // A copy edited since the check stays.
+        let edited = DuplicateFinder.safeToTrash(groups: [group], keeps: { i, g in i.path == g.suggestedKeep },
+                                                 unchanged: { $0.path != c.path })
+        XCTAssertEqual(edited.map(\.path), [b.path])
+    }
+
+    func testUnchangedChecksTheDisk() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("haven-unchanged-\(UUID().uuidString).txt")
+        try Data("hello".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+        let modified = attrs[.modificationDate] as! Date
+        let item = FileItem(path: url.path, size: 5, created: modified, modified: modified)
+        XCTAssertTrue(DuplicateFinder.isUnchanged(item))
+        try Data("hello, changed".utf8).write(to: url)
+        XCTAssertFalse(DuplicateFinder.isUnchanged(item))
+        XCTAssertFalse(DuplicateFinder.isUnchanged(FileItem(path: url.path + ".gone", size: 5, created: modified, modified: modified)))
     }
 
     func testCloudOnlyFilesAreSkipped() throws {
@@ -186,7 +220,14 @@ final class RulesPlannerTests: XCTestCase {
             FileItem(path: "/u/Desktop/Screenshot old.png", created: old, modified: old, rootID: "desktop", isScreenshot: true),
             FileItem(path: "/u/Desktop/Screenshot new.png", created: fresh, modified: fresh, rootID: "desktop", isScreenshot: true),
             FileItem(path: "/u/Desktop/Folder/Screenshot nested.png", created: old, modified: old, rootID: "desktop", isScreenshot: true),
-            FileItem(path: "/u/Downloads/app.dmg", created: old, modified: old, added: old, rootID: "downloads"),
+            FileItem(path: "/u/Downloads/app.dmg", created: old, modified: old, added: old, rootID: "downloads",
+                     quarantineAgent: "Safari"),
+            // Made on this Mac (no download mark): an automatic rule must never trash it.
+            FileItem(path: "/u/Downloads/Vault.dmg", created: old, modified: old, added: old, rootID: "downloads"),
+            FileItem(path: "/u/Downloads/linux.iso", created: old, modified: old, added: old, rootID: "downloads",
+                     quarantineAgent: "Safari"),
+            FileItem(path: "/u/Documents/Old/tool.pkg", created: old, modified: old, added: old, rootID: "documents",
+                     quarantineAgent: "Safari"),
             FileItem(path: "/u/Downloads/paper.pdf", created: old, modified: old, added: old, rootID: "downloads"),
             FileItem(path: "/u/Downloads/today.pdf", created: fresh, modified: fresh, added: fresh, rootID: "downloads"),
         ]
@@ -204,7 +245,7 @@ final class RulesPlannerTests: XCTestCase {
 
         let archive = RulesPlanner.plan(.archiveOldDownloads, items: items, settings: settings, screenshotSources: [],
                                         downloadsFolder: "/u/Downloads", now: now, calendar: cal)
-        XCTAssertEqual(Set(archive.map(\.item.name)), ["app.dmg", "paper.pdf"])
+        XCTAssertEqual(Set(archive.map(\.item.name)), ["app.dmg", "Vault.dmg", "linux.iso", "paper.pdf"])
     }
 
     func testUniqueDestination() {

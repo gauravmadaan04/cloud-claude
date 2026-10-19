@@ -78,6 +78,17 @@ final class IndexCodecTests: XCTestCase {
         }
     }
 
+    func testPrefixAndMatchHelpers() {
+        XCTAssertTrue(TextMatch.starts(with: Array("rep".utf8), "report.pdf"))
+        XCTAssertTrue(TextMatch.starts(with: [], "x"))
+        XCTAssertFalse(TextMatch.starts(with: Array("report.pdfx".utf8), "report.pdf"))
+        XCTAssertFalse(TextMatch.starts(with: Array("ep".utf8), "report.pdf"))
+        XCTAssertEqual(TextMatch.score(Array("rep".utf8), in: "report"), 30)
+        XCTAssertEqual(TextMatch.score(Array("port".utf8), in: "my port"), 20)
+        XCTAssertEqual(TextMatch.score(Array("port".utf8), in: "report"), 12)
+        XCTAssertEqual(TextMatch.score(Array("zz".utf8), in: "report"), 0)
+    }
+
     func testCancelledSearchStopsEarly() {
         let items = SyntheticLibrary.make(count: 20_000, seed: 5)
         let query = QueryParser.parse("notes").query

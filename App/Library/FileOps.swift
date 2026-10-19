@@ -9,8 +9,26 @@ final class FileOps {
     static let shared = FileOps()
 
     private(set) var activity: [ActivityEntry] = []
+    /// Each trash registers its own undo target, so Undo from the toast or Activity can take back the
+    /// matching ⌘Z step instead of leaving a dead one behind.
+    @ObservationIgnored private var undoTargets: [UUID: (target: UndoTarget, manager: UndoManager)] = [:]
+
+    private final class UndoTarget {}
 
     private var logURL: URL { LaunchOptions.current.supportDirectory.appendingPathComponent("activity.json") }
+
+    /// The number a file has on its disk (stays the same when it's moved on that disk).
+    nonisolated static func fileID(_ path: String) -> UInt64? {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
+        return (attrs[.systemFileNumber] as? NSNumber)?.uint64Value
+    }
+
+    /// Selected items inside other selected folders go along with their folder.
+    static func outermost(_ items: [FileItem]) -> [FileItem] {
+        let folders = items.filter { $0.kind == .folder || $0.kind == .app }.map { $0.path + "/" }
+        guard !folders.isEmpty else { return items }
+        return items.filter { item in !folders.contains { item.path.hasPrefix($0) } }
+    }
 
     private init() {
         if let d = try? Data(contentsOf: logURL), let a = try? JSONDecoder().decode([ActivityEntry].self, from: d) {
@@ -26,14 +44,16 @@ final class FileOps {
     // MARK: Trash
 
     @discardableResult
-    func trash(_ items: [FileItem], reason: String, undoManager: UndoManager? = nil, announce: Bool = true) -> ActivityEntry? {
+    func trash(_ items: [FileItem], reason: String, undoManager: UndoManager? = nil, announce: Bool = true,
+               undoable: Bool = true) -> ActivityEntry? {
         var moves: [ActivityEntry.Move] = []
         var failed: [FileItem] = []
-        for item in items {
+        for item in FileOps.outermost(items) {
             var resulting: NSURL?
             do {
                 try FileManager.default.trashItem(at: item.url, resultingItemURL: &resulting)
-                moves.append(.init(from: item.path, to: (resulting as URL?)?.path ?? "", size: item.size))
+                let to = (resulting as URL?)?.path ?? ""
+                moves.append(.init(from: item.path, to: to, size: item.size, fileID: to.isEmpty ? nil : FileOps.fileID(to)))
             } catch {
                 failed.append(item)
             }
@@ -48,11 +68,14 @@ final class FileOps {
         let entry = ActivityEntry(action: .trashed, reason: reason, moves: moves)
         activity.insert(entry, at: 0)
         saveLog()
-        if let undoManager {
-            undoManager.registerUndo(withTarget: self) { ops in
-                MainActor.assumeIsolated { ops.undo(entry.id) }
+        // ⌘Z undoes anything you trashed yourself (rules run on their own and are undone from Activity).
+        if undoable, let manager = undoManager ?? AppModel.mainWindow?.undoManager {
+            let target = UndoTarget()
+            undoTargets[entry.id] = (target, manager)
+            manager.registerUndo(withTarget: target) { _ in
+                MainActor.assumeIsolated { FileOps.shared.undo(entry.id, viaUndoManager: true) }
             }
-            undoManager.setActionName("Move to Trash")
+            manager.setActionName("Move to Trash")
         }
         if announce {
             var message = moves.count == 1 ? "Moved “\((moves[0].from as NSString).lastPathComponent)” to the Trash"
@@ -91,17 +114,28 @@ final class FileOps {
 
     // MARK: Undo
 
-    func canUndo(_ entry: ActivityEntry) -> Bool {
-        !entry.undone && entry.action != .restored && entry.moves.contains { FileManager.default.fileExists(atPath: $0.to) }
+    /// The moved file is still where Haven put it, and it's the same file (not a later one with the same name).
+    static func isStillThere(_ move: ActivityEntry.Move) -> Bool {
+        guard !move.to.isEmpty, FileManager.default.fileExists(atPath: move.to) else { return false }
+        guard let expected = move.fileID else { return true }
+        return fileID(move.to) == expected
     }
 
-    func undo(_ id: UUID) {
+    func canUndo(_ entry: ActivityEntry) -> Bool {
+        !entry.undone && entry.action != .restored && entry.moves.contains(where: FileOps.isStillThere)
+    }
+
+    func undo(_ id: UUID, viaUndoManager: Bool = false) {
         guard let index = activity.firstIndex(where: { $0.id == id }) else { return }
+        if let registered = undoTargets.removeValue(forKey: id), !viaUndoManager {
+            registered.manager.removeAllActions(withTarget: registered.target)
+        }
         let entry = activity[index]
         guard !entry.undone else { return }
         let fm = FileManager.default
         var restored: [ActivityEntry.Move] = []
-        for move in entry.moves where fm.fileExists(atPath: move.to) {
+        // Last moved first, so folders come back before anything that was inside them.
+        for move in entry.moves.reversed() where FileOps.isStillThere(move) {
             let originalDir = (move.from as NSString).deletingLastPathComponent
             let name = (move.from as NSString).lastPathComponent
             do {
@@ -129,6 +163,42 @@ final class FileOps {
     func clearHistory() {
         activity.removeAll()
         saveLog()
+    }
+
+    // MARK: Paste (⌘V in a folder)
+
+    /// Copies files into a folder, never replacing anything: a name that's taken gets " 2", " 3"…
+    func copy(_ sources: [URL], into dir: String) {
+        let items = sources.filter { src in
+            // A folder can't be copied into itself.
+            let p = src.standardizedFileURL.path
+            return dir != p && !dir.hasPrefix(p + "/")
+        }
+        guard !items.isEmpty else { return }
+        Task {
+            let created = await Task.detached(priority: .userInitiated) { () -> [String] in
+                let fm = FileManager()
+                var out: [String] = []
+                for src in items {
+                    let dest = RulesPlanner.uniqueDestination(name: src.lastPathComponent, in: dir) { fm.fileExists(atPath: $0) }
+                    do {
+                        try fm.copyItem(atPath: src.path, toPath: dest)
+                        out.append(dest)
+                    } catch {
+                        continue
+                    }
+                }
+                return out
+            }.value
+            guard let first = created.first else {
+                AppModel.shared.showToast("Couldn't paste here", symbol: "exclamationmark.triangle")
+                return
+            }
+            await LibraryStore.shared.refresh(directories: [dir])
+            AppModel.shared.pendingReveal = first
+            AppModel.shared.showToast(created.count == 1 ? "Pasted “\((first as NSString).lastPathComponent)”" : "Pasted \(created.count) items",
+                                      symbol: "doc.on.clipboard")
+        }
     }
 }
 
@@ -185,7 +255,8 @@ final class RulesRunner {
             if case .move(let dir) = a.operation { moves.append((a.item, dir)) }
         }
         let reason = "Rule · \(rule.title)"
-        if !trash.isEmpty { FileOps.shared.trash(trash, reason: reason, announce: false) }
+        // Say so when a rule trashes something, with Undo right there.
+        if !trash.isEmpty { FileOps.shared.trash(trash, reason: reason, announce: true, undoable: false) }
         if !moves.isEmpty { FileOps.shared.move(moves, reason: reason) }
         return actions.count
     }

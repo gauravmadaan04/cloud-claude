@@ -30,8 +30,22 @@ struct DuplicatesView: View {
         decisions[item.path] ?? (item.path == group.suggestedKeep)
     }
 
+    /// What "Move to Trash" would take (every group keeps at least one copy).
     private var toTrash: [FileItem] {
-        groups.flatMap { g in g.items.filter { !keeps($0, in: g) } }
+        DuplicateFinder.safeToTrash(groups: groups, keeps: { keeps($0, in: $1) }, unchanged: { _ in true })
+    }
+
+    /// Re-checks the disk at the last moment: copies that changed since the comparison stay put.
+    private func trashChecked() {
+        let planned = toTrash
+        let safe = DuplicateFinder.safeToTrash(groups: groups, keeps: { keeps($0, in: $1) }, unchanged: DuplicateFinder.isUnchanged)
+        model.trash(safe, reason: "Duplicates", undoManager: undoManager)
+        decisions = [:]
+        let skipped = planned.count - safe.count
+        if skipped > 0 {
+            model.showToast("\(HavenFormat.count(skipped, "copy", "copies")) changed since the check and stayed put. Check Again to compare them.",
+                            symbol: "exclamationmark.triangle")
+        }
     }
 
     var body: some View {
@@ -71,10 +85,11 @@ struct DuplicatesView: View {
             model.setVisible([])
             if dupes.lastRun == nil && !dupes.isRunning && store.hasLoaded { rescan() }
         }
+        // New results: earlier Keep/Trash picks no longer apply.
+        .onChange(of: dupes.lastRun) { _, _ in decisions = [:] }
         .confirmationDialog("Move \(HavenFormat.count(trashList.count, "file")) to the Trash?", isPresented: $confirming) {
             Button("Move to Trash · \(ByteSize.format(bytes))", role: .destructive) {
-                model.trash(trashList, reason: "Duplicates", undoManager: undoManager)
-                decisions = [:]
+                trashChecked()
             }
             .accessibilityIdentifier("dupes.confirm")
             Button("Cancel", role: .cancel) {}

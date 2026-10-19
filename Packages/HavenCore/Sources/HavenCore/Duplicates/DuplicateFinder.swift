@@ -83,6 +83,16 @@ public enum DuplicateFinder {
         default: break
         }
         // Bundles like .pages/.key are directories; hashing them would be wrong.
+        return isRegularFile(item)
+    }
+
+    /// The checks that need no disk access.
+    static func quickEligible(_ item: FileItem) -> Bool {
+        guard !item.isCloudOnly, item.size > 0 else { return false }
+        return item.kind != .folder && item.kind != .app
+    }
+
+    static func isRegularFile(_ item: FileItem) -> Bool {
         var isDir: ObjCBool = false
         if FileManager.default.fileExists(atPath: item.path, isDirectory: &isDir), isDir.boolValue { return false }
         return true
@@ -98,19 +108,34 @@ public enum DuplicateFinder {
         cancelled: () -> Bool = { false }
     ) -> [DuplicateGroup] {
         var bySize: [Int64: [FileItem]] = [:]
-        for item in items where item.size >= minSize && eligible(item) {
+        for item in items where item.size >= minSize && quickEligible(item) {
             bySize[item.size, default: []].append(item)
         }
-        let candidates = bySize.values.filter { $0.count > 1 }
+        // Only files that share a size are looked at on disk.
+        let candidates = bySize.values.compactMap { same -> [FileItem]? in
+            guard same.count > 1 else { return nil }
+            let real = same.filter(eligible)
+            return real.count > 1 ? real : nil
+        }
         let total = candidates.reduce(0) { $0 + $1.count }
         var done = 0
+        var reported = -1
         var groups: [DuplicateGroup] = []
 
         for sameSize in candidates {
             if cancelled() { break }
             var byHead: [String: [FileItem]] = [:]
             for item in sameSize {
-                if let h = FileHasher.headHash(of: item.url) { byHead[h, default: []].append(item) }
+                // Head hashes are cached too, so unchanged files aren't read again on the next run.
+                let headKey = "head|" + cacheKey(item)
+                let head: String?
+                if let cached = hashCache[headKey] {
+                    head = cached
+                } else {
+                    head = FileHasher.headHash(of: item.url)
+                    if let head { hashCache[headKey] = head }
+                }
+                if let head { byHead[head, default: []].append(item) }
             }
             for heads in byHead.values where heads.count > 1 {
                 var byFull: [String: [FileItem]] = [:]
@@ -136,9 +161,43 @@ public enum DuplicateFinder {
                 }
             }
             done += sameSize.count
-            progress?(done, total)
+            let percent = total == 0 ? 100 : done * 100 / total
+            if percent != reported {
+                reported = percent
+                progress?(done, total)
+            }
         }
         return groups.sorted { $0.reclaimableBytes > $1.reclaimableBytes }
+    }
+
+    /// The copies to trash given the user's Keep/Trash picks, made safe:
+    /// - every group keeps at least one copy (Haven's pick when every copy was marked Trash);
+    /// - a group is left alone unless one of its kept copies is still there exactly as compared;
+    /// - a copy that changed since it was compared is never trashed.
+    public static func safeToTrash(groups: [DuplicateGroup], keeps: (FileItem, DuplicateGroup) -> Bool,
+                                   unchanged: (FileItem) -> Bool) -> [FileItem] {
+        var out: [FileItem] = []
+        for g in groups {
+            var kept = g.items.filter { keeps($0, g) }
+            var trash = g.items.filter { !keeps($0, g) }
+            if kept.isEmpty {
+                let keeper = g.items.first { $0.path == g.suggestedKeep } ?? g.items.first
+                guard let keeper else { continue }
+                kept = [keeper]
+                trash = g.items.filter { $0.path != keeper.path }
+            }
+            guard kept.contains(where: unchanged) else { continue }
+            out += trash.filter(unchanged)
+        }
+        return out
+    }
+
+    /// True when the file on disk still has the size and modification time it had when it was compared.
+    public static func isUnchanged(_ item: FileItem) -> Bool {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: item.path),
+              let size = (attrs[.size] as? NSNumber)?.int64Value,
+              let modified = attrs[.modificationDate] as? Date else { return false }
+        return size == item.size && abs(modified.timeIntervalSince(item.modified)) < 1
     }
 
     public static func cacheKey(_ item: FileItem) -> String {

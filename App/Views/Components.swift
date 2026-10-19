@@ -407,7 +407,7 @@ struct ToastView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(theme.accent)
-                .keyboardShortcut("z", modifiers: .command)
+                .help("Put it back (⌘Z works too)")
                 .accessibilityIdentifier("toast.undo")
             }
         }

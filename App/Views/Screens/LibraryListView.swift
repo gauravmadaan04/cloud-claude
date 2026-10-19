@@ -55,7 +55,7 @@ struct LibraryListView: View {
     private var model: AppModel { .shared }
 
     private var sort: FileSortOrder? {
-        usesRelevance ? model.searchSortOverride : prefs.sortOrder
+        usesRelevance ? model.searchSortOverride : model.pageSort
     }
 
     private var key: String {

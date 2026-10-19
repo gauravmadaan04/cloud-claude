@@ -1,8 +1,6 @@
-import AppKit
-import HavenCore
-import SwiftUI
-
 /// Grid or list of files with Finder-style selection, keyboard navigation, Quick Look and drag-out.
+/// Built for very long lists: hover and selection live in the cards, so pointing at or selecting a file
+/// redraws only the cards on screen, never the whole list.
 struct FileCollectionView<Header: View>: View {
     let items: [FileItem]
     /// Changes whenever `items` changes (lets the view refresh selection and Quick Look lists cheaply).
@@ -17,12 +15,14 @@ struct FileCollectionView<Header: View>: View {
 
     @Bindable private var model = AppModel.shared
     @Environment(\.theme) private var theme
-    @Environment(\.undoManager) private var undoManager
     @FocusState private var focused: Bool
+    /// Where a ⇧-click or ⇧-arrow selection starts, and where it currently ends.
     @State private var anchorID: String?
-    @State private var hoveredID: String?
+    @State private var leadID: String?
     @State private var columns = 4
     @State private var presentSources: [SourceCount] = []
+    @State private var typed = ""
+    @State private var typedAt = Date.distantPast
 
     private var prefs: Prefs { .shared }
 
@@ -88,6 +88,9 @@ struct FileCollectionView<Header: View>: View {
                     if press.characters == "-" { model.smaller() } else { model.bigger() }
                     return .handled
                 }
+                .onKeyPress(characters: .alphanumerics.union(.punctuationCharacters)) { press in
+                    typeToSelect(press, in: list, proxy: proxy)
+                }
                 .onCopyCommand {
                     model.selectedItems.map { NSItemProvider(object: $0.url as NSURL) }
                 }
@@ -100,6 +103,13 @@ struct FileCollectionView<Header: View>: View {
                 .onChange(of: prefs.cardSize) { _, size in
                     columns = Self.columnCount(width: geo.size.width, card: size)
                 }
+                .onChange(of: model.revealRequest) { _, _ in
+                    guard let id = model.selectedIDs.first else { return }
+                    anchorID = id
+                    leadID = id
+                    focused = true
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id, anchor: .center) }
+                }
             }
         }
         .background(theme.canvas)
@@ -108,12 +118,17 @@ struct FileCollectionView<Header: View>: View {
             refreshSources()
             if let reveal = model.selectedIDs.first, model.pendingReveal == nil {
                 anchorID = reveal
+                leadID = reveal
             }
         }
         .onChange(of: model.sourceFilter) { _, _ in model.setVisible(shown) }
         .onChange(of: model.focusResultsRequest) { _, _ in
             focused = true
-            if model.selectedIDs.isEmpty, let first = shown.first { model.selectedIDs = [first.id]; anchorID = first.id }
+            if model.selectedIDs.isEmpty, let first = shown.first {
+                model.selectedIDs = [first.id]
+                anchorID = first.id
+                leadID = first.id
+            }
         }
     }
 
@@ -137,10 +152,7 @@ struct FileCollectionView<Header: View>: View {
     private func filterBar(_ list: [FileItem]) -> some View {
         if !list.isEmpty || model.sourceFilter != nil {
             HStack(spacing: 10) {
-                Text(summary(list))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("results.count")
+                ListSummary(list: list, listID: listID)
                 Spacer()
                 if !presentSources.isEmpty {
                     Menu {
@@ -162,18 +174,6 @@ struct FileCollectionView<Header: View>: View {
         }
     }
 
-    private func summary(_ list: [FileItem]) -> String {
-        let files = list.count
-        let bytes = list.totalSize
-        var s = HavenFormat.count(files, "item")
-        if bytes > 0 { s += " · \(ByteSize.format(bytes))" }
-        if !model.selectedIDs.isEmpty {
-            let sel = list.filter { model.selectedIDs.contains($0.id) }
-            if !sel.isEmpty { s += " · \(sel.count) selected (\(ByteSize.format(sel.totalSize)))" }
-        }
-        return s
-    }
-
     // MARK: Grid
 
     private func grid(_ list: [FileItem], width: CGFloat) -> some View {
@@ -183,14 +183,7 @@ struct FileCollectionView<Header: View>: View {
         return LazyVGrid(columns: Array(repeating: GridItem(.fixed(side), spacing: spacing, alignment: .top), count: cols),
                          alignment: .leading, spacing: 20) {
             ForEach(list) { item in
-                FileCard(
-                    item: item,
-                    side: side,
-                    isSelected: model.selectedIDs.contains(item.id),
-                    isHovered: hoveredID == item.id,
-                    interaction: interaction(for: item, in: list)
-                )
-                .id(item.id)
+                FileCard(item: item, side: side, interaction: interaction(for: item, in: list))
             }
         }
         .accessibilityIdentifier("file.grid")
@@ -201,14 +194,9 @@ struct FileCollectionView<Header: View>: View {
     private func listView(_ list: [FileItem]) -> some View {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             Section {
-                ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
-                    FileRow(
-                        item: item,
-                        isSelected: model.selectedIDs.contains(item.id),
-                        isStriped: index % 2 == 1,
-                        interaction: interaction(for: item, in: list)
-                    )
-                    .id(item.id)
+                // Rows know their position for striping without copying the list.
+                ForEach(list.indices.lazy.map { IndexedFile(index: $0, item: list[$0]) }, id: \.item.id) { row in
+                    FileRow(item: row.item, isStriped: row.index % 2 == 1, interaction: interaction(for: row.item, in: list))
                 }
             } header: {
                 ListHeader(sortable: sortable)
@@ -228,17 +216,12 @@ struct FileCollectionView<Header: View>: View {
                     model.selectedIDs = [item.id]
                 }
             },
-            onHover: { inside in
-                if inside { hoveredID = item.id } else if hoveredID == item.id { hoveredID = nil }
-            },
             dragURLs: {
-                if model.selectedIDs.contains(item.id) {
-                    return list.filter { model.selectedIDs.contains($0.id) }.map(\.url)
-                }
+                if model.selectedIDs.contains(item.id) { return model.selectedItems.map(\.url) }
                 return [item.url]
             },
             menu: {
-                let targets = model.selectedIDs.contains(item.id) ? list.filter { model.selectedIDs.contains($0.id) } : [item]
+                let targets = model.selectedIDs.contains(item.id) ? model.selectedItems : [item]
                 return ItemMenu.make(for: targets)
             },
             accessibilityLabel: item.name
@@ -255,17 +238,21 @@ struct FileCollectionView<Header: View>: View {
         if mods.contains(.command) {
             if model.selectedIDs.contains(item.id) { model.selectedIDs.remove(item.id) } else { model.selectedIDs.insert(item.id) }
             anchorID = item.id
+            leadID = item.id
         } else if mods.contains(.shift), let anchor = anchorID,
                   let a = list.firstIndex(where: { $0.id == anchor }), let b = list.firstIndex(where: { $0.id == item.id }) {
             let range = a <= b ? a...b : b...a
             model.selectedIDs = Set(list[range].map(\.id))
+            leadID = item.id
         } else {
             if !model.selectedIDs.contains(item.id) { model.selectedIDs = [item.id] }
             anchorID = item.id
+            leadID = item.id
         }
         if model.quickLookURL != nil { model.quickLookURL = item.url }
     }
 
+    /// Arrow keys move the selection; with ⇧ they grow or shrink it from where it started.
     private func move(_ dir: MoveCommandDirection, in list: [FileItem], proxy: ScrollViewProxy) {
         guard !list.isEmpty else { return }
         let isGrid = prefs.viewMode == .grid
@@ -278,14 +265,81 @@ struct FileCollectionView<Header: View>: View {
         @unknown default: step = 0
         }
         guard step != 0 else { return }
-        let current = anchorID.flatMap { id in list.firstIndex { $0.id == id } }
+        let extend = NSEvent.modifierFlags.contains(.shift)
+        let from = (leadID ?? anchorID).flatMap { id in list.firstIndex { $0.id == id } }
             ?? list.firstIndex { model.selectedIDs.contains($0.id) }
-        let next = current.map { max(0, min(list.count - 1, $0 + step)) } ?? 0
+        let next = from.map { max(0, min(list.count - 1, $0 + step)) } ?? 0
         let target = list[next]
-        model.selectedIDs = [target.id]
-        anchorID = target.id
+        if extend, let anchor = anchorID, let a = list.firstIndex(where: { $0.id == anchor }) {
+            let range = a <= next ? a...next : next...a
+            model.selectedIDs = Set(list[range].map(\.id))
+        } else {
+            model.selectedIDs = [target.id]
+            anchorID = target.id
+        }
+        leadID = target.id
         withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(target.id) }
         if model.quickLookURL != nil { model.quickLookURL = target.url }
+    }
+
+    /// Typing the start of a name jumps to the first file that begins with it, like Finder.
+    private func typeToSelect(_ press: KeyPress, in list: [FileItem], proxy: ScrollViewProxy) -> KeyPress.Result {
+        guard press.modifiers.subtracting(.shift).isEmpty, !press.characters.isEmpty, !list.isEmpty else { return .ignored }
+        let now = Date()
+        typed = now.timeIntervalSince(typedAt) > 1.0 ? press.characters : typed + press.characters
+        typedAt = now
+        // One pass: of the names that start with what was typed, the first in name order.
+        let prefix = Array(FileItem.fold(typed).utf8)
+        var best: FileItem?
+        var bestKey: [UInt8] = []
+        for item in list where TextMatch.starts(with: prefix, item.searchName) {
+            let key = NaturalOrder.key(item.searchName)
+            if best == nil || NaturalOrder.compare(key, bestKey) < 0 {
+                best = item
+                bestKey = key
+            }
+        }
+        guard let hit = best else { return .handled }
+        model.selectedIDs = [hit.id]
+        anchorID = hit.id
+        leadID = hit.id
+        withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(hit.id, anchor: .center) }
+        if model.quickLookURL != nil { model.quickLookURL = hit.url }
+        return .handled
+    }
+}
+
+/// A file with its position in the list (for striped rows).
+struct IndexedFile {
+    let index: Int
+    let item: FileItem
+}
+
+/// "1,204 items · 3.2 GB · 3 selected (12 MB)": redraws on its own when the selection changes.
+private struct ListSummary: View {
+    let list: [FileItem]
+    let listID: String
+    @State private var totalBytes: Int64 = 0
+    private var model: AppModel { .shared }
+
+    var body: some View {
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .accessibilityIdentifier("results.count")
+            .onChange(of: listID, initial: true) { _, _ in totalBytes = list.totalSize }
+            .onChange(of: list.count) { _, _ in totalBytes = list.totalSize }
+    }
+
+    private var text: String {
+        var s = HavenFormat.count(list.count, "item")
+        if totalBytes > 0 { s += " · \(ByteSize.format(totalBytes))" }
+        if !model.selectedIDs.isEmpty {
+            let sel = model.selectedItems
+            if !sel.isEmpty { s += " · \(sel.count) selected (\(ByteSize.format(sel.totalSize)))" }
+        }
+        return s
     }
 }
 
@@ -316,13 +370,14 @@ struct SourceCount: Identifiable {
 struct FileCard: View {
     let item: FileItem
     let side: CGFloat
-    let isSelected: Bool
-    let isHovered: Bool
     let interaction: ItemInteraction
 
     @Environment(\.theme) private var theme
+    @State private var isHovered = false
+    private var isSelected: Bool { AppModel.shared.selectedIDs.contains(item.id) }
 
     var body: some View {
+        let isSelected = self.isSelected
         let thumbW = side - 12
         let radius: CGFloat = theme.isPlayful ? 12 : 8
         ZStack(alignment: .topTrailing) {
@@ -379,7 +434,7 @@ struct FileCard: View {
                 .padding(.horizontal, 3)
             }
             .padding(6)
-            interaction
+            interaction.reportingHover { isHovered = $0 }
             if isHovered, item.kind == .image || item.kind == .pdf {
                 Button {
                     AppModel.shared.copyText([item])
@@ -408,11 +463,11 @@ struct FileCard: View {
 /// One row in list view; selection is a solid accent bar like Finder.
 struct FileRow: View {
     let item: FileItem
-    let isSelected: Bool
     let isStriped: Bool
     let interaction: ItemInteraction
 
     @Environment(\.theme) private var theme
+    private var isSelected: Bool { AppModel.shared.selectedIDs.contains(item.id) }
 
     private var secondary: AnyShapeStyle {
         isSelected ? AnyShapeStyle(theme.onAccent.opacity(0.78)) : AnyShapeStyle(.secondary)
@@ -477,14 +532,15 @@ struct ListHeader: View {
         .background(.bar)
     }
 
-    private var current: FileSortOrder { model.isSearching ? (model.searchSortOverride ?? .dateNewest) : prefs.sortOrder }
+    /// nil while search results are in best-match order: no column is marked.
+    private var current: FileSortOrder? { model.activeSort }
 
     @ViewBuilder
     private func header(_ title: String, asc: FileSortOrder, desc: FileSortOrder) -> some View {
         if sortable {
             Button {
                 let next: FileSortOrder = current == desc ? asc : desc
-                if model.isSearching { model.searchSortOverride = next } else { prefs.sortOrder = next }
+                model.pickSort(next)
             } label: {
                 HStack(spacing: 3) {
                     Text(title)

@@ -13,6 +13,13 @@ struct ItemInteraction: NSViewRepresentable {
     var menu: () -> NSMenu?
     var accessibilityLabel: String = ""
 
+    /// The same interaction reporting hover to the card that shows it.
+    func reportingHover(_ handler: @escaping (Bool) -> Void) -> ItemInteraction {
+        var copy = self
+        copy.onHover = handler
+        return copy
+    }
+
     func makeNSView(context: Context) -> InteractionView {
         let v = InteractionView()
         v.config = self

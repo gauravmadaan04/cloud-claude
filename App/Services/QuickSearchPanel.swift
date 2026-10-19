@@ -13,19 +13,41 @@ final class QuickSearchModel {
     var selectedIndex = 0
     /// Bumped each time the panel opens so the field grabs focus.
     var focusToken = 0
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
 
+    /// Searches in the background; a newer keystroke cancels the older search, so typing never waits.
     func refresh(keepSelection: Bool = false) {
         let previous = selected?.id
         let trimmed = text.trimmingCharacters(in: .whitespaces)
+        searchTask?.cancel()
         if trimmed.isEmpty {
             chips = []
             results = Array(LibraryStore.shared.derived.recents.prefix(12))
-        } else {
-            let parsed = QueryParser.parse(trimmed, customRoots: AppModel.shared.customRootWords)
-            chips = parsed.chips
-            results = SearchEngine.search(parsed.query, in: LibraryStore.shared.items, text: LibraryStore.shared.text.lookup, limit: 40)
+            restoreSelection(previous, keepSelection)
+            return
         }
-        if keepSelection, let previous, let i = results.firstIndex(where: { $0.id == previous }) {
+        let parsed = QueryParser.parse(trimmed, customRoots: AppModel.shared.customRootWords)
+        chips = parsed.chips
+        let items = LibraryStore.shared.items
+        let lookup = LibraryStore.shared.text.lookup
+        searchTask = Task {
+            let job = Task.detached(priority: .userInitiated) { () -> [FileItem] in
+                let cancel = CancelFlag()
+                return await withTaskCancellationHandler {
+                    SearchEngine.search(parsed.query, in: items, text: lookup, limit: 40, isCancelled: { cancel.isSet })
+                } onCancel: {
+                    cancel.set()
+                }
+            }
+            let found = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
+            guard !Task.isCancelled else { return }
+            self.results = found
+            self.restoreSelection(previous, keepSelection)
+        }
+    }
+
+    private func restoreSelection(_ previous: String?, _ keep: Bool) {
+        if keep, let previous, let i = results.firstIndex(where: { $0.id == previous }) {
             selectedIndex = i
         } else {
             selectedIndex = 0

@@ -60,18 +60,27 @@ final class MusicPlayer {
     private func loadMetadata(_ item: FileItem) async {
         let asset = AVURLAsset(url: item.url)
         guard let meta = try? await asset.load(.commonMetadata) else { return }
+        // Read everything first, then show it only if this song is still the one playing
+        // (skipping quickly must never show the previous song's title or cover).
+        var newTitle: String?
+        var newArtist: String?
+        var newArtwork: NSImage?
         for entry in meta {
             guard let key = entry.commonKey else { continue }
             switch key {
             case .commonKeyTitle:
-                if let s = try? await entry.load(.stringValue), !s.isEmpty { title = s }
+                if let s = try? await entry.load(.stringValue), !s.isEmpty { newTitle = s }
             case .commonKeyArtist:
-                if let s = try? await entry.load(.stringValue) { artist = s }
+                if let s = try? await entry.load(.stringValue) { newArtist = s }
             case .commonKeyArtwork:
-                if let d = try? await entry.load(.dataValue), let img = NSImage(data: d) { artwork = img }
+                if let d = try? await entry.load(.dataValue), let img = NSImage(data: d) { newArtwork = img }
             default: break
             }
         }
+        guard current?.id == item.id else { return }
+        if let newTitle { title = newTitle }
+        if let newArtist { artist = newArtist }
+        if let newArtwork { artwork = newArtwork }
         updateNowPlaying()
     }
 

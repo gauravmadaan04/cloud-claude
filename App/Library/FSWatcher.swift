@@ -3,7 +3,9 @@ import Foundation
 
 /// Follows folder changes with FSEvents and reports the folders that changed.
 final class FSWatcher {
-    typealias Handler = (_ directories: [String], _ mustRescan: Bool) -> Void
+    /// `changed`: folders whose entries changed. `deep`: folders to read again in full (macOS dropped events
+    /// for them). `rootChanged`: a watched folder itself moved or disappeared.
+    typealias Handler = (_ changed: [String], _ deep: [String], _ rootChanged: Bool) -> Void
 
     private let paths: [String]
     private let handler: Handler
@@ -32,16 +34,19 @@ final class FSWatcher {
             let cfArray = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue()
             guard let list = cfArray as? [String] else { return }
             var dirs: [String] = []
-            var rescan = false
+            var deep: [String] = []
+            var rootChanged = false
             for i in 0..<min(count, list.count) {
                 let flags = eventFlags[i]
-                if flags & UInt32(kFSEventStreamEventFlagMustScanSubDirs) != 0
-                    || flags & UInt32(kFSEventStreamEventFlagRootChanged) != 0 {
-                    rescan = true
+                if flags & UInt32(kFSEventStreamEventFlagRootChanged) != 0 {
+                    rootChanged = true
+                } else if flags & UInt32(kFSEventStreamEventFlagMustScanSubDirs) != 0 {
+                    deep.append(list[i])
+                } else {
+                    dirs.append(list[i])
                 }
-                dirs.append(list[i])
             }
-            watcher.handler(dirs, rescan)
+            watcher.handler(dirs, deep, rootChanged)
         }
         let flags = UInt32(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagWatchRoot)
         guard let s = FSEventStreamCreate(

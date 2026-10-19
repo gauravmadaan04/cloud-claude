@@ -74,6 +74,7 @@ struct LibraryDerived {
 }
 
 /// Haven's index of your files: loads instantly from disk, rescans in the background and follows changes live.
+/// Everything heavy (reading the saved index, scanning, merging changes, saving) happens off the main thread.
 @MainActor
 @Observable
 final class LibraryStore {
@@ -91,17 +92,26 @@ final class LibraryStore {
     let text = TextIndex()
     let duplicates = DuplicateService()
 
-    @ObservationIgnored private var byPath: [String: FileItem] = [:]
     @ObservationIgnored private var watcher: FSWatcher?
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var deriveTask: Task<Void, Never>?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var sizeTask: Task<Void, Never>?
-    @ObservationIgnored private var pendingChanges = Set<String>()
     @ObservationIgnored private var changeTask: Task<Void, Never>?
+    /// Folders to re-list, and folders whose whole subtree must be read again.
+    @ObservationIgnored private var pendingChanges = Set<String>()
+    @ObservationIgnored private var pendingDeep = Set<String>()
+    @ObservationIgnored private var isRefreshing = false
     @ObservationIgnored private var appSizes: [String: Int64] = [:]
     @ObservationIgnored private var started = false
     @ObservationIgnored private var duplicatesRunThisLaunch = false
+    /// Bumped whenever the whole index is replaced; work started on an older index is redone.
+    @ObservationIgnored private var generation = 0
+    /// Paths Haven moved or trashed, numbered, so results computed from an older index can drop them.
+    @ObservationIgnored private var forgetLog: [(seq: Int, paths: Set<String>)] = []
+    @ObservationIgnored private var forgetSeq = 0
+    /// Folders that changed while a full scan ran; re-listed once its result lands.
+    @ObservationIgnored private var changedDuringScan = Set<String>()
 
     private init() {}
 
@@ -112,7 +122,9 @@ final class LibraryStore {
     }
 
     private var supportDir: URL { LaunchOptions.current.supportDirectory }
-    private var snapshotURL: URL { supportDir.appendingPathComponent("index.json") }
+    private var snapshotURL: URL { supportDir.appendingPathComponent("index.bin") }
+    /// Haven 1.0 saved the index as JSON; it's read once if there's no binary index yet.
+    private var legacySnapshotURL: URL { supportDir.appendingPathComponent("index.json") }
     private var appSizesURL: URL { supportDir.appendingPathComponent("app-sizes.json") }
 
     // MARK: Start-up
@@ -120,73 +132,106 @@ final class LibraryStore {
     func start() {
         guard !started else { return }
         started = true
-        let snapURL = snapshotURL
+        let binURL = snapshotURL
+        let jsonURL = legacySnapshotURL
         let sizesURL = appSizesURL
         let enabledIDs = Set(Prefs.shared.enabledRoots.map(\.id))
         Task {
             let loaded = await Task.detached(priority: .userInitiated) { () -> ([FileItem], [String: Int64]) in
-                var items: [FileItem] = []
-                if let d = try? Data(contentsOf: snapURL), let snap = try? JSONDecoder().decode(IndexSnapshot.self, from: d),
-                   snap.version == IndexSnapshot.currentVersion {
-                    items = snap.items.filter { enabledIDs.contains($0.rootID) }
-                }
+                let items = LibraryStore.readIndex(bin: binURL, json: jsonURL).filter { enabledIDs.contains($0.rootID) }
                 var sizes: [String: Int64] = [:]
                 if let d = try? Data(contentsOf: sizesURL), let s = try? JSONDecoder().decode([String: Int64].self, from: d) {
                     sizes = s
                 }
-                return (items, sizes)
+                return (FileSortOrder.dateNewest.sorted(items), sizes)
             }.value
             self.appSizes = loaded.1
-            if !loaded.0.isEmpty { self.apply(loaded.0, fromSnapshot: true) }
-            self.text.load()
-            self.duplicates.loadCache()
+            if !loaded.0.isEmpty { self.replaceAll(loaded.0, fromSnapshot: true) }
+            await self.text.load()
+            await self.duplicates.loadCache()
             self.rescan()
             self.startWatching()
         }
     }
 
+    nonisolated static func readIndex(bin: URL, json: URL) -> [FileItem] {
+        if let d = try? Data(contentsOf: bin, options: .mappedIfSafe), let snap = try? IndexCodec.decode(d) {
+            return snap.items
+        }
+        if let d = try? Data(contentsOf: json), let snap = try? JSONDecoder().decode(IndexSnapshot.self, from: d),
+           snap.version == IndexSnapshot.currentVersion {
+            return snap.items
+        }
+        return []
+    }
+
     // MARK: Scanning
 
+    /// Reads every folder again, each root on its own core.
     func rescan() {
         scanTask?.cancel()
         let roots = Prefs.shared.enabledRoots
         let options = scanOptions
+        let sizes = appSizes
+        let startSeq = forgetSeq
         isScanning = true
         scanCount = 0
+        changedDuringScan = []
         let store = self
         scanTask = Task.detached(priority: .utility) {
-            var all: [FileItem] = []
-            var seen = Set<String>()
-            for root in roots {
-                if Task.isCancelled { return }
-                let base = all.count
-                let found = FileScanner.scan(root: root, options: options, progress: { n in
-                    Task { @MainActor in store.scanCount = base + n }
-                }, cancelled: { Task.isCancelled })
-                for item in found where seen.insert(item.path).inserted {
-                    all.append(item)
-                }
+            let progress = ScanProgress(roots: roots.count) { total in
+                Task { @MainActor in if store.isScanning { store.scanCount = total } }
             }
-            if Task.isCancelled { return }
-            let sorted = all.sorted { $0.activityDate > $1.activityDate }
-            await MainActor.run {
-                let withSizes = sorted.map { item -> FileItem in
-                    if item.kind == .app, let s = store.appSizes[LibraryStore.sizeKey(item)] { return item.withSize(s) }
-                    return item
-                }
-                store.apply(withSizes, fromSnapshot: false)
-                store.isScanning = false
-                store.lastScan = Date()
-                store.scheduleSave()
-                store.measureAppSizes()
-                RulesRunner.shared.runIfDue()
+            let cancel = CancelFlag()
+            let found = await withTaskCancellationHandler {
+                LibraryStore.scanAll(roots, options: options, progress: progress, cancel: cancel)
+            } onCancel: {
+                cancel.set()
             }
+            if cancel.isSet { return }
+            let sorted = FileSortOrder.dateNewest.sorted(found.map { LibraryStore.withAppSize($0, sizes) })
+            await MainActor.run { store.finishScan(sorted, startSeq: startSeq) }
         }
     }
 
-    private func apply(_ newItems: [FileItem], fromSnapshot: Bool) {
+    nonisolated static func scanAll(_ roots: [IndexRoot], options: ScanOptions, progress: ScanProgress, cancel: CancelFlag) -> [FileItem] {
+        var results = [[FileItem]](repeating: [], count: roots.count)
+        results.withUnsafeMutableBufferPointer { out in
+            DispatchQueue.concurrentPerform(iterations: roots.count) { i in
+                out[i] = FileScanner.scan(root: roots[i], options: options,
+                                          progress: { n in progress.update(root: i, count: n) },
+                                          cancelled: { cancel.isSet })
+            }
+        }
+        // A custom folder inside a standard one would be found twice.
+        let overlapping = roots.contains { a in roots.contains { b in a.id != b.id && a.path.hasPrefix(b.path + "/") } }
+        guard overlapping else { return results.flatMap { $0 } }
+        var seen = Set<String>()
+        var all: [FileItem] = []
+        for r in results { for item in r where seen.insert(item.path).inserted { all.append(item) } }
+        return all
+    }
+
+    private func finishScan(_ scanned: [FileItem], startSeq: Int) {
+        let forgotten = forgottenSince(startSeq)
+        replaceAll(forgotten.isEmpty ? scanned : IndexMerge.removing(forgotten, from: scanned), fromSnapshot: false)
+        isScanning = false
+        lastScan = Date()
+        scheduleSave()
+        measureAppSizes()
+        RulesRunner.shared.runIfDue()
+        if !changedDuringScan.isEmpty {
+            // Changes that happened mid-scan may be missing from its result.
+            pendingChanges.formUnion(changedDuringScan)
+            changedDuringScan = []
+            Task { await self.drainChanges() }
+        }
+        trimForgetLog()
+    }
+
+    private func replaceAll(_ newItems: [FileItem], fromSnapshot: Bool) {
         items = newItems
-        byPath = Dictionary(newItems.map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
+        generation += 1
         version += 1
         hasLoaded = true
         rederive()
@@ -211,16 +256,17 @@ final class LibraryStore {
         }
     }
 
+    /// Saves the index a few seconds after the last change, in the background.
     private func scheduleSave() {
         saveTask?.cancel()
-        let snapshot = IndexSnapshot(rootPaths: Prefs.shared.enabledRoots.map(\.path), items: items)
+        let snapshot = items
+        let roots = Prefs.shared.enabledRoots.map(\.path)
         let url = snapshotURL
         saveTask = Task.detached(priority: .background) {
-            try? await Task.sleep(for: .seconds(8))
+            try? await Task.sleep(for: .seconds(6))
             if Task.isCancelled { return }
-            if let data = try? JSONEncoder().encode(snapshot) {
-                try? data.write(to: url, options: .atomic)
-            }
+            let data = IndexCodec.encode(items: snapshot, rootPaths: roots)
+            try? data.write(to: url, options: .atomic)
         }
     }
 
@@ -228,6 +274,11 @@ final class LibraryStore {
 
     nonisolated static func sizeKey(_ item: FileItem) -> String {
         "\(item.path)|\(Int(item.modified.timeIntervalSince1970))"
+    }
+
+    nonisolated static func withAppSize(_ item: FileItem, _ sizes: [String: Int64]) -> FileItem {
+        guard item.kind == .app, item.size == 0, let s = sizes[sizeKey(item)] else { return item }
+        return item.withSize(s)
     }
 
     private func measureAppSizes() {
@@ -252,21 +303,22 @@ final class LibraryStore {
     private func applyAppSizes(_ results: [String: Int64], saveTo url: URL) {
         appSizes.merge(results) { _, new in new }
         var changed = false
-        items = items.map { item in
-            if item.kind == .app, item.size == 0, let s = results[LibraryStore.sizeKey(item)] {
-                changed = true
-                let updated = item.withSize(s)
-                byPath[item.path] = updated
-                return updated
-            }
-            return item
+        let sized = items.map { item -> FileItem in
+            let updated = LibraryStore.withAppSize(item, results)
+            if updated !== item { changed = true }
+            return updated
         }
         if changed {
+            items = sized
+            generation += 1
             version += 1
             rederive()
             scheduleSave()
         }
-        if let data = try? JSONEncoder().encode(appSizes) { try? data.write(to: url, options: .atomic) }
+        let sizes = appSizes
+        Task.detached(priority: .background) {
+            if let data = try? JSONEncoder().encode(sizes) { try? data.write(to: url, options: .atomic) }
+        }
     }
 
     // MARK: Live updates
@@ -274,9 +326,9 @@ final class LibraryStore {
     private func startWatching() {
         let paths = Prefs.shared.enabledRoots.map(\.path).filter { FileManager.default.fileExists(atPath: $0) }
         let store = self
-        watcher = FSWatcher(paths: paths) { changed, mustRescan in
+        watcher = FSWatcher(paths: paths) { changed, deep, rootChanged in
             Task { @MainActor in
-                if mustRescan { store.rescan() } else { store.noteChanges(changed) }
+                if rootChanged { store.rescan() } else { store.noteChanges(changed, deep: deep) }
             }
         }
         watcher?.start()
@@ -288,100 +340,140 @@ final class LibraryStore {
         startWatching()
     }
 
-    /// Re-lists folders that changed, a moment after the last change.
-    func noteChanges(_ paths: [String]) {
+    /// Re-lists folders that changed, a moment after the last change. `deep` folders are read again in full
+    /// (macOS asks for that when it dropped events for them).
+    func noteChanges(_ paths: [String], deep: [String] = []) {
         let skip = scanOptions.skipFolderNames
         let rootPaths = Prefs.shared.enabledRoots.map(\.path)
-        for raw in paths {
+        func normalized(_ raw: String) -> String? {
             // FSEvents reports real paths (/private/tmp…); roots may use the symlinked form (/tmp…).
             var p = raw
             if p.hasPrefix("/private/"), !rootPaths.contains(where: { p.hasPrefix($0) }) { p = String(p.dropFirst(8)) }
             let comps = p.split(separator: "/")
-            if comps.contains(where: { $0.hasPrefix(".") || skip.contains(String($0)) }) { continue }
-            pendingChanges.insert(p.hasSuffix("/") && p.count > 1 ? String(p.dropLast()) : p)
+            if comps.contains(where: { $0.hasPrefix(".") || skip.contains(String($0)) || $0.hasSuffix(".noindex") }) { return nil }
+            return p.hasSuffix("/") && p.count > 1 ? String(p.dropLast()) : p
         }
-        guard !pendingChanges.isEmpty else { return }
+        for raw in paths { if let p = normalized(raw) { pendingChanges.insert(p) } }
+        for raw in deep { if let p = normalized(raw) { pendingDeep.insert(p) } }
+        guard !pendingChanges.isEmpty || !pendingDeep.isEmpty else { return }
         changeTask?.cancel()
         changeTask = Task {
-            try? await Task.sleep(for: .milliseconds(1200))
+            try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
-            let dirs = self.pendingChanges
-            self.pendingChanges.removeAll()
-            await self.refresh(directories: Array(dirs))
+            await self.drainChanges()
         }
     }
 
     /// Updates the index for the given folders (and new subfolders inside them).
     func refresh(directories: [String]) async {
-        let roots = Prefs.shared.enabledRoots
-        let options = scanOptions
-        let known = Set(byPath.keys)
-        let results = await Task.detached(priority: .userInitiated) { () -> [(dir: String, exists: Bool, items: [FileItem])] in
-            var out: [(dir: String, exists: Bool, items: [FileItem])] = []
-            for dir in directories {
-                guard let root = LibraryStore.root(for: dir, in: roots) else { continue }
-                var isDir: ObjCBool = false
-                let exists = FileManager.default.fileExists(atPath: dir, isDirectory: &isDir) && isDir.boolValue
-                guard exists else {
-                    out.append((dir: dir, exists: false, items: []))
-                    continue
-                }
-                var listing = FileScanner.list(directory: dir, rootID: root.id, options: options)
-                if root.appsOnly { listing = listing.filter { $0.kind == .app } }
-                var extra: [FileItem] = []
-                if !root.appsOnly {
-                    for folder in listing where folder.kind == .folder && !known.contains(folder.path) {
-                        let sub = IndexRoot(id: root.id, path: folder.path, name: folder.name)
-                        extra += FileScanner.scan(root: sub, options: options)
-                    }
-                }
-                out.append((dir: dir, exists: true, items: listing + extra))
-            }
-            return out
-        }.value
+        pendingChanges.formUnion(directories)
+        await drainChanges()
+    }
 
-        guard !results.isEmpty else { return }
-        for r in results {
-            if !r.exists {
-                byPath.removeValue(forKey: r.dir)
-                let prefix = r.dir + "/"
-                for key in byPath.keys where key.hasPrefix(prefix) { byPath.removeValue(forKey: key) }
+    /// Works through queued folder changes one batch at a time, off the main thread.
+    private func drainChanges() async {
+        guard !isRefreshing else { return } // the running loop picks new changes up
+        isRefreshing = true
+        defer {
+            isRefreshing = false
+            trimForgetLog()
+        }
+        while !pendingChanges.isEmpty || !pendingDeep.isEmpty {
+            let dirs = Array(pendingChanges)
+            let deep = Array(pendingDeep)
+            pendingChanges.removeAll()
+            pendingDeep.removeAll()
+            if isScanning { changedDuringScan.formUnion(dirs + deep) }
+            let base = items
+            let startGeneration = generation
+            let startSeq = forgetSeq
+            let roots = Prefs.shared.enabledRoots
+            let options = scanOptions
+            let sizes = appSizes
+            let result = await Task.detached(priority: .userInitiated) {
+                LibraryStore.relist(dirs, deep: deep, base: base, roots: roots, options: options, sizes: sizes)
+            }.value
+            guard startGeneration == generation else {
+                // The whole index was replaced meanwhile: do these folders again on top of it.
+                pendingChanges.formUnion(dirs)
+                pendingDeep.formUnion(deep)
                 continue
             }
-            let newPaths = Set(r.items.map(\.path))
-            for (key, item) in byPath where item.parentPath == r.dir && !newPaths.contains(key) {
-                byPath.removeValue(forKey: key)
-                if item.kind == .folder {
-                    let prefix = key + "/"
-                    for sub in byPath.keys where sub.hasPrefix(prefix) { byPath.removeValue(forKey: sub) }
+            let forgotten = forgottenSince(startSeq)
+            items = forgotten.isEmpty ? result.items : IndexMerge.removing(forgotten, from: result.items)
+            version += 1
+            rederive()
+            scheduleSave()
+            text.enqueue(result.fresh, scope: Prefs.shared.ocrScope)
+            if result.fresh.contains(where: { $0.kind == .app && $0.size == 0 }) { measureAppSizes() }
+        }
+    }
+
+    nonisolated static func relist(_ dirs: [String], deep: [String], base: [FileItem], roots: [IndexRoot],
+                                   options: ScanOptions, sizes: [String: Int64]) -> (items: [FileItem], fresh: [FileItem]) {
+        var listed: [String: [FileItem]] = [:]
+        var gone: [String] = []
+        var added: [FileItem] = []
+        var knownFolders: Set<String>?
+        let fm = FileManager.default
+        for dir in dirs {
+            guard let root = root(for: dir, in: roots) else { continue }
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else {
+                gone.append(dir)
+                continue
+            }
+            var listing = FileScanner.list(directory: dir, rootID: root.id, options: options)
+            if root.appsOnly { listing = listing.filter { $0.kind == .app } }
+            listing = listing.map { withAppSize($0, sizes) }
+            if !root.appsOnly {
+                let folders = listing.filter { $0.kind == .folder }
+                if !folders.isEmpty {
+                    if knownFolders == nil { knownFolders = Set(base.lazy.filter { $0.kind == .folder }.map(\.path)) }
+                    for folder in folders where !knownFolders!.contains(folder.path) {
+                        let sub = IndexRoot(id: root.id, path: folder.path, name: folder.name)
+                        added += FileScanner.scan(root: sub, options: options).map { withAppSize($0, sizes) }
+                    }
                 }
             }
-            for item in r.items {
-                var updated = item
-                if item.kind == .app, let s = appSizes[Self.sizeKey(item)] { updated = item.withSize(s) }
-                byPath[item.path] = updated
-            }
+            listed[dir] = listing
         }
-        let sorted = byPath.values.sorted { $0.activityDate > $1.activityDate }
-        items = sorted
-        version += 1
-        rederive()
-        scheduleSave()
-        let fresh = results.flatMap(\.items)
-        text.enqueue(fresh, scope: Prefs.shared.ocrScope)
-        if fresh.contains(where: { $0.kind == .app && $0.size == 0 }) { measureAppSizes() }
+        for dir in deep {
+            guard let root = root(for: dir, in: roots) else { continue }
+            gone.append(dir)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { continue }
+            if dir != root.path, let me = FileScanner.item(at: URL(fileURLWithPath: dir, isDirectory: true), rootID: root.id, options: options) {
+                added.append(me)
+            }
+            let sub = IndexRoot(id: root.id, path: dir, name: (dir as NSString).lastPathComponent, appsOnly: root.appsOnly)
+            added += FileScanner.scan(root: sub, options: options).map { withAppSize($0, sizes) }
+        }
+        let merged = IndexMerge.apply(base: base, listed: listed, gone: gone, added: added)
+        return (merged, listed.values.flatMap { $0 } + added)
     }
 
     /// Drops items that Haven itself just moved or trashed (the watcher will confirm shortly).
     func forget(paths: [String]) {
         guard !paths.isEmpty else { return }
         let set = Set(paths)
-        for p in set { byPath.removeValue(forKey: p) }
-        items.removeAll { set.contains($0.path) }
+        forgetSeq += 1
+        forgetLog.append((forgetSeq, set))
+        items = IndexMerge.removing(set, from: items)
         version += 1
         rederive()
         duplicates.forget(paths: set)
         scheduleSave()
+    }
+
+    private func forgottenSince(_ seq: Int) -> Set<String> {
+        var out = Set<String>()
+        for entry in forgetLog where entry.seq > seq { out.formUnion(entry.paths) }
+        return out
+    }
+
+    private func trimForgetLog() {
+        if !isScanning && !isRefreshing { forgetLog.removeAll() }
     }
 
     nonisolated static func root(for path: String, in roots: [IndexRoot]) -> IndexRoot? {
@@ -392,38 +484,80 @@ final class LibraryStore {
         Self.root(for: path, in: Prefs.shared.enabledRoots)
     }
 
-    func item(at path: String) -> FileItem? { byPath[path] }
-
     // MARK: Lists for the UI
 
-    /// Computes a list in the background. `sort` nil keeps the source's natural order (search relevance).
+    /// Computes a list in the background and stops early when the caller goes away (a new keystroke).
+    /// `sort` nil keeps the source's own order (search relevance, or the query's "largest", "oldest"…).
     func load(_ source: CollectionSource, sort: FileSortOrder?) async -> [FileItem] {
         let all = items
         let d = derived
         let lookup = text.lookup
-        return await Task.detached(priority: .userInitiated) { () -> [FileItem] in
-            var list: [FileItem]
-            switch source {
-            case .recents: list = d.recents
-            case .category(let c): list = d.byCategory[c] ?? []
-            case .largeFiles: list = d.largeFiles
-            case .screenshots: list = d.screenshots
-            case .latestDownloads: list = d.latestDownloads
-            case .source(let id): list = all.filter { $0.source?.id == id && $0.kind != .folder }.sorted { $0.arrivalDate > $1.arrivalDate }
-            case .query(let q):
-                list = SearchEngine.search(q, in: all, text: lookup)
-                if q.sort != nil { return list }
+        let job = Task.detached(priority: .userInitiated) { () -> [FileItem] in
+            let cancel = CancelFlag()
+            return await withTaskCancellationHandler { () -> [FileItem] in
+                var list: [FileItem]
+                switch source {
+                case .recents: list = d.recents
+                case .category(let c): list = d.byCategory[c] ?? []
+                case .largeFiles: list = d.largeFiles
+                case .screenshots: list = d.screenshots
+                case .latestDownloads: list = d.latestDownloads
+                case .source(let id):
+                    list = all.filter { $0.source?.id == id && $0.kind != .folder }
+                    list = FileSortOrder.ordered(list, list.map { $0.arrivalDate.timeIntervalSinceReferenceDate }, descending: true)
+                case .query(let q):
+                    list = SearchEngine.search(q, in: all, text: lookup, isCancelled: { cancel.isSet })
+                }
+                if cancel.isSet { return [] }
+                if let sort { list = sort.sorted(list) }
+                return list
+            } onCancel: {
+                cancel.set()
             }
-            if let sort { list = sort.sorted(list) }
-            return list
-        }.value
+        }
+        return await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
     }
 
-    /// Quick, synchronous search for Quick Search and Shortcuts.
+    /// Quick search for Shortcuts and the menu bar.
     func search(_ text: String, limit: Int = 60) -> [FileItem] {
         let parsed = QueryParser.parse(text, customRoots: AppModel.shared.customRootWords)
         return SearchEngine.search(parsed.query, in: items, text: self.text.lookup, limit: limit)
     }
 
     var latestDownload: FileItem? { derived.latestDownloads.first }
+}
+
+/// A cancel switch background loops can check from any thread.
+final class CancelFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    var isSet: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return value
+    }
+
+    func set() {
+        lock.lock(); value = true; lock.unlock()
+    }
+}
+
+/// Adds up files found per root while roots are scanned in parallel.
+final class ScanProgress: @unchecked Sendable {
+    private let lock = NSLock()
+    private var counts: [Int]
+    private let report: (Int) -> Void
+
+    init(roots: Int, report: @escaping (Int) -> Void) {
+        counts = Array(repeating: 0, count: roots)
+        self.report = report
+    }
+
+    func update(root: Int, count: Int) {
+        lock.lock()
+        counts[root] = count
+        let total = counts.reduce(0, +)
+        lock.unlock()
+        report(total)
+    }
 }

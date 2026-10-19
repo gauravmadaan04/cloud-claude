@@ -44,6 +44,7 @@ final class HavenAppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         Self.applyHotKey()
+        ShortcutRouter.shared.install()
         if Prefs.shared.onboardingDone || opts.skipOnboarding {
             LibraryStore.shared.start()
         }
@@ -82,6 +83,7 @@ struct HavenCommands: Commands {
             Button("Show in Finder") { model.revealInFinder(model.selectedItems) }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
             Button("Quick Look") { model.toggleQuickLook() }
+                .keyboardShortcut("y")
             Divider()
             Button("Move to Trash") {
                 // In a text field, ⌘⌫ keeps its usual meaning.
@@ -89,7 +91,9 @@ struct HavenCommands: Commands {
                     editor.deleteToBeginningOfLine(nil)
                     return
                 }
-                model.trash(model.selectedItems, reason: "Moved by you", undoManager: NSApp.keyWindow?.undoManager)
+                // Only for the files in the main window, and only when it's the window in front.
+                guard let main = AppModel.mainWindow, NSApp.keyWindow === main, main.attachedSheet == nil else { return }
+                model.trash(model.selectedItems, reason: "Moved by you", undoManager: main.undoManager)
             }
             .keyboardShortcut(.delete, modifiers: .command)
         }
@@ -100,6 +104,7 @@ struct HavenCommands: Commands {
             Button("Copy Path") { model.copyPaths(model.selectedItems) }
                 .keyboardShortcut("c", modifiers: [.command, .option])
             Button("Select All Files") { model.selectAll() }
+            Button("Paste Files Here") { model.pasteFiles() }
         }
         CommandGroup(after: .toolbar) {
             Button("as Grid") { prefs.viewMode = .grid }

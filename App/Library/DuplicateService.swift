@@ -23,6 +23,7 @@ final class DuplicateService {
     @ObservationIgnored private var task: Task<Void, Never>?
 
     private var cacheURL: URL { LaunchOptions.current.supportDirectory.appendingPathComponent("hashes.json") }
+    private var printsURL: URL { LaunchOptions.current.supportDirectory.appendingPathComponent("photo-prints.plist") }
 
     /// Distance under which two photos count as look-alikes (Vision feature print distance).
     nonisolated static let similarityThreshold: Float = 0.38
@@ -38,9 +39,13 @@ final class DuplicateService {
     var identicalGroups: [DuplicateGroup] { groups.filter { $0.kind == .identical } }
     var similarGroups: [DuplicateGroup] { groups.filter { $0.kind == .similar } }
 
-    func loadCache() {
-        guard let d = try? Data(contentsOf: cacheURL), let c = try? JSONDecoder().decode([String: String].self, from: d) else { return }
-        hashCache = c
+    /// Reads saved hashes off the main thread.
+    func loadCache() async {
+        let url = cacheURL
+        hashCache = await Task.detached(priority: .utility) { () -> [String: String] in
+            guard let d = try? Data(contentsOf: url), let c = try? JSONDecoder().decode([String: String].self, from: d) else { return [:] }
+            return c
+        }.value
     }
 
     func scan(items: [FileItem], similar: Bool, quietly: Bool = false) {
@@ -48,12 +53,15 @@ final class DuplicateService {
         phase = .hashing(0)
         let cache = hashCache
         let url = cacheURL
+        let prints = printsURL
         let service = self
         task = Task(priority: quietly ? .utility : .userInitiated) {
             let report: @Sendable (Phase) -> Void = { p in
                 Task { @MainActor in if service.isRunning { service.phase = p } }
             }
-            let result = await DuplicateService.compute(items: items, similar: similar, cache: cache, cacheURL: url, report: report)
+            // `compute` isn't tied to the main actor, so it runs in the background and stops when this task is cancelled.
+            let result = await DuplicateService.compute(items: items, similar: similar, cache: cache, cacheURL: url,
+                                                        printsURL: prints, report: report)
             guard !Task.isCancelled else { return }
             service.hashCache = result.cache
             service.groups = result.groups.sorted { $0.reclaimableBytes > $1.reclaimableBytes }
@@ -63,7 +71,7 @@ final class DuplicateService {
     }
 
     /// Runs off the main actor and stops when the calling task is cancelled.
-    nonisolated static func compute(items: [FileItem], similar: Bool, cache: [String: String], cacheURL: URL,
+    nonisolated static func compute(items: [FileItem], similar: Bool, cache: [String: String], cacheURL: URL, printsURL: URL,
                                     report: @escaping @Sendable (Phase) -> Void) async -> (groups: [DuplicateGroup], cache: [String: String]) {
         var localCache = cache
         let identical = DuplicateFinder.identicalGroups(in: items, hashCache: &localCache, progress: { done, total in
@@ -78,8 +86,15 @@ final class DuplicateService {
             $0.kind == .image && !$0.isCloudOnly && !$0.isScreenshot && !identicalPaths.contains($0.path) && $0.size > 1_000
                 && !["svg", "gif", "ico", "icns", "psd"].contains($0.ext)
         }
-        let similarGroups = SimilarPhotoFinder.groups(in: photos, threshold: similarityThreshold) { p in
+        // Photo fingerprints are kept between runs: Vision only looks at new or changed photos.
+        var printCache = SimilarPhotoFinder.loadPrints(printsURL)
+        let before = printCache.count
+        let similarGroups = SimilarPhotoFinder.groups(in: photos, threshold: similarityThreshold, cache: &printCache) { p in
             report(.comparingPhotos(p))
+        }
+        if printCache.count != before, !Task.isCancelled {
+            let live = Set(photos.map(DuplicateFinder.cacheKey))
+            SimilarPhotoFinder.savePrints(printCache.filter { live.contains($0.key) }, to: printsURL)
         }
         return (identical + similarGroups, localCache)
     }
@@ -132,17 +147,42 @@ enum SimilarPhotoFinder {
         return d
     }
 
-    static func groups(in photos: [FileItem], threshold: Float, progress: ((Double) -> Void)? = nil) -> [DuplicateGroup] {
+    static func loadPrints(_ url: URL) -> [String: Data] {
+        guard let d = try? Data(contentsOf: url),
+              let dict = try? PropertyListSerialization.propertyList(from: d, format: nil) as? [String: Data] else { return [:] }
+        return dict
+    }
+
+    static func savePrints(_ prints: [String: Data], to url: URL) {
+        if let d = try? PropertyListSerialization.data(fromPropertyList: prints, format: .binary, options: 0) {
+            try? d.write(to: url, options: .atomic)
+        }
+    }
+
+    static func groups(in photos: [FileItem], threshold: Float, cache: inout [String: Data],
+                       progress: ((Double) -> Void)? = nil) -> [DuplicateGroup] {
         let pairs = SimilarityClusterer.candidatePairs(photos, window: 90)
         guard !pairs.isEmpty else { return [] }
         let needed = Set(pairs.flatMap { [$0.0, $0.1] })
         var prints: [Int: VNFeaturePrintObservation] = [:]
         var done = 0
+        var reported = -1
         for i in needed.sorted() {
             if Task.isCancelled { return [] }
-            if let fp = featurePrint(for: photos[i].url) { prints[i] = fp }
+            let key = DuplicateFinder.cacheKey(photos[i])
+            if let data = cache[key],
+               let fp = try? NSKeyedUnarchiver.unarchivedObject(ofClass: VNFeaturePrintObservation.self, from: data) {
+                prints[i] = fp
+            } else if let fp = featurePrint(for: photos[i].url) {
+                prints[i] = fp
+                if let data = try? NSKeyedArchiver.archivedData(withRootObject: fp, requiringSecureCoding: true) { cache[key] = data }
+            }
             done += 1
-            if done % 10 == 0 { progress?(Double(done) / Double(needed.count)) }
+            let percent = done * 100 / max(needed.count, 1)
+            if percent != reported {
+                reported = percent
+                progress?(Double(done) / Double(needed.count))
+            }
         }
         let clusters = SimilarityClusterer.clusters(count: photos.count, pairs: pairs, threshold: threshold) { a, b in
             guard let pa = prints[a], let pb = prints[b] else { return nil }
