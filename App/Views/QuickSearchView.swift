@@ -89,6 +89,10 @@ struct QuickSearchView: View {
         .onChange(of: model.focusToken, initial: true) { _, _ in
             DispatchQueue.main.async { fieldFocused = true }
         }
+        .onChange(of: LibraryStore.shared.text.version) { _, _ in
+            // Text read from images while the panel is open can add matches.
+            if !model.text.isEmpty { model.refresh(keepSelection: true) }
+        }
     }
 
     private func hint(_ key: String, _ label: String) -> some View {

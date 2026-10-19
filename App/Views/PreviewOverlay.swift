@@ -235,19 +235,29 @@ struct AudioPreview: View {
 }
 
 /// Apple's Quick Look view embedded in the window (PDFs, documents, anything).
-struct QuickLookPreview: NSViewRepresentable {
+struct QuickLookPreview: View {
+    let url: URL
+
+    var body: some View {
+        // A new Quick Look view per file: changing the item of a live view during layout makes Quick Look abort.
+        QuickLookHost(url: url).id(url)
+    }
+}
+
+private struct QuickLookHost: NSViewRepresentable {
     let url: URL
 
     func makeNSView(context: Context) -> QLPreviewView {
-        let view = QLPreviewView(frame: .zero, style: .normal)!
+        let view = QLPreviewView(frame: NSRect(x: 0, y: 0, width: 320, height: 240), style: .normal)!
         view.autostarts = true
+        view.shouldCloseWithWindow = false
         view.previewItem = url as NSURL
         return view
     }
 
-    func updateNSView(_ view: QLPreviewView, context: Context) {
-        if (view.previewItem as? NSURL) as URL? != url {
-            view.previewItem = url as NSURL
-        }
+    func updateNSView(_ view: QLPreviewView, context: Context) {}
+
+    static func dismantleNSView(_ view: QLPreviewView, coordinator: ()) {
+        view.close()
     }
 }

@@ -34,26 +34,18 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 stepper
                     .padding(.top, 22)
-                // Pages scroll on small screens; the buttons below always stay visible.
-                GeometryReader { geo in
-                    ScrollView {
-                        VStack {
-                            Spacer(minLength: 0)
-                            pageView(page)
-                                .id(page)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-                                    removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
-                                ))
-                                .frame(maxWidth: 780)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 14)
-                        .frame(maxWidth: .infinity, minHeight: geo.size.height)
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
+                ZStack {
+                    pageView(page)
+                        .id(page)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                            removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
+                        ))
+                        .frame(maxWidth: 780)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 40)
+                .padding(.vertical, 10)
                 .clipped()
                 Divider().opacity(0.5)
                 controls
@@ -267,17 +259,37 @@ private struct FoldersPage: View {
 
     var body: some View {
         let roots = prefs.roots
-        VStack(spacing: 22) {
+        let protected = roots.filter(\.isProtected)
+        let others = roots.filter { !$0.isProtected }
+        VStack(spacing: 18) {
             PageTitle(symbol: "folder.badge.questionmark", title: "Choose what Haven looks at",
-                      subtitle: "macOS protects your Desktop, Documents and Downloads. Click Allow and say OK when your Mac asks. Haven only reads them to show and search your files.")
+                      subtitle: "macOS protects Desktop, Documents and Downloads. Click Allow, then OK when your Mac asks. Haven only reads them to show and search your files.")
             VStack(spacing: 0) {
-                ForEach(roots) { root in
+                ForEach(protected) { root in
                     folderRow(root)
-                    if root.id != roots.last?.id { Divider().padding(.leading, 52) }
+                    if root.id != protected.last?.id { Divider().padding(.leading, 52) }
                 }
             }
             .frame(maxWidth: 600)
             .cardStyle(theme, padding: 8)
+            HStack(spacing: 8) {
+                Text("Also included:").foregroundStyle(.secondary)
+                ForEach(others) { root in
+                    let on = !prefs.disabledRoots.contains(root.id)
+                    Button {
+                        if on { prefs.disabledRoots.insert(root.id) } else { prefs.disabledRoots.remove(root.id) }
+                    } label: {
+                        Label(root.name, systemImage: on ? "checkmark.circle.fill" : "circle")
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.primary.opacity(on ? 0.07 : 0.03), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(on ? Color.primary : Color.secondary)
+                    .help(on ? "Haven includes \(root.name). Click to leave it out." : "Click to include \(root.name).")
+                }
+            }
+            .font(.callout)
             HStack(spacing: 12) {
                 Button {
                     Task { await allowAll(roots) }
@@ -298,8 +310,8 @@ private struct FoldersPage: View {
                         .buttonStyle(.link)
                 }
             }
-            Text("You can change these any time in Settings → Folders.")
-                .font(.callout)
+            Text("Change these any time in Settings → Folders.")
+                .font(.caption)
                 .foregroundStyle(.tertiary)
         }
         .task {

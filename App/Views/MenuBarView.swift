@@ -105,7 +105,7 @@ struct MenuBarRow: View {
                     if let s = item.source { Text(s.name) ; Text("·") }
                     Text(HavenFormat.ago(item.arrivalDate))
                     Text("·")
-                    Text(ByteSize.format(item.size))
+                    Text(item.kind == .folder ? "Folder" : ByteSize.format(item.size))
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)

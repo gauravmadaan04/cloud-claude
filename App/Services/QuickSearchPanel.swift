@@ -14,7 +14,8 @@ final class QuickSearchModel {
     /// Bumped each time the panel opens so the field grabs focus.
     var focusToken = 0
 
-    func refresh() {
+    func refresh(keepSelection: Bool = false) {
+        let previous = selected?.id
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty {
             chips = []
@@ -24,7 +25,11 @@ final class QuickSearchModel {
             chips = parsed.chips
             results = SearchEngine.search(parsed.query, in: LibraryStore.shared.items, text: LibraryStore.shared.text.lookup, limit: 40)
         }
-        selectedIndex = 0
+        if keepSelection, let previous, let i = results.firstIndex(where: { $0.id == previous }) {
+            selectedIndex = i
+        } else {
+            selectedIndex = 0
+        }
     }
 
     var selected: FileItem? { results.indices.contains(selectedIndex) ? results[selectedIndex] : nil }
