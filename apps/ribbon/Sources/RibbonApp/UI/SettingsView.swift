@@ -67,6 +67,15 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Shorter names for the sidebar.
+    var sidebarTitle: String {
+        switch self {
+        case .trackpad: return "Trackpad"
+        case .about: return "About"
+        default: return title
+        }
+    }
+
     var keywords: String {
         switch self {
         case .general: return "pause login startup restore animation speed reset tour"
@@ -109,14 +118,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                SidebarHeader()
                 List(selection: paneSelection) {
                     ForEach(SettingsPane.groups.indices, id: \.self) { gi in
                         Section {
                             ForEach(SettingsPane.groups[gi].filter(matches)) { (pane: SettingsPane) in
                                 HStack(spacing: 10) {
                                     IconBadge(symbol: pane.symbol, colors: pane.colors, size: 22)
-                                    Text(pane.title).font(.system(size: 13))
+                                    Text(pane.sidebarTitle).font(.system(size: 13)).lineLimit(1)
                                 }
                                 .padding(.vertical, 1)
                                 .tag(Optional(pane))
@@ -126,8 +134,8 @@ struct SettingsView: View {
                 }
                 .listStyle(.sidebar)
             }
-            .navigationSplitViewColumnWidth(min: 210, ideal: 220, max: 260)
-            .searchable(text: $search, placement: .sidebar, prompt: "Search settings")
+            .navigationSplitViewColumnWidth(min: 200, ideal: 214, max: 260)
+            .searchable(text: $search, placement: .sidebar, prompt: "Search")
         } detail: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
@@ -164,31 +172,6 @@ struct SettingsView: View {
         case .automation: AutomationPane()
         case .about: AboutPane()
         }
-    }
-}
-
-private struct SidebarHeader: View {
-    @ObservedObject private var store = SettingsStore.shared
-    @State private var running = WindowManager.shared.isRunning
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 34, height: 34)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Ribbon").font(.system(size: 14, weight: .bold))
-                HStack(spacing: 5) {
-                    Circle().fill(running ? Color.green : Color.orange).frame(width: 6, height: 6)
-                    Text(running ? "Arranging windows" : (store.config.tilingEnabled ? "Waiting for access" : "Paused"))
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .onReceive(timer) { _ in running = WindowManager.shared.isRunning }
     }
 }
 

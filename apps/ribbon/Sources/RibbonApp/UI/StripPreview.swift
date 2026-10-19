@@ -283,67 +283,219 @@ struct DemoWindowView: View {
         .background(dark ? Color.white.opacity(0.05) : app.color.opacity(0.08))
     }
 
-    @ViewBuilder
     private func content(dark: Bool) -> some View {
-        let line = dark ? Color.green.opacity(0.75) : Color.primary.opacity(0.12)
-        let s = scale
-        switch app {
-        case .terminal:
-            VStack(alignment: .leading, spacing: 9 * s) {
-                ForEach(0..<9, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 2 * s).fill(i % 3 == 0 ? Color.green.opacity(0.85) : Color.white.opacity(0.35))
-                        .frame(width: CGFloat([220, 160, 300, 120, 260, 180, 90, 240, 140][i]) * s, height: 8 * s)
-                }
+        GeometryReader { (geo: GeometryProxy) in
+            DemoContent(app: app, dark: dark, s: scale, size: geo.size)
+        }
+    }
+}
+
+/// Placeholder content that fills a demo window at any size, so previews look like real, busy windows.
+private struct DemoContent: View {
+    let app: DemoApp
+    let dark: Bool
+    let s: CGFloat
+    let size: CGSize
+
+    private var ink: Color { Color.primary.opacity(0.12) }
+    private var faint: Color { Color.primary.opacity(0.07) }
+
+    var body: some View {
+        Group {
+            switch app {
+            case .terminal: terminal
+            case .music: music
+            case .calendar: calendar
+            case .safari: safari
+            case .messages: messages
+            case .finder: finder
+            default: list
             }
-        case .music:
-            VStack(alignment: .leading, spacing: 10 * s) {
-                HStack(spacing: 10 * s) {
-                    ForEach(0..<3, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 8 * s).fill(LinearGradient(colors: [[Brand.rose, Brand.violet, DemoApp.music.color][i], Brand.indigo],
-                                                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 110 * s, height: 110 * s)
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .clipped()
+    }
+
+    private func bar(_ color: Color, _ width: CGFloat, _ height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: min(3 * s, height / 2)).fill(color).frame(width: max(0, width), height: height)
+    }
+
+    private func count(_ length: CGFloat, step: CGFloat) -> Int { max(0, Int(length / max(1, step))) }
+
+    private var terminal: some View {
+        let widths: [CGFloat] = [0.55, 0.38, 0.72, 0.3, 0.64, 0.46, 0.22, 0.6, 0.34, 0.5]
+        let n: Int = max(1, count(size.height + 9 * s, step: 17 * s))
+        return VStack(alignment: .leading, spacing: 9 * s) {
+            ForEach(0..<n, id: \.self) { (i: Int) in
+                HStack(spacing: 6 * s) {
+                    if i % 4 == 0 { bar(Color.green.opacity(0.85), 14 * s, 8 * s) }
+                    if i == n - 1 {
+                        bar(Color.white.opacity(0.75), 8 * s, 12 * s)
+                    } else {
+                        bar(Color.white.opacity(i % 4 == 0 ? 0.6 : 0.3), size.width * widths[i % widths.count], 8 * s)
                     }
                 }
-                ForEach(0..<4, id: \.self) { _ in RoundedRectangle(cornerRadius: 3 * s).fill(line).frame(height: 9 * s) }
             }
-        case .calendar:
+        }
+    }
+
+    private var music: some View {
+        let gap: CGFloat = 10 * s
+        let tile: CGFloat = max(0, min((size.width - 2 * gap) / 3, size.height * 0.42))
+        let rowH: CGFloat = 26 * s
+        let rows: Int = count(size.height - tile - gap + 6 * s, step: rowH + 6 * s)
+        let tints: [Color] = [Brand.rose, Brand.violet, DemoApp.music.color]
+        let titles: [CGFloat] = [0.42, 0.3, 0.36, 0.26]
+        return VStack(alignment: .leading, spacing: gap) {
+            HStack(spacing: gap) {
+                ForEach(0..<3, id: \.self) { (i: Int) in
+                    RoundedRectangle(cornerRadius: 8 * s)
+                        .fill(LinearGradient(colors: [tints[i], Brand.indigo], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: tile, height: tile)
+                }
+            }
             VStack(spacing: 6 * s) {
-                ForEach(0..<5, id: \.self) { row in
-                    HStack(spacing: 6 * s) {
-                        ForEach(0..<7, id: \.self) { col in
-                            RoundedRectangle(cornerRadius: 4 * s)
-                                .fill((row * 7 + col) % 9 == 3 ? DemoApp.calendar.color.opacity(0.75) : Color.primary.opacity(0.07))
-                                .frame(height: 38 * s)
+                ForEach(0..<rows, id: \.self) { (i: Int) in
+                    HStack(spacing: 8 * s) {
+                        RoundedRectangle(cornerRadius: 4 * s).fill(tints[i % 3].opacity(0.55)).frame(width: rowH, height: rowH)
+                        VStack(alignment: .leading, spacing: 5 * s) {
+                            bar(ink, size.width * titles[i % titles.count], 7 * s)
+                            bar(faint, size.width * 0.2, 6 * s)
                         }
+                        Spacer(minLength: 0)
+                        bar(faint, 24 * s, 6 * s)
+                    }
+                    .frame(height: rowH)
+                }
+            }
+        }
+    }
+
+    private var calendar: some View {
+        let gap: CGFloat = 6 * s
+        let header: CGFloat = 12 * s + 8 * s + 2 * gap
+        let cell: CGFloat = max(4 * s, (size.height - header - 4 * gap) / 5)
+        return VStack(alignment: .leading, spacing: gap) {
+            bar(DemoApp.calendar.color.opacity(0.7), min(size.width * 0.4, 150 * s), 12 * s)
+            HStack(spacing: gap) {
+                ForEach(0..<7, id: \.self) { (_: Int) in bar(faint, 18 * s, 8 * s).frame(maxWidth: .infinity) }
+            }
+            ForEach(0..<5, id: \.self) { (row: Int) in
+                HStack(spacing: gap) {
+                    ForEach(0..<7, id: \.self) { (col: Int) in
+                        calendarCell(index: row * 7 + col, height: cell)
                     }
                 }
             }
-        case .safari:
+        }
+    }
+
+    private func calendarCell(index: Int, height: CGFloat) -> some View {
+        let busy: Bool = index % 9 == 3 || index % 11 == 6
+        return RoundedRectangle(cornerRadius: 4 * s).fill(faint)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay(alignment: .topLeading) {
+                if busy && height > 22 * s {
+                    RoundedRectangle(cornerRadius: 3 * s)
+                        .fill((index % 2 == 0 ? DemoApp.calendar.color : Brand.violet).opacity(0.7))
+                        .frame(height: min(10 * s, height * 0.3))
+                        .padding(4 * s)
+                }
+            }
+    }
+
+    private var safari: some View {
+        let gap: CGFloat = 10 * s
+        let hero: CGFloat = max(0, size.height * 0.32)
+        let card: CGFloat = max(0, size.height * 0.16)
+        let cardTints: [Color] = [Brand.rose, Brand.indigo, DemoApp.safari.color]
+        let lines: Int = count(size.height - 22 * s - hero - card - 3 * gap + 9 * s, step: 19 * s)
+        let widths: [CGFloat] = [0.9, 0.72, 0.84, 0.64, 0.5, 0.78]
+        return VStack(alignment: .leading, spacing: gap) {
+            Capsule().fill(faint).frame(height: 22 * s)
+            RoundedRectangle(cornerRadius: 8 * s)
+                .fill(LinearGradient(colors: [DemoApp.safari.color.opacity(0.5), Brand.violet.opacity(0.4)], startPoint: .leading, endPoint: .trailing))
+                .frame(height: hero)
+            HStack(spacing: gap) {
+                ForEach(0..<3, id: \.self) { (i: Int) in
+                    RoundedRectangle(cornerRadius: 6 * s).fill(cardTints[i].opacity(0.18)).frame(height: card)
+                }
+            }
             VStack(alignment: .leading, spacing: 10 * s) {
-                Capsule().fill(Color.primary.opacity(0.08)).frame(height: 22 * s)
-                RoundedRectangle(cornerRadius: 8 * s).fill(LinearGradient(colors: [DemoApp.safari.color.opacity(0.5), Brand.violet.opacity(0.4)],
-                                                                         startPoint: .leading, endPoint: .trailing)).frame(height: 120 * s)
-                ForEach(0..<5, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 3 * s).fill(line).frame(width: CGFloat([380, 300, 340, 260, 200][i]) * s, height: 9 * s)
+                ForEach(0..<lines, id: \.self) { (i: Int) in bar(ink, size.width * widths[i % widths.count], 9 * s) }
+            }
+        }
+    }
+
+    private var messages: some View {
+        let rowH: CGFloat = 30 * s
+        let n: Int = count(size.height + 10 * s, step: rowH + 10 * s)
+        let widths: [CGFloat] = [0.55, 0.4, 0.62, 0.34, 0.48, 0.58]
+        return VStack(spacing: 10 * s) {
+            ForEach(0..<n, id: \.self) { (i: Int) in
+                let mine: Bool = i % 3 == 1 || i % 5 == 4
+                HStack(spacing: 0) {
+                    if mine { Spacer(minLength: 0) }
+                    Capsule()
+                        .fill(mine ? AnyShapeStyle(DemoApp.messages.color.opacity(0.8)) : AnyShapeStyle(faint))
+                        .frame(width: size.width * widths[i % widths.count], height: rowH)
+                    if !mine { Spacer(minLength: 0) }
                 }
             }
-        default:
-            HStack(alignment: .top, spacing: 12 * s) {
-                VStack(alignment: .leading, spacing: 10 * s) {
-                    ForEach(0..<6, id: \.self) { i in
-                        HStack(spacing: 6 * s) {
-                            Circle().fill(i == 0 ? app.color : Color.primary.opacity(0.12)).frame(width: 14 * s, height: 14 * s)
-                            RoundedRectangle(cornerRadius: 3 * s).fill(line).frame(height: 9 * s)
+        }
+    }
+
+    private var finder: some View {
+        let side: CGFloat = min(130 * s, size.width * 0.3)
+        let mainW: CGFloat = max(0, size.width - side - 12 * s)
+        let cellW: CGFloat = 74 * s
+        let cols: Int = max(1, count(mainW, step: cellW))
+        let rows: Int = max(1, count(size.height, step: 78 * s))
+        return HStack(alignment: .top, spacing: 12 * s) {
+            sidebar(width: side)
+            VStack(alignment: .leading, spacing: 12 * s) {
+                ForEach(0..<rows, id: \.self) { (r: Int) in
+                    HStack(spacing: 0) {
+                        ForEach(0..<cols, id: \.self) { (c: Int) in
+                            VStack(spacing: 6 * s) {
+                                Image(systemName: (r * cols + c) % 4 == 2 ? "doc.fill" : "folder.fill")
+                                    .font(.system(size: 30 * s))
+                                    .foregroundStyle((r * cols + c) % 4 == 2 ? Color.primary.opacity(0.3) : DemoApp.finder.color.opacity(0.85))
+                                bar(ink, 40 * s, 6 * s)
+                            }
+                            .frame(width: cellW, height: 66 * s)
                         }
                     }
                 }
-                .frame(width: 150 * s)
-                VStack(alignment: .leading, spacing: 10 * s) {
-                    RoundedRectangle(cornerRadius: 3 * s).fill(app.color.opacity(0.6)).frame(width: 180 * s, height: 12 * s)
-                    ForEach(0..<6, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 3 * s).fill(line).frame(width: CGFloat([320, 280, 300, 240, 310, 180][i]) * s, height: 9 * s)
-                    }
+            }
+        }
+    }
+
+    private func sidebar(width: CGFloat) -> some View {
+        let n: Int = count(size.height + 10 * s, step: 24 * s)
+        let widths: [CGFloat] = [0.7, 0.5, 0.62, 0.45]
+        return VStack(alignment: .leading, spacing: 10 * s) {
+            ForEach(0..<n, id: \.self) { (i: Int) in
+                HStack(spacing: 6 * s) {
+                    Circle().fill(i == 0 ? app.color : Color.primary.opacity(0.12)).frame(width: 14 * s, height: 14 * s)
+                    bar(ink, width * widths[i % widths.count], 8 * s)
                 }
+            }
+        }
+        .frame(width: width, alignment: .leading)
+    }
+
+    private var list: some View {
+        let side: CGFloat = min(150 * s, size.width * 0.36)
+        let mainW: CGFloat = max(0, size.width - side - 12 * s)
+        let lines: Int = count(size.height - 12 * s, step: 19 * s)
+        let widths: [CGFloat] = [0.95, 0.82, 0.9, 0.7, 0.88, 0.6, 0.0, 0.92, 0.78, 0.85, 0.5]
+        return HStack(alignment: .top, spacing: 12 * s) {
+            sidebar(width: side)
+            VStack(alignment: .leading, spacing: 10 * s) {
+                bar(app.color.opacity(0.6), mainW * 0.55, 12 * s)
+                ForEach(0..<lines, id: \.self) { (i: Int) in bar(ink, mainW * widths[i % widths.count], 9 * s) }
             }
         }
     }

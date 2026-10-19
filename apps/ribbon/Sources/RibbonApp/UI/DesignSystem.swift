@@ -123,7 +123,7 @@ enum KeyCapSize {
     var depth: CGFloat { max(1.5, height * 0.07) }
 }
 
-/// One physical-looking key.
+/// One physical-looking key. Always its natural size, whatever the container offers.
 struct KeyCap: View {
     let label: String
     var size: KeyCapSize = .regular
@@ -133,33 +133,26 @@ struct KeyCap: View {
 
     var body: some View {
         let dark = scheme == .dark
-        let face = dark ? [Color(white: 0.33), Color(white: 0.27)] : [Color.white, Color(white: 0.94)]
-        let base = dark ? Color(white: 0.12) : Color(white: 0.74)
-        let border = dark ? Color(white: 0.42) : Color(white: 0.8)
+        let face: [Color] = highlighted ? [Brand.violet, Brand.indigo] : (dark ? [Color(white: 0.34), Color(white: 0.27)] : [Color.white, Color(white: 0.935)])
+        let base: Color = highlighted ? Brand.indigo.opacity(0.9) : (dark ? Color(white: 0.1) : Color(white: 0.72))
+        let border: Color = highlighted ? Color.white.opacity(0.3) : (dark ? Color(white: 0.44) : Color(white: 0.8))
+        let ink: Color = highlighted ? Color.white : (dark ? Color.white.opacity(0.92) : Color(white: 0.22))
         let depth = size.depth
-        ZStack(alignment: .top) {
-            RoundedRectangle(cornerRadius: size.radius, style: .continuous)
-                .fill(highlighted ? Brand.indigo : base)
-                .offset(y: depth)
-            RoundedRectangle(cornerRadius: size.radius, style: .continuous)
-                .fill(LinearGradient(colors: highlighted ? [Brand.violet, Brand.violet.opacity(0.85)] : face,
-                                     startPoint: .top, endPoint: .bottom))
-                .overlay(
-                    RoundedRectangle(cornerRadius: size.radius, style: .continuous)
-                        .strokeBorder(highlighted ? Color.white.opacity(0.3) : border, lineWidth: 0.75)
-                )
-                .overlay(
-                    Text(label)
-                        .font(.system(size: size.font, weight: .semibold, design: .rounded))
-                        .foregroundStyle(highlighted ? Color.white : (dark ? Color.white.opacity(0.92) : Color(white: 0.2)))
-                        .padding(.horizontal, size.height * 0.28)
-                )
-                .offset(y: pressed ? depth * 0.8 : 0)
-        }
-        .frame(minWidth: size.height, minHeight: size.height + depth)
-        .fixedSize(horizontal: label.count > 1, vertical: false)
-        .animation(Brand.snappy, value: pressed)
-        .animation(Brand.snappy, value: highlighted)
+        let shape = RoundedRectangle(cornerRadius: size.radius, style: .continuous)
+        Text(label)
+            .font(.system(size: size.font, weight: .semibold, design: .rounded))
+            .foregroundStyle(ink)
+            .lineLimit(1)
+            .padding(.horizontal, size.height * 0.26)
+            .frame(minWidth: size.height, minHeight: size.height, maxHeight: size.height)
+            .background(shape.fill(LinearGradient(colors: face, startPoint: .top, endPoint: .bottom)))
+            .overlay(shape.strokeBorder(border, lineWidth: 0.75))
+            .offset(y: pressed ? depth * 0.8 : 0)
+            .background(shape.fill(base).offset(y: depth))
+            .padding(.bottom, depth)
+            .fixedSize()
+            .animation(Brand.snappy, value: pressed)
+            .animation(Brand.snappy, value: highlighted)
     }
 }
 

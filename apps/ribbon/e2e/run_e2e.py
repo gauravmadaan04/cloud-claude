@@ -436,10 +436,12 @@ def _():
     assert a[2] >= minw - 2, a
     assert b[0] >= a[0] + a[2] + 9, f"overlap: {a} then {b}"
     fix("minwidth", "Fixture 1=200")
+    time.sleep(0.8)  # let the fixture apply its new minimum before resizing
     cli("cycle-width")
     wait(lambda: close(active_strip()["columns"][0]["width"], 1 / 3, 0.01))
     cli("cycle-width")
     wait(lambda: close(active_strip()["columns"][0]["width"], 0.5, 0.01))
+    wait(lambda: active_strip()["columns"][0]["windows"][0]["target"][2] < minw - 50, what="minimum width forgotten")
     wait_settled()
 
 
@@ -459,7 +461,7 @@ def _():
     def touching():
         st = state()
         s = active_strip(st)
-        vis = [c["windows"][0]["frame"] for c in s["columns"] if c["visibility"] == "visible"]
+        vis = [c["windows"][0]["frame"] for c in s["columns"] if c["visibility"] in ("visible", "partial")]
         vx = main_display(st)["visible"][0]
         return len(vis) >= 2 and close(vis[0][0], vx, 1) and all(close(b[0], a[0] + a[2], 1) for a, b in zip(vis, vis[1:]))
     try:

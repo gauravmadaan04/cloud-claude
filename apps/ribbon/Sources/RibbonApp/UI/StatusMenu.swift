@@ -43,7 +43,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
         let header = NSMenuItem()
         let host = NSHostingView(rootView: MenuHeaderView())
-        host.frame = NSRect(x: 0, y: 0, width: 300, height: 128)
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 104)
         header.view = host
         menu.addItem(header)
         menu.addItem(.separator())
@@ -147,7 +147,7 @@ struct MenuHeaderView: View {
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 6)
-        .frame(width: 300, height: 128, alignment: .topLeading)
+        .frame(width: 300, height: 104, alignment: .topLeading)
     }
 
     private func statusText(running: Bool, tiling: Bool, count: Int) -> String {

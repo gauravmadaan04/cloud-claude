@@ -289,6 +289,15 @@ struct ConceptStep: View {
                             { $0.consume(into: .left) }, { $0.toggleTabbed() }, { $0.toggleTabbed() }, { $0.expel(to: .right) },
                         ], every: 1.5, showDock: false))
             }
+            .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                ShortcutKeys(combo: KeyCombo(keyCode: KeyCode.leftArrow, modifiers: [.control, .option]), size: .regular)
+                Text("Nearly every shortcut is **⌃ Control + ⌥ Option** plus one key. Add **⇧ Shift** to move a window instead of the focus.")
+                    .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .card(padding: 14, radius: 16)
+            Spacer(minLength: 0)
         }
     }
 
@@ -298,8 +307,8 @@ struct ConceptStep: View {
             IconBadge(symbol: symbol, colors: colors, size: 30)
             Text(title).font(.system(size: 15, weight: .semibold))
             Text(text).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .card(padding: 14, radius: 18)
     }
 }
@@ -343,6 +352,11 @@ struct PermissionStep: View {
                 .frame(maxWidth: 520)
             }
             Spacer(minLength: 0)
+            HStack(spacing: 10) {
+                promise("hand.raised.fill", BadgeColors.blue, "Moves and resizes only", "It never reads what's inside a window.")
+                promise("wifi.slash", BadgeColors.green, "Nothing leaves your Mac", "No account, no analytics, no network.")
+                promise("arrow.uturn.backward", BadgeColors.orange, "Easy to undo", "Turn the switch off any time to stop it.")
+            }
         }
         .onReceive(timer) { _ in
             let now = AXPermission.isTrusted
@@ -352,6 +366,19 @@ struct PermissionStep: View {
             }
         }
         .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
+    }
+
+    private func promise(_ symbol: String, _ colors: [Color], _ title: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            IconBadge(symbol: symbol, colors: colors, size: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 12.5, weight: .semibold))
+                Text(text).font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(padding: 12, radius: 14)
     }
 
     /// A tiny replica of the System Settings row the user needs to switch on.
