@@ -527,22 +527,22 @@ final class HavenUITests: XCTestCase {
         stillRunning("double-clicking a video")
         snap("71-video-playing")
 
-        // Next video, then the damaged one, with the arrow keys.
-        app.typeKey(.rightArrow, modifierFlags: [])
+        // Step to the other videos with the arrow keys (the keyboard stays with the preview).
+        app.typeKey(.leftArrow, modifierFlags: [])
         sleep(2)
         stillRunning("moving to the next video")
-        app.typeKey(.rightArrow, modifierFlags: [])
+        app.typeKey(.leftArrow, modifierFlags: [])
         sleep(2)
         stillRunning("moving to a damaged video")
-        snap("72-video-broken")
         app.typeKey(.escape, modifierFlags: [])
         sleep(1)
         stillRunning("closing the preview")
 
-        // Straight to the damaged one, and Quick Look on a video.
+        // A damaged video says so instead of showing a black box.
         file("Broken clip.mov").doubleClick()
-        sleep(2)
+        waitFor(el("preview.video.failed"), 10, "A damaged video should say it can't be played")
         stillRunning("double-clicking a damaged video")
+        snap("72-video-broken")
         app.typeKey(.escape, modifierFlags: [])
         file("Sunset.mp4").click()
         app.typeKey(" ", modifierFlags: [])

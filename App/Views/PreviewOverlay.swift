@@ -358,19 +358,113 @@ struct LiveTextImage: NSViewRepresentable {
     }
 }
 
+/// Plays a video in the large preview, or says plainly when it can't be played.
 struct VideoPreview: View {
     let url: URL
-    @State private var player: AVPlayer?
+    @State private var failedURL: URL?
 
     var body: some View {
-        VideoPlayer(player: player)
-            .onAppear {
-                let p = AVPlayer(url: url)
-                player = p
-                p.play()
+        if failedURL == url {
+            VStack(spacing: 12) {
+                Image(systemName: "film")
+                    .font(.system(size: 44, weight: .light))
+                    .foregroundStyle(.white.opacity(0.7))
+                Text("Haven can't play this video")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("It may be damaged or in a format macOS doesn't support.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.white.opacity(0.65))
+                Button("Open in Another App") { NSWorkspace.shared.open(url) }
+                    .controlSize(.large)
+                    .padding(.top, 4)
             }
-            .onDisappear { player?.pause() }
+            .padding(36)
+            .frame(maxWidth: 420)
+            .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityIdentifier("preview.video.failed")
+        } else {
+            PlayerView(url: url) { failedURL = url }
+                .accessibilityIdentifier("preview.video")
+        }
     }
+}
+
+/// AppKit's own player (the one QuickTime Player uses). SwiftUI's VideoPlayer is avoided on purpose: on
+/// current macOS it can crash the app the moment it first appears.
+private struct PlayerView: NSViewRepresentable {
+    let url: URL
+    let onFailure: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = QuietPlayerView()
+        view.controlsStyle = .floating
+        view.videoGravity = .resizeAspect
+        view.showsFullScreenToggleButton = true
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 12
+        view.layer?.masksToBounds = true
+        context.coordinator.onFailure = onFailure
+        context.coordinator.play(url, in: view)
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        context.coordinator.onFailure = onFailure
+        if context.coordinator.url != url { context.coordinator.play(url, in: view) }
+    }
+
+    static func dismantleNSView(_ view: AVPlayerView, coordinator: Coordinator) {
+        coordinator.stop(view)
+    }
+
+    @MainActor
+    final class Coordinator {
+        var url: URL?
+        var onFailure: () -> Void = {}
+        private var statusObservation: NSKeyValueObservation?
+
+        func play(_ url: URL, in view: AVPlayerView) {
+            stop(view)
+            self.url = url
+            let item = AVPlayerItem(url: url)
+            statusObservation = Self.whenFailed(item) { [weak self] in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        guard let self, self.url == url else { return }
+                        self.onFailure()
+                    }
+                }
+            }
+            let player = AVPlayer(playerItem: item)
+            view.player = player
+            // One thing plays at a time.
+            if MusicPlayer.shared.isPlaying { MusicPlayer.shared.pause() }
+            player.play()
+        }
+
+        /// AVFoundation reports from any thread, so this callback belongs to none.
+        nonisolated static func whenFailed(_ item: AVPlayerItem, _ failed: @escaping @Sendable () -> Void) -> NSKeyValueObservation {
+            item.observe(\.status, options: [.initial, .new]) { item, _ in
+                if item.status == .failed { failed() }
+            }
+        }
+
+        func stop(_ view: AVPlayerView) {
+            statusObservation?.invalidate()
+            statusObservation = nil
+            view.player?.pause()
+            view.player = nil
+        }
+    }
+}
+
+/// Leaves the keyboard to the preview (← → step through files, Space and Esc close); the controls still work
+/// with the mouse.
+private final class QuietPlayerView: AVPlayerView {
+    override var acceptsFirstResponder: Bool { false }
 }
 
 struct AudioPreview: View {
