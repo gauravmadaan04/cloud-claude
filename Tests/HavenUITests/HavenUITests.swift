@@ -487,7 +487,8 @@ final class HavenUITests: XCTestCase {
     /// Double-clicking a video opens it in the big preview and plays it; a damaged one shows a message.
     /// Uses its own folder of real and broken videos, so it also runs against a Release build.
     func test08_Videos() throws {
-        let root = "/private/tmp/haven-video-fixture"
+        // The test runner is sandboxed: it can only write inside its own temporary folder (Haven can read it).
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("haven-video-fixture").path
         let fm = FileManager.default
         try? fm.removeItem(atPath: root)
         let movies = root + "/Movies"
