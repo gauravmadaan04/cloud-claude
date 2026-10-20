@@ -80,17 +80,15 @@ final class ShareAndExportTests: XCTestCase {
             let from = -631_152_000.0 // 1950
             let to = 4_102_444_800.0 // 2100
             let stamp = DateStamp(from: from, to: to, zone: zone)
-            var rng = SystemRandomNumberGenerator()
-            var times = (0..<3_000).map { _ in Double.random(in: from...to, using: &rng) }
-            // Right around summer-time changes, and at midnight and leap days.
-            var t = Date(timeIntervalSince1970: 1_600_000_000)
-            for _ in 0..<12 {
-                guard let next = zone.nextDaylightSavingTimeTransition(after: t) else { break }
+            // A fixed, dense set (every ~33 hours, drifting through the time of day), so a failure always repeats.
+            var times = Array(stride(from: from, to: to, by: 118_342.37))
+            // Every change of offset in the range, and the seconds around it.
+            var t = Date(timeIntervalSince1970: from)
+            while let next = zone.nextDaylightSavingTimeTransition(after: t), next.timeIntervalSince1970 < to {
                 let s = next.timeIntervalSince1970
-                times += [s - 61, s - 1, s, s + 1, s + 59.5]
+                times += [s - 61, s - 1, s - 0.001, s, s + 0.001, s + 1, s + 59.5]
                 t = next
             }
-            times += [951_782_400, 951_868_799, 0, -0.5, 1_709_164_800, 4_102_444_799]
             for x in times {
                 let date = Date(timeIntervalSince1970: x)
                 XCTAssertEqual(stamp.string(date), f.string(from: date), "\(name) at \(x)")

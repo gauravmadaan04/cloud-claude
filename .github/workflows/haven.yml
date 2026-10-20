@@ -29,7 +29,7 @@ jobs:
       - name: Core logic tests (HavenCore)
         run: |
           set -o pipefail
-          cd Packages/HavenCore && swift test 2>&1 | tail -25
+          cd Packages/HavenCore && swift test 2>&1 | tee "$GITHUB_WORKSPACE/core.log" | grep -E "error:|failed|Executed .* tests" | tail -40
 
       - name: Speed on 300,000 files (HavenCore, release build)
         continue-on-error: true
@@ -213,6 +213,7 @@ jobs:
         with:
           name: test-logs
           path: |
+            core.log
             unit.log
             ui.log
             bench.log
