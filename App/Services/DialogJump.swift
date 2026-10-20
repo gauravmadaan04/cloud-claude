@@ -108,8 +108,10 @@ enum KeyText {
         var i = 0
         while i < units.count {
             var end = min(i + size, units.count)
-            // Never split a character that takes two UTF-16 units.
-            if end < units.count, UTF16.isTrailSurrogate(units[end]) { end -= 1 }
+            // Never split a character that takes two UTF-16 units (and always move forward).
+            if end < units.count, UTF16.isTrailSurrogate(units[end]) {
+                end = end - 1 > i ? end - 1 : min(i + 2, units.count)
+            }
             out.append(Array(units[i..<end]))
             i = end
         }
