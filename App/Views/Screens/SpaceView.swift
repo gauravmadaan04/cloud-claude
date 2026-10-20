@@ -25,13 +25,12 @@ struct SpaceView: View {
                 TipBanner(id: "space.intro", symbol: "chart.bar.xaxis", title: "See where your space goes",
                           message: "Click a folder to look inside it. Sizes add up the files Haven indexes; it skips hidden files, the insides of apps and build folders like node_modules.")
                 StorageBar(stats: d.stats)
-                HStack(alignment: .top, spacing: 18) {
+                // Cards share a row when there's room and stack when the window is narrow.
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 330), spacing: 18, alignment: .top)], alignment: .leading, spacing: 18) {
                     foldersCard(d.folderSizes)
-                        .frame(maxWidth: .infinity, alignment: .top)
                     biggestCard
-                        .frame(maxWidth: .infinity, alignment: .top)
                 }
-                HStack(alignment: .top, spacing: 18) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 18, alignment: .top)], alignment: .leading, spacing: 18) {
                     slicesCard("By Kind", Array(d.space.byKind.prefix(8)), total: d.space.totalBytes) { slice in
                         guard let kind = FileKind(rawValue: slice.id), let c = kind.category else { return }
                         model.navigate(to: .category(c))
@@ -46,6 +45,8 @@ struct SpaceView: View {
             .padding(.horizontal, 28)
             .padding(.vertical, 22)
             .frame(maxWidth: 1400, alignment: .leading)
+            // Exactly as wide as the page: never wider than the window, never pushing the sidebar.
+            .containerRelativeFrame(.horizontal, alignment: .leading)
         }
         .background(theme.canvas)
         .onAppear { model.setVisible([]) }
@@ -145,6 +146,7 @@ struct SpaceView: View {
                          bytes: direct.bytes, fraction: Double(direct.bytes) / Double(largest), tint: .secondary, chevron: false, action: nil)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .cardStyle(theme, padding: 16)
     }
 
@@ -204,6 +206,7 @@ struct SpaceView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .cardStyle(theme, padding: 16)
         .accessibilityIdentifier("space.biggest")
     }
