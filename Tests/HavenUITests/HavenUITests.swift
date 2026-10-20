@@ -640,6 +640,30 @@ final class HavenUITests: XCTestCase {
         waitFor(el("shelf.item.Goa Beach.jpg"), 10, "The dropped file sits on the shelf")
         sleep(1)
         snapScreen("89-shelf")
+
+        // Dragging a file off the shelf into another window: onto the collection in the sidebar.
+        file("IMG_2041.heic").rightClick()
+        menuItem("Add to Shelf").click()
+        let onShelf = el("shelf.item.IMG_2041.heic")
+        waitFor(onShelf, 10, "Add to Shelf puts the file on the shelf")
+        let collectionRow = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar.collection.'")).firstMatch
+        waitFor(collectionRow, 10)
+        let shelfFrame = el("shelf").frame
+        onShelf.press(forDuration: 0.6, thenDragTo: collectionRow)
+        let added = app.staticTexts.matching(NSPredicate(format: "value CONTAINS 'Added 1 file' OR label CONTAINS 'Added 1 file'")).firstMatch
+        waitFor(added, 10, "A file dragged off the shelf lands in the collection")
+        XCTAssertEqual(el("shelf").frame, shelfFrame, "Dragging a file must not move the shelf window")
+        snapScreen("89b-shelf-drag-out")
+
+        // "Drag all": every file on the shelf goes along (only the JPEG copy is new to the collection).
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: added)
+        waitForExpectations(timeout: 15)
+        file("IMG_2041 2.jpg").rightClick()
+        menuItem("Add to Shelf").click()
+        waitFor(el("shelf.item.IMG_2041 2.jpg"), 10)
+        el("shelf.dragAll").press(forDuration: 0.6, thenDragTo: collectionRow)
+        waitFor(added, 10, "Drag all should drop every shelf file into the collection")
+        XCTAssertEqual(el("shelf").frame, shelfFrame, "Drag all must not move the shelf window")
         app.typeKey("s", modifierFlags: [.command, .option])
     }
 

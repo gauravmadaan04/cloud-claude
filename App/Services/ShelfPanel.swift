@@ -32,7 +32,8 @@ final class ShelfController: NSObject, NSWindowDelegate {
         panel.title = "Shelf"
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
+        // Only the header moves the window: a press anywhere else may be the start of dragging files out.
+        panel.isMovableByWindowBackground = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
@@ -156,6 +157,7 @@ struct ShelfView: View {
         .padding(.horizontal, 14)
         .padding(.top, 14)
         .padding(.bottom, 10)
+        .background(WindowMover())
     }
 
     private var footer: some View {
@@ -198,18 +200,6 @@ struct ShelfTile: View {
     var body: some View {
         VStack(spacing: 4) {
             ThumbnailView(item: item, side: 64, cornerRadius: 8)
-                .overlay(alignment: .topTrailing) {
-                    if hovering {
-                        Button { ShelfStore.shared.remove(item.url) } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, .black.opacity(0.55))
-                        }
-                        .buttonStyle(.plain)
-                        .offset(x: 5, y: -5)
-                        .help("Take off the shelf")
-                    }
-                }
             Text(item.name)
                 .font(.system(size: 10.5))
                 .lineLimit(2)
@@ -218,19 +208,51 @@ struct ShelfTile: View {
                 .frame(width: 76)
         }
         .onHover { hovering = $0 }
-        .onDrag { NSItemProvider(object: item.url as NSURL) }
-        .onTapGesture(count: 2) { NSWorkspace.shared.open(item.url) }
-        .contextMenu {
-            Button("Open") { NSWorkspace.shared.open(item.url) }
-            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([item.url]) }
-            Button("Show in Haven") { AppModel.shared.showInHaven(item) }
-            Divider()
-            Button("Take Off the Shelf") { ShelfStore.shared.remove(item.url) }
+        // The same AppKit layer the file grid uses: dragging out to Mail, Slack, Finder… plus double-click and right-click.
+        .overlay(ItemInteraction(
+            onMouseDown: { _, clicks in if clicks == 2 { NSWorkspace.shared.open(item.url) } },
+            dragURLs: { [item.url] },
+            menu: { menu }
+        ))
+        .overlay(alignment: .topTrailing) {
+            if hovering {
+                Button { ShelfStore.shared.remove(item.url) } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -1, y: -5)
+                .help("Take off the shelf")
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.name)
         .accessibilityIdentifier("shelf.item.\(item.name)")
     }
+
+    private var menu: NSMenu {
+        let url = item.url
+        let menu = NSMenu()
+        menu.addItem(ClosureMenuItem("Open") { NSWorkspace.shared.open(url) })
+        menu.addItem(ClosureMenuItem("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) })
+        menu.addItem(ClosureMenuItem("Show in Haven") { [item] in AppModel.shared.showInHaven(item) })
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem("Take Off the Shelf") { ShelfStore.shared.remove(url) })
+        return menu
+    }
+}
+
+/// Lets the shelf's header move the window.
+private struct WindowMover: NSViewRepresentable {
+    final class MoverView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    }
+
+    func makeNSView(context: Context) -> MoverView { MoverView() }
+    func updateNSView(_ v: MoverView, context: Context) {}
 }
 
 /// Wraps a label so that dragging it drags every file on the shelf.
@@ -251,6 +273,7 @@ private struct DragAllSource: NSViewRepresentable {
         var urls: [URL] = []
         private var down: NSEvent?
 
+        override var mouseDownCanMoveWindow: Bool { false }
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
         override func mouseDown(with event: NSEvent) { down = event }
 

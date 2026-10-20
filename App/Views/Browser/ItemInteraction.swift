@@ -40,6 +40,8 @@ final class InteractionView: NSView, NSDraggingSource {
 
     override var acceptsFirstResponder: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    /// A press here is a click or the start of dragging files, never a window move (matters in the Shelf).
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()

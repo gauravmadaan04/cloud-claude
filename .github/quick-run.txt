@@ -1,2 +1,2 @@
 config: Debug
-tests: HavenUITests/HavenUITests/test09_RenameSpaceAndLists,HavenUITests/HavenUITests/test03_DuplicatesCleanUpAndUndo
+tests: HavenUITests/HavenUITests/test10_CollectionsShelfAndShare
