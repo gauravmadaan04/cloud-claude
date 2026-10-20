@@ -540,7 +540,9 @@ final class HavenUITests: XCTestCase {
 
         // A damaged video says so instead of showing a black box.
         file("Broken clip.mov").doubleClick()
-        waitFor(el("preview.video.failed"), 10, "A damaged video should say it can't be played")
+        let message = "Haven can't play this video"
+        let cantPlay = app.staticTexts.matching(NSPredicate(format: "value == %@ OR label == %@", message, message)).firstMatch
+        waitFor(cantPlay, 10, "A damaged video should say it can't be played")
         stillRunning("double-clicking a damaged video")
         snap("72-video-broken")
         app.typeKey(.escape, modifierFlags: [])
