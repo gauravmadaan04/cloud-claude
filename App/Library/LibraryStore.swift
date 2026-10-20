@@ -26,6 +26,14 @@ enum CollectionSource: Hashable {
     case query(SearchQuery)
     case latestDownloads
     case collection(FileCollection)
+
+    /// Lists read from `LibraryDerived`, which lands a moment after each index change (not from the index itself).
+    var readsDerived: Bool {
+        switch self {
+        case .recents, .category, .largeFiles, .screenshots, .latestDownloads: return true
+        case .source, .query, .collection: return false
+        }
+    }
 }
 
 /// Numbers and lists computed from the index in the background after every change.
@@ -94,6 +102,8 @@ final class LibraryStore {
     private(set) var hasLoaded = false
     private(set) var lastScan: Date?
     private(set) var derived = LibraryDerived()
+    /// Bumped each time `derived` is ready for the latest index.
+    private(set) var derivedVersion = 0
 
     let text = TextIndex()
     let duplicates = DuplicateService()
@@ -259,7 +269,10 @@ final class LibraryStore {
         deriveTask = Task.detached(priority: .userInitiated) {
             let d = LibraryDerived.compute(snapshot, cleanup: cleanup, tops: tops)
             if Task.isCancelled { return }
-            await MainActor.run { store.derived = d }
+            await MainActor.run {
+                store.derived = d
+                store.derivedVersion += 1
+            }
         }
     }
 

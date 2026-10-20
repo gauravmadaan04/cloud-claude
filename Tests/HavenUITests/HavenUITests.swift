@@ -563,7 +563,8 @@ final class HavenUITests: XCTestCase {
         app.typeKey("a", modifierFlags: .command)
         app.typeKey("r", modifierFlags: .command)
         waitFor(el("rename.sheet"), 10)
-        expectation(for: NSPredicate(format: "value CONTAINS 'files will be renamed'"), evaluatedWith: el("rename.summary"))
+        // All three screenshots, including the one whose name was just put back.
+        expectation(for: NSPredicate(format: "value CONTAINS '3 files will be renamed'"), evaluatedWith: el("rename.summary"))
         waitForExpectations(timeout: 10)
         sleep(1)
         snap("82-rename-many")
@@ -571,7 +572,8 @@ final class HavenUITests: XCTestCase {
         sleep(1)
 
         // Space: where the room goes, folder by folder.
-        el("sidebar.space").click()
+        app.menuBars.menuBarItems["Go"].click()
+        menuItem("Space").click()
         waitFor(el("space"), 15, "The Space page should open")
         sleep(2)
         snap("83-space")

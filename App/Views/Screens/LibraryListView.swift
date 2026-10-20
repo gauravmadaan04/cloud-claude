@@ -60,7 +60,9 @@ struct LibraryListView: View {
 
     private var key: String {
         let textVersion = usesRelevance ? store.text.version : 0
-        return "\(sourceKey)|\(store.version)|\(textVersion)|\(sort?.rawValue ?? "relevance")"
+        // Lists made from the background summary reload when it's ready, so they never show the one before.
+        let dataVersion = source.readsDerived ? "d\(store.derivedVersion)" : "\(store.version)"
+        return "\(sourceKey)|\(dataVersion)|\(textVersion)|\(sort?.rawValue ?? "relevance")"
     }
 
     var body: some View {
