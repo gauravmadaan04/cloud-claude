@@ -30,7 +30,7 @@ struct SpaceView: View {
                     foldersCard(d.folderSizes)
                     biggestCard
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 18, alignment: .top)], alignment: .leading, spacing: 18) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18, alignment: .top)], alignment: .leading, spacing: 18) {
                     slicesCard("By Kind", Array(d.space.byKind.prefix(8)), total: d.space.totalBytes) { slice in
                         guard let kind = FileKind(rawValue: slice.id), let c = kind.category else { return }
                         model.navigate(to: .category(c))
@@ -45,8 +45,6 @@ struct SpaceView: View {
             .padding(.horizontal, 28)
             .padding(.vertical, 22)
             .frame(maxWidth: 1400, alignment: .leading)
-            // Exactly as wide as the page: never wider than the window, never pushing the sidebar.
-            .containerRelativeFrame(.horizontal, alignment: .leading)
         }
         .background(theme.canvas)
         .onAppear { model.setVisible([]) }
