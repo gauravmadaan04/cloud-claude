@@ -177,6 +177,16 @@ jobs:
           mkdir -p build/screenshots/named
           screencapture -x build/screenshots/named/90-dmg-window.png || true
           osascript -e 'tell application "Finder" to close every window' || true
+          # Again with hidden files shown (⌘⇧.): the background picture and disk icon must stay out of view.
+          defaults write com.apple.finder AppleShowAllFiles -bool true
+          killall Finder || true
+          sleep 4
+          open /Volumes/Haven
+          sleep 5
+          screencapture -x build/screenshots/named/91-dmg-window-hidden-files.png || true
+          osascript -e 'tell application "Finder" to close every window' || true
+          defaults write com.apple.finder AppleShowAllFiles -bool false
+          killall Finder || true
           hdiutil detach /Volumes/Haven || true
           ls -la build/Haven-1.0.0.dmg
           APP=build/rel/Build/Products/Release/Haven.app

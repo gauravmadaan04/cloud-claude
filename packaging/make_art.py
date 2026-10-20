@@ -61,9 +61,9 @@ def content(scale):
     sw = d.textlength(sub, font=f2)
     d.text(((w - sw) / 2, 70 * s), sub, font=f2, fill=hexrgb(0x6E6880))
 
-    # Arrow from the app (x=180) to Applications (x=540) at y=175.
-    y = 175 * s
-    x0, x1 = 262 * s, 458 * s
+    # Arrow from the app (x=190) to Applications (x=530) at y=178 (icons are 100 pt).
+    y = 178 * s
+    x0, x1 = 266 * s, 454 * s
     for i in range(int(x0), int(x1 - 26 * s), int(14 * s)):
         d.rounded_rectangle([i, y - 3 * s, i + 8 * s, y + 3 * s], radius=3 * s, fill=hexrgb(0x8E7BFF))
     d.polygon([(x1 - 26 * s, y - 13 * s), (x1, y), (x1 - 26 * s, y + 13 * s)], fill=hexrgb(0x6B4EFF))
@@ -72,48 +72,48 @@ def content(scale):
     lw = d.textlength(lab, font=fl)
     d.text(((x0 + x1) / 2 - lw / 2, y - 30 * s), lab, font=fl, fill=hexrgb(0x6B4EFF))
 
-    # Steps card
-    card = [36 * s, 292 * s, 540 * s, 494 * s]
+    # One card: the steps on the left, the guide (Finder draws its icon at 587, 396) on the right.
+    card = [24 * s, 296 * s, 696 * s, 492 * s]
+    divider = 478 * s
     shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rounded_rectangle([card[0], card[1] + 4 * s, card[2], card[3] + 4 * s], radius=18 * s, fill=(60, 40, 120, 40))
+    ImageDraw.Draw(shadow).rounded_rectangle([card[0], card[1] + 4 * s, card[2], card[3] + 4 * s], radius=18 * s, fill=(60, 40, 120, 34))
     shadow = shadow.filter(ImageFilter.GaussianBlur(8 * s))
     img = Image.alpha_composite(img, shadow)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle(card, radius=18 * s, fill=(255, 255, 255, 235), outline=hexrgb(0xE6E0F5), width=max(1, s))
+    d.rounded_rectangle(card, radius=18 * s, fill=(255, 255, 255, 240), outline=hexrgb(0xE6E0F5), width=max(1, s))
+    d.line([(divider, 320 * s), (divider, 468 * s)], fill=hexrgb(0xECE7F7), width=max(1, s))
 
     steps = [
         ("1", "Drag Haven onto Applications.", None),
-        ("2", "Open Applications and double-click Haven.", None),
-        ("3", "First time only: if macOS says it can't verify Haven,",
-         "open System Settings › Privacy & Security › Open Anyway."),
+        ("2", "Open Haven from Applications.", None),
+        ("3", "First time only: if macOS can't verify Haven,",
+         "choose System Settings › Privacy & Security › Open Anyway."),
     ]
-    sy = 312 * s
+    sy = 335 * s
     fb = font("SemiBold", 14 * s)
-    fr = font("Regular", 13 * s)
+    fr = font("Regular", 12.5 * s)
+    fn = font("Bold", 12 * s)
     for num, line, extra in steps:
-        cx, cy, r = 62 * s, sy + 10 * s, 12 * s
+        cx, cy, r = 52 * s, sy + 10 * s, 11 * s
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=hexrgb(0x6B4EFF))
-        nw = d.textlength(num, font=font("Bold", 13 * s))
-        d.text((cx - nw / 2, cy - 8.5 * s), num, font=font("Bold", 13 * s), fill=(255, 255, 255, 255))
-        d.text((86 * s, sy), line, font=fb, fill=hexrgb(0x241C3D))
+        nw = d.textlength(num, font=fn)
+        d.text((cx - nw / 2, cy - 8 * s), num, font=fn, fill=(255, 255, 255, 255))
+        d.text((74 * s, sy), line, font=fb, fill=hexrgb(0x241C3D))
+        assert 74 * s + d.textlength(line, font=fb) < divider - 12 * s, line
         if extra:
-            d.text((86 * s, sy + 21 * s), extra, font=fr, fill=hexrgb(0x5A5470))
+            d.text((74 * s, sy + 21 * s), extra, font=fr, fill=hexrgb(0x5A5470))
+            assert 74 * s + d.textlength(extra, font=fr) < divider - 12 * s, extra
             sy += 21 * s
         sy += 40 * s
-    d.text((86 * s, sy - 6 * s), "A one-minute tour starts the first time Haven opens.", font=font("Medium", 12.5 * s), fill=hexrgb(0x8A84A0))
 
-    # Hint pointing at the guide (icon sits at 620, 400).
-    hint = "New here?"
-    hint2 = "Read this first"
-    fh = font("SemiBold", 12 * s)
-    d.text((575 * s, 312 * s), hint, font=fh, fill=hexrgb(0x6B4EFF))
-    d.text((575 * s, 330 * s), hint2, font=font("Regular", 12 * s), fill=hexrgb(0x6E6880))
-    # little curved arrow down to the icon
-    pts = []
-    for i in range(20):
-        t = i / 19
-        pts.append(((598 + 18 * math.sin(t * math.pi * 0.8)) * s, (352 + 22 * t) * s))
-    d.line(pts, fill=hexrgb(0x8E7BFF), width=int(2 * s))
+    # Caption over the guide's icon.
+    cx = (divider + card[2]) / 2
+    a, b = "New here? ", "Read this first"
+    fa, fb2 = font("SemiBold", 12 * s), font("Regular", 12 * s)
+    total = d.textlength(a, font=fa) + d.textlength(b, font=fb2)
+    left = cx - total / 2
+    d.text((left, 318 * s), a, font=fa, fill=hexrgb(0x6B4EFF))
+    d.text((left + d.textlength(a, font=fa), 318 * s), b, font=fb2, fill=hexrgb(0x6E6880))
     return img
 
 

@@ -35,10 +35,17 @@ grid_spacing = 100
 scroll_position = (0, 0)
 label_pos = "bottom"
 text_size = 13
-icon_size = 112
+icon_size = 100
 
+# Window positions = the art's 720×520 grid + (10, 14). Hidden files (the background picture, the disk
+# icon, macOS bookkeeping) are parked far below the window, so they stay out of sight even for people who
+# show hidden files in Finder (⌘⇧.).
 icon_locations = {
-    appname: (190, 189),
-    "Applications": (550, 189),
-    readmename: (630, 419),
+    appname: (200, 192),
+    "Applications": (540, 192),
+    readmename: (597, 410),
+    ".background.tiff": (120, 1400),
+    ".VolumeIcon.icns": (260, 1400),
+    ".fseventsd": (400, 1400),
+    ".Trashes": (540, 1400),
 }
