@@ -459,17 +459,14 @@ final class HavenUITests: XCTestCase {
         snap("61-pasted")
 
         // Typing a name jumps to it.
-        app.typeKey("z", modifierFlags: [])
-        app.typeKey("o", modifierFlags: [])
+        app.typeText("zo")
         let zoom = NSPredicate(format: "value CONTAINS ' 1 selected'")
         expectation(for: zoom, evaluatedWith: summary)
         waitForExpectations(timeout: 5)
         XCTAssertTrue(file("Zoom-6.2.pkg").isSelected, "Typing “zo” should select Zoom-6.2.pkg")
 
         // ⌘↓ opens a folder in Haven, ⌘↑ goes back up to the folder around it.
-        app.typeKey("h", modifierFlags: [])
-        app.typeKey("o", modifierFlags: [])
-        app.typeKey("l", modifierFlags: [])
+        app.typeText("hol")
         app.typeKey(.downArrow, modifierFlags: .command)
         waitFor(file("beach-day.jpg"), 10, "⌘↓ should open the holiday-photos folder")
         app.typeKey(.upArrow, modifierFlags: .command)

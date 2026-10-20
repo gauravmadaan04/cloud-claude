@@ -480,12 +480,12 @@ final class AppModel {
     }
 
     /// Typing the start of a name selects the first file (in name order) that begins with it, like Finder.
-    /// Keys typed within a second of each other add up ("inv" → invoice.pdf).
+    /// Keys typed within a second and a half of each other add up ("inv" → invoice.pdf).
     @discardableResult
     func typeAhead(_ characters: String) -> Bool {
         guard !visibleItems.isEmpty, !isPreviewing, !characters.isEmpty else { return false }
         let now = Date()
-        typedName = now.timeIntervalSince(typedAt) > 1 ? characters : typedName + characters
+        typedName = now.timeIntervalSince(typedAt) > 1.5 ? characters : typedName + characters
         typedAt = now
         let prefix = Array(FileItem.fold(typedName).utf8)
         var best: FileItem?

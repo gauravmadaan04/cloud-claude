@@ -73,7 +73,7 @@ final class KeysAndSafetyTests: XCTestCase {
         XCTAssertEqual(model.selectedItems.map(\.name), ["Invoice 2.pdf"], "first in name order")
         XCTAssertTrue(model.typeAhead("nvoice-"))
         XCTAssertEqual(model.selectedItems.map(\.name), ["invoice-4821.png"], "keys typed together add up")
-        Thread.sleep(forTimeInterval: 1.1)
+        Thread.sleep(forTimeInterval: 1.6)
         XCTAssertTrue(model.typeAhead("h"))
         XCTAssertEqual(model.selectedItems.map(\.name), ["holiday-photos"], "a pause starts a new name")
     }
