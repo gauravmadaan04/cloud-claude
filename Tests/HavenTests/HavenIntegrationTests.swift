@@ -1,3 +1,5 @@
+// Uses the sample-file generator, which only exists in debug builds.
+#if DEBUG
 import AppKit
 import HavenCore
 import XCTest
@@ -221,3 +223,4 @@ final class FixtureLibraryTests: XCTestCase {
         XCTAssertEqual(found.map(\.name), [shot.name])
     }
 }
+#endif
