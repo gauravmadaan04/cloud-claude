@@ -282,8 +282,9 @@ final class HavenUITests: XCTestCase {
 
         // Minimal look.
         app.typeKey("t", modifierFlags: [.command, .control])
-        el("sidebar.home").click()
-        waitFor(el("home.tile.images"), 10, "Sidebar should open Home")
+        // Home is scrolled out of the sidebar by now (Activity sits low in it): use Go › Home.
+        app.typeKey("h", modifierFlags: [.command, .shift])
+        waitFor(el("home.tile.images"), 10, "⇧⌘H should open Home")
         sleep(2)
         snap("36-home-minimal")
         app.typeKey("t", modifierFlags: [.command, .control])

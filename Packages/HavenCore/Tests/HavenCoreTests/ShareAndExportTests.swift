@@ -66,4 +66,68 @@ final class ShareAndExportTests: XCTestCase {
         XCTAssertEqual(many.summary, "Made 2 files")
         XCTAssertTrue(FileKind.presentation.hasReadableText)
     }
+    func testDateStampsMatchDateFormatterAcrossTimeZones() {
+        // Zones with summer time, half-hour offsets and a half-hour summer shift.
+        var zonesChecked = 0
+        for name in ["UTC", "America/New_York", "Europe/London", "Asia/Kolkata", "America/St_Johns", "Australia/Lord_Howe", "Asia/Kathmandu"] {
+            guard let zone = TimeZone(identifier: name) else { continue }
+            zonesChecked += 1
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.calendar = Calendar(identifier: .gregorian)
+            f.timeZone = zone
+            f.dateFormat = "yyyy-MM-dd HH:mm"
+            let from = -631_152_000.0 // 1950
+            let to = 4_102_444_800.0 // 2100
+            let stamp = DateStamp(from: from, to: to, zone: zone)
+            var rng = SystemRandomNumberGenerator()
+            var times = (0..<3_000).map { _ in Double.random(in: from...to, using: &rng) }
+            // Right around summer-time changes, and at midnight and leap days.
+            var t = Date(timeIntervalSince1970: 1_600_000_000)
+            for _ in 0..<12 {
+                guard let next = zone.nextDaylightSavingTimeTransition(after: t) else { break }
+                let s = next.timeIntervalSince1970
+                times += [s - 61, s - 1, s, s + 1, s + 59.5]
+                t = next
+            }
+            times += [951_782_400, 951_868_799, 0, -0.5, 1_709_164_800, 4_102_444_799]
+            for x in times {
+                let date = Date(timeIntervalSince1970: x)
+                XCTAssertEqual(stamp.string(date), f.string(from: date), "\(name) at \(x)")
+            }
+        }
+        XCTAssertGreaterThan(zonesChecked, 5)
+    }
+
+    func testBigTablesMatchTheOneByOneVersion() {
+        var items: [FileItem] = []
+        for i in 0..<9_000 {
+            let when = Date(timeIntervalSince1970: 1_500_000_000 + Double(i) * 7_919.3)
+            items.append(FileItem(path: "/U/Downloads/f\(i)\(i % 7 == 0 ? ",x" : "")\(i % 11 == 0 ? "\tt" : "").pdf", size: Int64(i) * 9_973,
+                                  created: when, modified: when, whereFroms: i % 3 == 0 ? ["https://mail.google.com/"] : [],
+                                  isDirectory: i % 50 == 0))
+        }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        for csv in [false, true] {
+            // A DateFormatter makes it go one row at a time; without one, slices are written in parallel.
+            XCTAssertEqual(ListExport.table(items, csv: csv, dateFormatter: nil), ListExport.table(items, csv: csv, dateFormatter: f))
+        }
+        XCTAssertEqual(ListExport.tsvCell("a\tb\nc\rd"), "a b c d")
+        XCTAssertEqual(ListExport.tsvCell("plain"), "plain")
+        XCTAssertEqual(ListExport.csvCell(" padded"), "\" padded\"")
+    }
+
+    func testSizesReadLikeFinder() {
+        XCTAssertEqual(ByteSize.format(0), "0 bytes")
+        XCTAssertEqual(ByteSize.format(1_000), "1 KB")
+        XCTAssertEqual(ByteSize.format(1_049), "1.0 KB")
+        XCTAssertEqual(ByteSize.format(1_050), "1.1 KB")
+        XCTAssertEqual(ByteSize.format(9_960_000), "10.0 MB")
+        XCTAssertEqual(ByteSize.format(99_960_000), "100.0 MB")
+        XCTAssertEqual(ByteSize.format(100_400_000), "100 MB")
+        XCTAssertEqual(ByteSize.format(999_600), "1000 KB")
+        XCTAssertEqual(ByteSize.format(2_500_000_000_000), "2.5 TB")
+    }
 }

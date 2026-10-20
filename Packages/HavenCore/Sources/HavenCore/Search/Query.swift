@@ -250,15 +250,11 @@ public enum ByteSize {
 
     /// "5 MB", "1.5 GB" in Finder's decimal units.
     public static func format(_ bytes: Int64) -> String {
-        let b = Double(bytes)
-        func fmt(_ v: Double, _ unit: String) -> String {
-            if v >= 100 || v == v.rounded() { return "\(Int(v.rounded())) \(unit)" }
-            return String(format: "%.1f \(unit)", v)
-        }
         if bytes < kb { return "\(bytes) bytes" }
-        if bytes < mb { return fmt(b / Double(kb), "KB") }
-        if bytes < gb { return fmt(b / Double(mb), "MB") }
-        if bytes < tb { return fmt(b / Double(gb), "GB") }
-        return fmt(b / Double(tb), "TB")
+        let (unit, name): (Int64, String) = bytes < mb ? (kb, "KB") : bytes < gb ? (mb, "MB") : bytes < tb ? (gb, "GB") : (tb, "TB")
+        // Whole numbers from 100 up (and for exact values), one decimal below. Integer maths: exact and quick.
+        if bytes >= 100 * unit || bytes % unit == 0 { return "\((bytes + unit / 2) / unit) \(name)" }
+        let tenths = (bytes * 10 + unit / 2) / unit
+        return "\(tenths / 10).\(tenths % 10) \(name)"
     }
 }
