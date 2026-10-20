@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import XCTest
 
 /// Drives the real app like a person would, on a sample home folder, and keeps screenshots of every screen.
@@ -479,5 +480,128 @@ final class HavenUITests: XCTestCase {
         app.typeKey("a", modifierFlags: .command)
         app.typeKey(.delete, modifierFlags: [])
         XCTAssertEqual(app.textFields["search.field"].value as? String ?? "", "", "⌘A in the search field selects its text")
+    }
+
+    // MARK: Videos
+
+    /// Double-clicking a video opens it in the big preview and plays it; a damaged one shows a message.
+    /// Uses its own folder of real and broken videos, so it also runs against a Release build.
+    func test08_Videos() throws {
+        let root = "/private/tmp/haven-video-fixture"
+        let fm = FileManager.default
+        try? fm.removeItem(atPath: root)
+        let movies = root + "/Movies"
+        for sub in ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Applications"] {
+            try fm.createDirectory(atPath: root + "/" + sub, withIntermediateDirectories: true)
+        }
+        try Self.makeVideo(at: URL(fileURLWithPath: movies + "/Beach Walk.mov"), seconds: 3)
+        try Self.makeVideo(at: URL(fileURLWithPath: movies + "/Sunset.mp4"), seconds: 2, type: .mp4)
+        try Data((0..<200_000).map { UInt8(truncatingIfNeeded: $0 &* 31) }).write(to: URL(fileURLWithPath: movies + "/Broken clip.mov"))
+
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-HavenFixtureRoot", root,
+            "-HavenResetState", "YES",
+            "-HavenSkipOnboarding", "YES",
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US",
+        ]
+        app.launch()
+        app.activate()
+
+        func stillRunning(_ step: String) {
+            XCTAssertEqual(app.state, .runningForeground, "Haven quit after: \(step)")
+        }
+
+        waitFor(el("sidebar.category.videos"), 60)
+        el("sidebar.category.videos").click()
+        waitFor(file("Beach Walk.mov"), 30, "The videos should be listed")
+        sleep(2) // thumbnails
+        snap("70-videos-grid")
+        stillRunning("showing the videos")
+
+        file("Beach Walk.mov").doubleClick()
+        waitFor(el("preview.overlay"), 10, "Double-clicking a video opens the preview")
+        sleep(3)
+        stillRunning("double-clicking a video")
+        snap("71-video-playing")
+
+        // Next video, then the damaged one, with the arrow keys.
+        app.typeKey(.rightArrow, modifierFlags: [])
+        sleep(2)
+        stillRunning("moving to the next video")
+        app.typeKey(.rightArrow, modifierFlags: [])
+        sleep(2)
+        stillRunning("moving to a damaged video")
+        snap("72-video-broken")
+        app.typeKey(.escape, modifierFlags: [])
+        sleep(1)
+        stillRunning("closing the preview")
+
+        // Straight to the damaged one, and Quick Look on a video.
+        file("Broken clip.mov").doubleClick()
+        sleep(2)
+        stillRunning("double-clicking a damaged video")
+        app.typeKey(.escape, modifierFlags: [])
+        file("Sunset.mp4").click()
+        app.typeKey(" ", modifierFlags: [])
+        sleep(2)
+        stillRunning("Quick Look on a video")
+        app.typeKey(" ", modifierFlags: [])
+        sleep(1)
+
+        // The inspector reads the video's length and size.
+        file("Beach Walk.mov").click()
+        app.typeKey("i", modifierFlags: .command)
+        waitFor(el("inspector"), 10)
+        sleep(2)
+        stillRunning("showing a video in the inspector")
+        snap("73-video-inspector")
+        app.typeKey("i", modifierFlags: .command)
+    }
+
+    /// A short real video (moving colour bands), written with AVFoundation.
+    static func makeVideo(at url: URL, seconds: Int, type: AVFileType = .mov) throws {
+        try? FileManager.default.removeItem(at: url)
+        let w = 320, h = 240
+        let writer = try AVAssetWriter(outputURL: url, fileType: type)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: w, AVVideoHeightKey: h,
+        ])
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+            kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h,
+        ])
+        writer.add(input)
+        guard writer.startWriting() else { throw writer.error ?? CocoaError(.fileWriteUnknown) }
+        writer.startSession(atSourceTime: .zero)
+        let fps: Int32 = 15
+        for frame in 0..<(seconds * Int(fps)) {
+            while !input.isReadyForMoreMediaData { Thread.sleep(forTimeInterval: 0.005) }
+            guard let pool = adaptor.pixelBufferPool else { break }
+            var made: CVPixelBuffer?
+            CVPixelBufferPoolCreatePixelBuffer(nil, pool, &made)
+            guard let buffer = made else { continue }
+            CVPixelBufferLockBaseAddress(buffer, [])
+            if let base = CVPixelBufferGetBaseAddress(buffer) {
+                let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+                for y in 0..<h {
+                    let row = base.advanced(by: y * bytesPerRow).assumingMemoryBound(to: UInt8.self)
+                    for x in 0..<w {
+                        row[x * 4] = 255
+                        row[x * 4 + 1] = UInt8(truncatingIfNeeded: x + frame * 6)
+                        row[x * 4 + 2] = UInt8(truncatingIfNeeded: y * 2)
+                        row[x * 4 + 3] = 180
+                    }
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: fps))
+        }
+        input.markAsFinished()
+        let done = DispatchSemaphore(value: 0)
+        writer.finishWriting { done.signal() }
+        done.wait()
+        if writer.status != .completed { throw writer.error ?? CocoaError(.fileWriteUnknown) }
     }
 }

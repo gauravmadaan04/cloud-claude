@@ -1,0 +1,135 @@
+name: Haven quick check
+
+# One or a few tests on a real Mac, against the Release build people install. Push to haven-quick or run by hand.
+on:
+  push:
+    branches: [haven-quick]
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: "xcodebuild -only-testing value"
+        default: "HavenUITests/HavenUITests/test08_Videos"
+      configuration:
+        description: "Release or Debug"
+        default: "Release"
+
+concurrency:
+  group: haven-quick-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quick:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      DD: build/dd
+      TESTS: ${{ inputs.tests || 'HavenUITests/HavenUITests/test08_Videos' }}
+      CONFIG: ${{ inputs.configuration || 'Release' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build app and tests
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project Haven.xcodeproj -scheme Haven -configuration "$CONFIG" -destination 'platform=macOS' \
+            -derivedDataPath "$DD" CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES ENABLE_TESTABILITY=YES 2>&1 \
+            | tee build.log | grep -E "error:|\*\*" || true
+          grep -q "TEST BUILD SUCCEEDED" build.log
+
+      - name: Allow UI automation
+        run: sudo automationmodetool enable-automationmode-without-authentication || true
+
+      - name: Run tests
+        id: run
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Haven.xcodeproj -scheme Haven -configuration "$CONFIG" -destination 'platform=macOS' \
+            -derivedDataPath "$DD" -only-testing:"$TESTS" -resultBundlePath build/Quick.xcresult 2>&1 \
+            | tee test.log | grep -E "Test Case|error:|Executed|XCTAssert" | tail -120
+
+      - name: Crash reports
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p crashes
+          cp ~/Library/Logs/DiagnosticReports/Haven*.ips crashes/ 2>/dev/null || true
+          for f in crashes/*.ips; do
+            [ -f "$f" ] || continue
+            echo "== $f"
+            python3 - "$f" <<'PY'
+          import json, sys
+          raw = open(sys.argv[1]).read().split("\n", 1)
+          body = json.loads(raw[1]) if len(raw) > 1 else {}
+          print("exception:", json.dumps(body.get("exception")))
+          print("termination:", json.dumps(body.get("termination")))
+          print("app says:", json.dumps(body.get("asi")))
+          images = body.get("usedImages", [])
+          def show(frames, n):
+              for fr in frames[:n]:
+                  img = images[fr.get("imageIndex", 0)].get("name", "?") if images else "?"
+                  print("  ", img, fr.get("symbol", "?"), fr.get("sourceFile", ""), fr.get("sourceLine", ""))
+          if body.get("lastExceptionBacktrace"):
+              print("exception backtrace:")
+              show(body["lastExceptionBacktrace"], 40)
+          ft = body.get("faultingThread", 0)
+          print("faulting thread", ft, body.get("threads", [{}])[ft].get("queue", ""))
+          show(body.get("threads", [])[ft].get("frames", []), 45)
+          PY
+          done
+
+      - name: Screenshots
+        if: always()
+        run: |
+          mkdir -p build/screenshots
+          xcrun xcresulttool export attachments --path build/Quick.xcresult --output-path build/screenshots >/dev/null 2>&1 || true
+          python3 - <<'PY'
+          import json, os, shutil
+          d = "build/screenshots"
+          out = os.path.join(d, "named")
+          os.makedirs(out, exist_ok=True)
+          try:
+              manifest = json.load(open(os.path.join(d, "manifest.json")))
+          except Exception:
+              manifest = []
+          def walk(x):
+              if isinstance(x, dict):
+                  if "exportedFileName" in x and "suggestedHumanReadableName" in x:
+                      yield x
+                  for v in x.values():
+                      yield from walk(v)
+              elif isinstance(x, list):
+                  for v in x:
+                      yield from walk(v)
+          for a in walk(manifest):
+              src = os.path.join(d, a["exportedFileName"])
+              if src.endswith(".png") and os.path.exists(src):
+                  name = a["suggestedHumanReadableName"].split("_0_")[0]
+                  shutil.copy(src, os.path.join(out, name + ".png"))
+          PY
+          ls build/screenshots/named
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quick-results
+          path: |
+            test.log
+            build.log
+            crashes
+            build/screenshots/named
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Fail if tests failed
+        if: steps.run.outcome == 'failure'
+        run: |
+          grep -E "error:|failed" test.log | head -60 || true
+          exit 1
