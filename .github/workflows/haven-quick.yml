@@ -3,7 +3,7 @@ name: Haven quick check
 # One or a few tests on a real Mac, against the Release build people install. Push to haven-quick or run by hand.
 on:
   push:
-    branches: [haven-quick]
+    branches: [haven-quick, "haven-quick-*"]
   workflow_dispatch:
     inputs:
       tests:

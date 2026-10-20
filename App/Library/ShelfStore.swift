@@ -67,11 +67,4 @@ final class ShelfStore {
         }
         if changed { save() }
     }
-
-    var totalBytes: Int64 {
-        urls.reduce(Int64(0)) { sum, url in
-            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-            return sum + Int64(size)
-        }
-    }
 }

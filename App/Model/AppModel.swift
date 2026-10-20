@@ -601,15 +601,26 @@ final class AppModel {
     /// The visible list (or the selected files in it) as text on the clipboard.
     func copyList(_ format: ListExport.Format, _ items: [FileItem]) {
         guard !items.isEmpty else { return }
-        let text = ListExport.text(items, format: format)
+        // Big lists are written out in the background.
+        guard items.count < 20_000 else {
+            Task {
+                let text = await Task.detached(priority: .userInitiated) { ListExport.text(items, format: format) }.value
+                self.putOnClipboard(text, format, count: items.count)
+            }
+            return
+        }
+        putOnClipboard(ListExport.text(items, format: format), format, count: items.count)
+    }
+
+    private func putOnClipboard(_ text: String, _ format: ListExport.Format, count: Int) {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
         let what: String
         switch format {
-        case .names: what = items.count == 1 ? "Copied the name" : "Copied \(items.count) names"
-        case .paths: what = items.count == 1 ? "Copied the path" : "Copied \(items.count) paths"
-        case .table, .csv: what = "Copied a table of \(HavenFormat.count(items.count, "file")): paste it into Numbers or Excel"
+        case .names: what = count == 1 ? "Copied the name" : "Copied \(count) names"
+        case .paths: what = count == 1 ? "Copied the path" : "Copied \(count) paths"
+        case .table, .csv: what = "Copied a table of \(HavenFormat.count(count, "file")): paste it into Numbers or Excel"
         }
         showToast(what, symbol: "list.bullet.rectangle")
     }
@@ -621,12 +632,12 @@ final class AppModel {
         panel.allowedContentTypes = [.commaSeparatedText]
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let text = ListExport.text(items, format: .csv)
-        do {
-            try Data(text.utf8).write(to: url, options: .atomic)
-            showToast("Saved “\(url.lastPathComponent)”", symbol: "tablecells")
-        } catch {
-            showToast("Couldn't save the list", symbol: "exclamationmark.triangle")
+        Task {
+            let ok = await Task.detached(priority: .userInitiated) { () -> Bool in
+                let text = ListExport.text(items, format: .csv)
+                return (try? Data(text.utf8).write(to: url, options: .atomic)) != nil
+            }.value
+            showToast(ok ? "Saved “\(url.lastPathComponent)”" : "Couldn't save the list", symbol: ok ? "tablecells" : "exclamationmark.triangle")
         }
     }
 

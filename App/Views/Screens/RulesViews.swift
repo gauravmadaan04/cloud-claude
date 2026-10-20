@@ -15,7 +15,7 @@ struct CustomRulesSection: View {
                     model.editingRule = CustomRule(name: "New Rule", enabled: false,
                                                    folders: [(LaunchOptions.current.homeForRoots as NSString).appendingPathComponent("Downloads")],
                                                    conditions: [.source("*")],
-                                                   action: .move(to: (LaunchOptions.current.homeForRoots as NSString).appendingPathComponent("Documents"), byMonth: false))
+                                                   action: .move(to: (LaunchOptions.current.homeForRoots as NSString).appendingPathComponent("Documents/Sorted"), byMonth: false))
                 } label: {
                     Label("New Rule", systemImage: "plus")
                 }
@@ -311,7 +311,7 @@ struct RuleEditorView: View {
             set: { kind in
                 guard kind != rule.action.kind else { return }
                 switch kind {
-                case .move: rule.action = .move(to: (home as NSString).appendingPathComponent("Documents"), byMonth: false)
+                case .move: rule.action = .move(to: (home as NSString).appendingPathComponent("Documents/Sorted"), byMonth: false)
                 case .rename: rule.action = .rename(.smart)
                 case .addToCollection:
                     let id = CollectionStore.shared.collections.first?.id ?? CollectionStore.shared.create(name: rule.name)

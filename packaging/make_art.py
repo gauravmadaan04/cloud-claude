@@ -265,6 +265,37 @@ def readme_pdf(path):
          "~/Library/Application Support/Haven. Replay the tour any time from Help › Welcome Tour.",
          48, max(y, 70), pw - 96, size=9.5)
     c.showPage()
+
+    # Page 3: getting more done
+    header("Getting more done", "Tools for the chores Finder makes slow.")
+    y = ph - 185
+    more = [
+        ("Smart rename (⌘R)", "Rename one file or hundreds: add dates, numbers, find & replace, or name screenshots and "
+         "PDFs by what's written in them (“2026-10-12 Boarding Pass.png”). You see every new name first; ⌘Z undoes it."),
+        ("Space", "See which folders and files take the most room, by kind, by where they came from and by when you "
+         "last used them. Click a folder to look inside; folder sizes also show in list view."),
+        ("Your own rules", "On Clean Up: “PDFs from Gmail with ‘invoice’ in them → Documents/Invoices”, “WhatsApp "
+         "photos → Pictures/WhatsApp”, or name screenshots by their text. Start from an idea, see what a rule would do "
+         "before turning it on, and undo anything it did from Activity."),
+        ("Make Shareable", "Right-click: Save as JPEG (for HEIC photos), Make a Smaller Image, Make a Smaller PDF, or "
+         "Compress as ZIP. Copies go next to the originals, which never change."),
+        ("The Shelf (⌥⌘S)", "A small window that floats over every app. Drop files on it from anywhere, then drag "
+         "them all into Mail, Slack or a folder at once."),
+        ("Collections", "Like playlists for files: one file can be in many collections and stays where it is. Drop "
+         "files onto a collection in the sidebar, or right-click › Add to Collection."),
+        ("Text in more files", "Haven also reads Word, Excel, PowerPoint, OpenDocument and EPUB files, the first page "
+         "of Pages, Numbers and Keynote files, and web pages, with its own index (it doesn't rely on Spotlight)."),
+        ("Copy List and Open/Save jump", "Copy List above any list copies names, paths or a table for Numbers or "
+         "Excel. In an app's Open or Save dialog, open Quick Search, pick a folder and press ⌃↩ to jump there."),
+    ]
+    for title, body in more:
+        c.setFillColor(accent)
+        c.circle(56, y + 4, 3.5, stroke=0, fill=1)
+        c.setFillColor(ink)
+        c.setFont("DVB", 12.5)
+        c.drawString(68, y, title)
+        y = para(body, 68, y - 17, pw - 120, size=10.5) - 10
+    c.showPage()
     c.save()
 
 
