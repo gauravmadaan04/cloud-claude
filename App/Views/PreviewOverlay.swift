@@ -382,6 +382,7 @@ struct VideoPreview: View {
             .padding(36)
             .frame(maxWidth: 420)
             .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("preview.video.failed")
         } else {
             PlayerView(url: url) { failedURL = url }
