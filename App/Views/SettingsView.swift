@@ -169,10 +169,17 @@ private struct QuickSearchSettings: View {
                 }
                 .disabled(!prefs.quickSearchEnabled)
             } footer: {
-                Text("Opens a search panel over any app. ↩ opens the file, ⌘↩ shows it in Haven, ⌥↩ shows it in Finder, ⌘C copies it.")
+                Text("Opens a search panel over any app. ↩ opens the file, ⌘↩ shows it in Haven, ⌥↩ shows it in Finder, ⌘C copies it, and ⌃↩ sends an app's Open or Save dialog there.")
             }
             Section {
                 Button("Open Quick Search Now") { QuickSearchController.shared.show() }
+                LabeledContent("Open/Save dialog jump") {
+                    if DialogJump.isAllowed {
+                        Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else {
+                        Button("Allow…") { AppModel.shared.bringMainWindowForward(); AppModel.shared.showDialogJumpHelp = true }
+                    }
+                }
             }
         }
         .formStyle(.grouped)
@@ -295,13 +302,14 @@ struct ShortcutsHelpView: View {
 
     private var groups: [(String, [(String, String)])] {
         [
-            ("Anywhere", [(prefs.hotKey.display, "Quick Search")]),
+            ("Anywhere", [(prefs.hotKey.display, "Quick Search"), ("⌃↩", "In Quick Search: go there in an Open/Save dialog"),
+                          ("⌥⌘S", "Shelf")]),
             ("Finding", [("⌘F", "Search"), ("⌘[  ⌘]", "Back / Forward"), ("⇧⌘H", "Home"), ("⇧⌘J", "Downloaded From"),
                          ("⇧⌘D", "Duplicates"), ("⇧⌘K", "Clean Up"), ("⌥⌘L", "Downloads")]),
             ("Files", [("Space  ⌘Y", "Quick Look"), ("Double-click", "Large preview"), ("↩  ⌘↓  ⌘O", "Open"),
                        ("⌘↑", "Enclosing folder"), ("⌘A", "Select all"), ("⇧ + arrows", "Extend selection"),
                        ("Type a name", "Jump to a file"), ("⌘I", "Inspector"), ("⌘C", "Copy files"), ("⌘V", "Paste into this folder"),
-                       ("⇧⌘C", "Copy text"), ("⌥⌘C", "Copy path"), ("⇧⌘R", "Show in Finder"),
+                       ("⌘R", "Rename"), ("⇧⌘C", "Copy text"), ("⌥⌘C", "Copy path"), ("⇧⌘R", "Show in Finder"),
                        ("⌘⌫", "Move to Trash"), ("⌘Z", "Undo")]),
             ("View", [("⌘1  ⌘2", "Grid / List"), ("⌘+  ⌘−", "Bigger / Smaller cards"), ("⌃⌘T", "Switch look"), ("⌘,", "Settings")]),
             ("Music", [("⌥⌘P", "Play / Pause"), ("⌥⌘←  ⌥⌘→", "Previous / Next")]),

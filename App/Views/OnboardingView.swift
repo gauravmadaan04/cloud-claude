@@ -724,6 +724,9 @@ private struct TourPage: View {
         Feature(symbol: "info.circle", title: "Inspector", text: "Size, camera, duration, where it came from", keys: "⌘I"),
         Feature(symbol: "bookmark", title: "Saved searches", text: "Keep a search in the sidebar; it updates itself", keys: "Save"),
         Feature(symbol: "arrow.uturn.backward", title: "Undo anything", text: "Trashed by mistake? Undo, or see Activity", keys: "⌘Z"),
+        Feature(symbol: "pencil", title: "Smart rename", text: "Name many files at once, even from the text inside", keys: "⌘R"),
+        Feature(symbol: "tray.full", title: "Shelf", text: "Gather files from anywhere, drag them out together", keys: "⌥⌘S"),
+        Feature(symbol: "macwindow", title: "Open/Save jump", text: "In Quick Search, send a file dialog to a folder", keys: "⌃↩"),
     ]
 
     var body: some View {

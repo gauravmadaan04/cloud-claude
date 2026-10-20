@@ -41,11 +41,14 @@ struct QuickSearchView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 2) {
-                        if model.text.isEmpty && !model.results.isEmpty {
-                            sectionLabel("Recent")
-                        }
                         ForEach(Array(model.results.enumerated()), id: \.element.id) { index, item in
-                            if !model.text.isEmpty && model.results.count > 1 && index <= 1 {
+                            if model.text.isEmpty {
+                                if index == 0 && model.folderCount > 0 {
+                                    sectionLabel("Recent Folders · ⌃↩ opens one in a file dialog")
+                                } else if index == model.folderCount {
+                                    sectionLabel("Recent")
+                                }
+                            } else if model.results.count > 1 && index <= 1 {
                                 sectionLabel(index == 0 ? "Top Hit" : "More Results")
                             }
                             QuickSearchRow(item: item, selected: index == model.selectedIndex,
@@ -73,9 +76,10 @@ struct QuickSearchView: View {
             Divider()
             HStack(spacing: 14) {
                 hint("↩", "Open")
-                hint("⌘↩", "Show in Haven")
-                hint("⌥↩", "Show in Finder")
-                hint("⌘C", "Copy file")
+                hint("⌘↩", "In Haven")
+                hint("⌥↩", "In Finder")
+                hint("⌃↩", "In file dialog")
+                hint("⌘C", "Copy")
                 Spacer()
                 hint("esc", "Close")
             }

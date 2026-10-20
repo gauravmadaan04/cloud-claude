@@ -11,6 +11,8 @@ final class QuickSearchModel {
     private(set) var results: [FileItem] = []
     private(set) var chips: [QueryChip] = []
     var selectedIndex = 0
+    /// With an empty field: how many of the first results are recent folders.
+    private(set) var folderCount = 0
     /// Bumped each time the panel opens so the field grabs focus.
     var focusToken = 0
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -22,10 +24,13 @@ final class QuickSearchModel {
         searchTask?.cancel()
         if trimmed.isEmpty {
             chips = []
-            results = Array(LibraryStore.shared.derived.recents.prefix(12))
+            let folders = QuickSearchModel.recentFolders()
+            folderCount = folders.count
+            results = folders + Array(LibraryStore.shared.derived.recents.prefix(12))
             restoreSelection(previous, keepSelection)
             return
         }
+        folderCount = 0
         let parsed = QueryParser.parse(trimmed, customRoots: AppModel.shared.customRootWords)
         chips = parsed.chips
         let items = LibraryStore.shared.items
@@ -56,6 +61,19 @@ final class QuickSearchModel {
 
     var selected: FileItem? { results.indices.contains(selectedIndex) ? results[selectedIndex] : nil }
 
+    /// Pinned folders, then the folders your newest files are in (for jumping an Open/Save dialog there).
+    static func recentFolders() -> [FileItem] {
+        let store = LibraryStore.shared
+        let home = LaunchOptions.current.homeForRoots
+        var paths = Prefs.shared.pinnedFolders
+        paths += RecentFolders.list(store.items, limit: 6, skip: [home])
+        var seen = Set<String>()
+        let now = Date()
+        return paths.filter { seen.insert($0).inserted }.prefix(6).map {
+            FileItem(path: $0, created: now, modified: now, isDirectory: true)
+        }
+    }
+
     func move(_ delta: Int) {
         guard !results.isEmpty else { return }
         selectedIndex = max(0, min(results.count - 1, selectedIndex + delta))
@@ -75,6 +93,8 @@ final class QuickSearchController: NSObject, NSWindowDelegate {
     let model = QuickSearchModel()
     private var panel: QuickSearchWindow?
     private var keyMonitor: Any?
+    /// The app in front when Quick Search opened (its Open/Save dialog is where ⌃↩ goes).
+    private(set) var previousApp: NSRunningApplication?
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -83,6 +103,7 @@ final class QuickSearchController: NSObject, NSWindowDelegate {
     }
 
     func show() {
+        previousApp = NSWorkspace.shared.frontmostApplication
         let panel = self.panel ?? makePanel()
         self.panel = panel
         model.text = ""
@@ -189,6 +210,10 @@ final class QuickSearchController: NSObject, NSWindowDelegate {
     func commit(_ modifiers: NSEvent.ModifierFlags) {
         guard let item = model.selected else { return }
         close()
+        if modifiers.contains(.control) {
+            jumpDialog(to: item)
+            return
+        }
         if modifiers.contains(.command) {
             AppModel.shared.showInHaven(item)
         } else if modifiers.contains(.option) {
@@ -198,6 +223,23 @@ final class QuickSearchController: NSObject, NSWindowDelegate {
             AppModel.shared.navigate(to: .folder(item.path))
         } else {
             NSWorkspace.shared.open(item.url)
+        }
+    }
+
+    /// ⌃↩: the Open or Save dialog of the app you were in goes to this folder (or file).
+    private func jumpDialog(to item: FileItem) {
+        let app = previousApp
+        Task {
+            switch await DialogJump.go(to: item.path, in: app) {
+            case .sent:
+                break
+            case .needsPermission:
+                AppModel.shared.bringMainWindowForward()
+                AppModel.shared.showDialogJumpHelp = true
+            case .noDialog(let name):
+                AppModel.shared.showToast("Open a file dialog in \(name) first (like ⌘O), then press ⌃↩ in Quick Search",
+                                          symbol: "macwindow")
+            }
         }
     }
 }

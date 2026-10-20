@@ -101,6 +101,10 @@ struct InspectorDetail: View {
                             .background(theme.fill(for: item.kind), in: Capsule())
                         if item.size > 0 {
                             Text(ByteSize.format(item.size)).font(.callout).foregroundStyle(.secondary)
+                        } else if item.kind == .folder, let e = LibraryStore.shared.derived.folderSizes[item.path] {
+                            Text("\(ByteSize.format(e.bytes)) · \(HavenFormat.count(e.files, "file"))")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
                         }
                         Spacer()
                         if let s = item.source { SourceBadge(source: s, size: 20) }

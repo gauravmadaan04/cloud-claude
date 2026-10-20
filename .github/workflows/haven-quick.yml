@@ -30,31 +30,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pick what to run
+        # On a push, .github/quick-run.txt can say "config: Debug" and "tests: A,B" (or "tests: none" to only build).
+        run: |
+          if [ -f .github/quick-run.txt ] && [ -z "${{ inputs.tests }}" ]; then
+            c=$(grep -E '^config:' .github/quick-run.txt | head -1 | cut -d: -f2- | tr -d ' ')
+            t=$(grep -E '^tests:' .github/quick-run.txt | head -1 | cut -d: -f2- | tr -d ' ')
+            [ -n "$c" ] && echo "CONFIG=$c" >> "$GITHUB_ENV"
+            [ -n "$t" ] && echo "TESTS=$t" >> "$GITHUB_ENV"
+          fi
+
       - name: Generate Xcode project
         run: |
           brew install xcodegen
           xcodegen generate
 
       - name: Build app and tests
-        # Only the targets being run: the in-app tests use debug-only sample files.
         run: |
           set -o pipefail
+          ONLY=""
+          if [ "$TESTS" != "none" ]; then ONLY=$(echo "$TESTS" | tr ',' '\n' | sed 's/^/-only-testing:/' | tr '\n' ' '); fi
+          echo "Config $CONFIG · tests: $TESTS"
           xcodebuild build-for-testing -project Haven.xcodeproj -scheme Haven -configuration "$CONFIG" -destination 'platform=macOS' \
-            -derivedDataPath "$DD" -only-testing:"$TESTS" CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES ENABLE_TESTABILITY=YES 2>&1 \
+            -derivedDataPath "$DD" $ONLY CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES ENABLE_TESTABILITY=YES 2>&1 \
             | tee build.log | grep -E "error:|\*\*" || true
           grep -q "TEST BUILD SUCCEEDED" build.log
 
+      - name: Compiler errors
+        if: failure()
+        run: grep -E "error:" build.log | sort -u | head -200 || true
+
       - name: Allow UI automation
+        if: env.TESTS != 'none'
         run: sudo automationmodetool enable-automationmode-without-authentication || true
 
       - name: Run tests
         id: run
+        if: env.TESTS != 'none'
         continue-on-error: true
         run: |
           set -o pipefail
+          ONLY=$(echo "$TESTS" | tr ',' '\n' | sed 's/^/-only-testing:/' | tr '\n' ' ')
           xcodebuild test-without-building -project Haven.xcodeproj -scheme Haven -configuration "$CONFIG" -destination 'platform=macOS' \
-            -derivedDataPath "$DD" -only-testing:"$TESTS" -resultBundlePath build/Quick.xcresult 2>&1 \
-            | tee test.log | grep -E "Test Case|error:|Executed|XCTAssert" | tail -120
+            -derivedDataPath "$DD" $ONLY -resultBundlePath build/Quick.xcresult 2>&1 \
+            | tee test.log | grep -E "Test Case|error:|Executed|XCTAssert" | tail -150
 
       - name: Crash reports
         if: always()

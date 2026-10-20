@@ -49,9 +49,16 @@ struct FolderView: View {
             let rootID = store.root(for: path)?.id ?? "custom:" + path
             let sort = prefs.sortOrder
             let options = store.scanOptions
+            let sizes = store.derived.folderSizes
             let result = await Task.detached(priority: .userInitiated) { () -> [FileItem] in
                 let listing = FileScanner.list(directory: p, rootID: rootID, options: options)
-                let folders = sort.sorted(listing.filter { $0.kind == .folder })
+                var folders = listing.filter { $0.kind == .folder }
+                // Folders sort by what's inside them when sorting by size.
+                if sort == .sizeLargest || sort == .sizeSmallest {
+                    folders = FileSortOrder.ordered(folders, folders.map { sizes[$0.path]?.bytes ?? 0 }, descending: sort == .sizeLargest)
+                } else {
+                    folders = sort.sorted(folders)
+                }
                 let files = sort.sorted(listing.filter { $0.kind != .folder })
                 return folders + files
             }.value

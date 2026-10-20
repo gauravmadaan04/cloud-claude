@@ -85,6 +85,19 @@ struct HavenCommands: Commands {
             Button("Quick Look") { model.toggleQuickLook() }
                 .keyboardShortcut("y")
             Divider()
+            Button("Rename…") { model.rename(model.selectedItems) }
+                .keyboardShortcut("r")
+                .disabled(model.selectedIDs.isEmpty)
+            Menu("Make Shareable") {
+                ForEach(ShareNaming.Kind.allCases) { kind in
+                    Button(kind.title) { model.makeShareable(kind, model.selectedItems) }
+                        .disabled(!ShareNaming.applies(kind, to: model.selectedItems))
+                }
+            }
+            .disabled(model.selectedIDs.isEmpty)
+            Button("Add to Shelf") { model.addToShelf(model.selectedItems) }
+                .disabled(model.selectedIDs.isEmpty)
+            Divider()
             Button("Move to Trash") {
                 // In a text field, ⌘⌫ keeps its usual meaning.
                 if let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isEditable {
@@ -105,6 +118,15 @@ struct HavenCommands: Commands {
                 .keyboardShortcut("c", modifiers: [.command, .option])
             Button("Select All Files") { model.selectAll() }
             Button("Paste Files Here") { model.pasteFiles() }
+            Menu("Copy List of Files") {
+                ForEach(ListExport.Format.allCases) { format in
+                    Button(format.title) {
+                        let items = model.selectedItems.isEmpty ? model.visibleItems : model.selectedItems
+                        if format == .csv { model.exportCSV(items) } else { model.copyList(format, items) }
+                    }
+                }
+            }
+            .disabled(model.visibleItems.isEmpty)
         }
         CommandGroup(after: .toolbar) {
             Button("as Grid") { prefs.viewMode = .grid }
@@ -147,7 +169,12 @@ struct HavenCommands: Commands {
                 .keyboardShortcut("d", modifiers: [.command, .shift])
             Button("Clean Up") { go(.cleanup) }
                 .keyboardShortcut("k", modifiers: [.command, .shift])
+            Button("Space") { go(.space) }
             Button("Activity") { go(.activity) }
+        }
+        CommandGroup(after: .windowArrangement) {
+            Button("Shelf") { ShelfController.shared.toggle() }
+                .keyboardShortcut("s", modifiers: [.command, .option])
         }
         CommandMenu("Music") {
             Button("Play / Pause") { MusicPlayer.shared.togglePlayPause() }

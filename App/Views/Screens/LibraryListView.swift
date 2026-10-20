@@ -279,6 +279,10 @@ struct DetailView: View {
             ActivityView()
         case .folder(let path):
             FolderView(path: path)
+        case .space:
+            SpaceView()
+        case .collection(let id):
+            CollectionView(id: id)
         }
     }
 }

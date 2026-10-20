@@ -25,6 +25,7 @@ enum CollectionSource: Hashable {
     case source(String)
     case query(SearchQuery)
     case latestDownloads
+    case collection(FileCollection)
 }
 
 /// Numbers and lists computed from the index in the background after every change.
@@ -39,8 +40,11 @@ struct LibraryDerived {
     var recents: [FileItem] = []
     var screenshots: [FileItem] = []
     var largeFiles: [FileItem] = []
+    /// Size of every indexed folder (for the Space page, folder rows and the inspector).
+    var folderSizes = FolderSizes()
+    var space = SpaceReport()
 
-    static func compute(_ items: [FileItem], cleanup: CleanupSettings, now: Date = Date()) -> LibraryDerived {
+    static func compute(_ items: [FileItem], cleanup: CleanupSettings, tops: [String] = [], now: Date = Date()) -> LibraryDerived {
         var d = LibraryDerived()
         var byCat: [LibraryCategory: [FileItem]] = [:]
         var bySource: [String: (DownloadSource, [FileItem])] = [:]
@@ -69,6 +73,8 @@ struct LibraryDerived {
         d.screenshots = items.filter { $0.isScreenshot }.sorted { $0.created > $1.created }
         d.largeFiles = files.filter { $0.size >= 100 * ByteSize.mb }.sorted { $0.size > $1.size }
         d.cleanupCards = CleanupEngine.cards(in: items, settings: cleanup, now: now)
+        d.folderSizes = FolderSizes.compute(items, tops: tops)
+        d.space = SpaceReport.compute(items, now: now)
         return d
     }
 }
@@ -248,9 +254,10 @@ final class LibraryStore {
         deriveTask?.cancel()
         let snapshot = items
         let cleanup = Prefs.shared.cleanup
+        let tops = Prefs.shared.enabledRoots.map(\.path)
         let store = self
         deriveTask = Task.detached(priority: .userInitiated) {
-            let d = LibraryDerived.compute(snapshot, cleanup: cleanup)
+            let d = LibraryDerived.compute(snapshot, cleanup: cleanup, tops: tops)
             if Task.isCancelled { return }
             await MainActor.run { store.derived = d }
         }
@@ -408,6 +415,7 @@ final class LibraryStore {
             scheduleSave()
             text.enqueue(result.fresh, scope: Prefs.shared.ocrScope)
             if result.fresh.contains(where: { $0.kind == .app && $0.size == 0 }) { measureAppSizes() }
+            CustomRulesRunner.shared.noteNewFiles(result.fresh)
         }
     }
 
@@ -509,6 +517,14 @@ final class LibraryStore {
                     list = FileSortOrder.ordered(list, list.map { $0.arrivalDate.timeIntervalSinceReferenceDate }, descending: true)
                 case .query(let q):
                     list = SearchEngine.search(q, in: all, text: lookup, isCancelled: { cancel.isSet })
+                case .collection(let c):
+                    let (found, missing) = c.resolve(in: all)
+                    // Files outside the indexed folders are read from disk (a handful at most).
+                    let outside = missing.compactMap { path -> FileItem? in
+                        guard FileManager.default.fileExists(atPath: path) else { return nil }
+                        return FileScanner.item(at: URL(fileURLWithPath: path), rootID: "collection")
+                    }
+                    list = FileSortOrder.dateNewest.sorted(found + outside)
                 }
                 if cancel.isSet { return [] }
                 if let sort { list = sort.sorted(list) }

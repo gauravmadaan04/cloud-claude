@@ -46,6 +46,9 @@ struct ContentView: View {
         .quickLookPreview($model.quickLookURL, in: model.quickLookURLs)
         .sheet(isPresented: $model.showShortcuts) { ShortcutsHelpView() }
         .sheet(isPresented: $model.showSearchTips) { SearchTipsView() }
+        .sheet(item: $model.renameRequest) { request in RenameSheet(items: request.items) }
+        .sheet(item: $model.editingRule) { rule in RuleEditorView(rule: rule) }
+        .sheet(isPresented: $model.showDialogJumpHelp) { DialogJumpHelpView() }
         .environment(\.theme, theme)
         .tint(theme.accent)
         .preferredColorScheme(prefs.appearance.colorScheme)

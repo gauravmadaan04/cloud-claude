@@ -45,11 +45,14 @@ struct CleanupView: View {
     }
 
     private var rulesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Automatic Rules", subtitle: "Off unless you turn them on")
-            ForEach(AutoRule.allCases) { rule in
-                RuleRow(rule: rule)
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "Automatic Rules", subtitle: "Off unless you turn them on")
+                ForEach(AutoRule.allCases) { rule in
+                    RuleRow(rule: rule)
+                }
             }
+            CustomRulesSection()
         }
     }
 }

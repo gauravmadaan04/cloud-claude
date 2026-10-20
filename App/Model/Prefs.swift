@@ -78,6 +78,7 @@ final class Prefs {
     var cleanup: CleanupSettings { didSet { saveJSON(cleanup, "cleanup") } }
     var enabledRules: Set<AutoRule> { didSet { defaults.set(enabledRules.map(\.rawValue), forKey: "enabledRules") } }
     var ruleSettings: RuleSettings { didSet { saveJSON(ruleSettings, "ruleSettings") } }
+    var customRules: [CustomRule] { didSet { saveJSON(customRules, "customRules") } }
     var customRoots: [String] { didSet { defaults.set(customRoots, forKey: "customRoots") } }
     var disabledRoots: Set<String> { didSet { defaults.set(Array(disabledRoots), forKey: "disabledRoots") } }
     var pinnedFolders: [String] { didSet { defaults.set(pinnedFolders, forKey: "pinnedFolders") } }
@@ -110,6 +111,7 @@ final class Prefs {
         cleanup = json("cleanup", CleanupSettings())
         enabledRules = Set((defaults.stringArray(forKey: "enabledRules") ?? []).compactMap(AutoRule.init(rawValue:)))
         ruleSettings = json("ruleSettings", RuleSettings(home: LaunchOptions.current.homeForRoots))
+        customRules = json("customRules", [CustomRule]())
         customRoots = defaults.stringArray(forKey: "customRoots") ?? []
         disabledRoots = Set(defaults.stringArray(forKey: "disabledRoots") ?? [])
         pinnedFolders = defaults.stringArray(forKey: "pinnedFolders") ?? []

@@ -162,6 +162,24 @@ struct FileCollectionView<Header: View>: View {
             HStack(spacing: 10) {
                 ListSummary(list: list, listID: listID)
                 Spacer()
+                Menu {
+                    let selected = model.selectedItems
+                    let targets = selected.isEmpty ? list : selected
+                    Section(selected.isEmpty ? "All \(list.count) files" : "\(selected.count) selected") {
+                        ForEach(ListExport.Format.allCases) { format in
+                            Button(format.title) {
+                                if format == .csv { model.exportCSV(targets) } else { model.copyList(format, targets) }
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Copy List", systemImage: "list.bullet.rectangle")
+                }
+                .menuStyle(.button)
+                .buttonStyle(.borderless)
+                .fixedSize()
+                .help("Copy these files' names, paths or a table for a spreadsheet")
+                .accessibilityIdentifier("filter.copyList")
                 if !presentSources.isEmpty {
                     Menu {
                         Button("Anywhere") { model.sourceFilter = nil }
@@ -441,7 +459,7 @@ struct FileRow: View {
                 Text(item.kind.displayName)
                     .foregroundStyle(secondary)
                     .frame(width: 100, alignment: .leading)
-                Text(item.kind == .folder ? "—" : ByteSize.format(item.size))
+                Text(item.kind == .folder ? folderSizeText(item) : ByteSize.format(item.size))
                     .foregroundStyle(secondary)
                     .monospacedDigit()
                     .frame(width: 80, alignment: .trailing)

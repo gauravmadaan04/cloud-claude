@@ -39,6 +39,9 @@ struct MenuBarView: View {
                 menuButton("Quick Search", symbol: "magnifyingglass", keys: prefs.hotKey.display) {
                     QuickSearchController.shared.show()
                 }
+                menuButton("Shelf", symbol: "tray.full", keys: "⌥⌘S") {
+                    ShelfController.shared.toggle()
+                }
                 menuButton("Open Haven", symbol: "house", keys: nil) {
                     AppModel.shared.openWindowAction = openWindow
                     AppModel.shared.bringMainWindowForward()

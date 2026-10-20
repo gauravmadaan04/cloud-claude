@@ -11,7 +11,7 @@ struct ActivityView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    PageHeader(title: "Activity", subtitle: "What Haven moved or put in the Trash. Undo anything.", symbol: "clock.arrow.circlepath")
+                    PageHeader(title: "Activity", subtitle: "What Haven moved, renamed, made or put in the Trash. Undo anything.", symbol: "clock.arrow.circlepath")
                     if !ops.activity.isEmpty {
                         Button("Clear History") { ops.clearHistory() }.buttonStyle(.borderless)
                     }
@@ -80,6 +80,8 @@ struct ActivityView: View {
         case .trashed: return "trash"
         case .moved: return "folder.badge.plus"
         case .restored: return "arrow.uturn.backward.circle"
+        case .renamed: return "pencil"
+        case .created: return "plus.square.on.square"
         }
     }
 }

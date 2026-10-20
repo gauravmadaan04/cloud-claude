@@ -6,8 +6,12 @@ struct SidebarView: View {
     @Environment(\.theme) private var theme
     @State private var renaming: SavedSearch?
     @State private var newName = ""
+    @State private var renamingCollection: UUID?
+    @State private var collectionName = ""
+    @State private var dropTarget: UUID?
     private var prefs: Prefs { .shared }
     private var store: LibraryStore { .shared }
+    private var collections: CollectionStore { .shared }
 
     var body: some View {
         List(selection: $model.selection) {
@@ -36,10 +40,55 @@ struct SidebarView: View {
                         }
                 }
             }
+            Section {
+                ForEach(collections.collections) { c in
+                    row(.collection(c.id), title: c.name, symbol: c.symbol, count: c.entries.count)
+                        .background(dropTarget == c.id ? theme.accent.opacity(0.25) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                        .dropDestination(for: URL.self) { urls, _ in
+                            let added = collections.add(urls.map(\.path), to: c.id)
+                            if added > 0 { model.showToast("Added \(HavenFormat.count(added, "file")) to “\(c.name)”", symbol: "square.stack") }
+                            return added > 0
+                        } isTargeted: { inside in
+                            dropTarget = inside ? c.id : (dropTarget == c.id ? nil : dropTarget)
+                        }
+                        .contextMenu {
+                            Button("Rename…") {
+                                collectionName = c.name
+                                renamingCollection = c.id
+                            }
+                            Divider()
+                            Button("Delete Collection", role: .destructive) {
+                                collections.delete(c.id)
+                                if model.selection == .collection(c.id) { model.selection = .home }
+                            }
+                        }
+                }
+                if collections.collections.isEmpty {
+                    Label("Drop files here", systemImage: "tray.and.arrow.down")
+                        .foregroundStyle(.secondary)
+                        .selectionDisabled()
+                        .dropDestination(for: URL.self) { urls, _ in
+                            model.newCollection(with: urls.compactMap { FileScanner.item(at: $0, rootID: "collection") })
+                            return true
+                        }
+                        .help("Drop files here to start a collection")
+                        .accessibilityIdentifier("sidebar.collectionDrop")
+                }
+            } header: {
+                HStack {
+                    Text("Collections")
+                    Spacer()
+                    Button { model.newCollection(with: []) } label: { Image(systemName: "plus") }
+                        .buttonStyle(.borderless)
+                        .help("New Collection")
+                        .accessibilityIdentifier("sidebar.newCollection")
+                }
+            }
             Section("Tools") {
                 row(.sources)
                 row(.duplicates)
                 row(.cleanup)
+                row(.space)
                 row(.activity)
             }
             Section("Locations") {
@@ -64,6 +113,14 @@ struct SidebarView: View {
                 renaming = nil
             }
             Button("Cancel", role: .cancel) { renaming = nil }
+        }
+        .alert("Rename Collection", isPresented: Binding(get: { renamingCollection != nil }, set: { if !$0 { renamingCollection = nil } })) {
+            TextField("Name", text: $collectionName)
+            Button("Rename") {
+                if let id = renamingCollection { collections.rename(id, to: collectionName) }
+                renamingCollection = nil
+            }
+            Button("Cancel", role: .cancel) { renamingCollection = nil }
         }
         .accessibilityIdentifier("sidebar")
     }

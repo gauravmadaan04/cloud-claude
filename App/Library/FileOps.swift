@@ -79,14 +79,7 @@ final class FileOps {
         activity.insert(entry, at: 0)
         saveLog()
         // ⌘Z undoes anything you trashed yourself (rules run on their own and are undone from Activity).
-        if undoable, let manager = undoManager ?? AppModel.mainWindow?.undoManager {
-            let target = UndoTarget()
-            undoTargets[entry.id] = (target, manager)
-            manager.registerUndo(withTarget: target) { _ in
-                MainActor.assumeIsolated { FileOps.shared.undo(entry.id, viaUndoManager: true) }
-            }
-            manager.setActionName("Move to Trash")
-        }
+        if undoable { registerUndo(entry, name: "Move to Trash", manager: undoManager) }
         if announce {
             var message = moves.count == 1 ? "Moved “\((moves[0].from as NSString).lastPathComponent)” to the Trash"
                 : "Moved \(moves.count) items to the Trash · \(ByteSize.format(entry.totalBytes))"
@@ -107,19 +100,136 @@ final class FileOps {
                 try fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
                 let dest = RulesPlanner.uniqueDestination(name: item.name, in: dir) { fm.fileExists(atPath: $0) }
                 try fm.moveItem(atPath: item.path, toPath: dest)
-                moves.append(.init(from: item.path, to: dest, size: item.size))
+                moves.append(.init(from: item.path, to: dest, size: item.size, fileID: FileOps.fileID(dest)))
             } catch {
                 continue
             }
         }
         guard !moves.isEmpty else { return nil }
-        LibraryStore.shared.forget(paths: moves.map(\.from))
         let entry = ActivityEntry(action: .moved, reason: reason, moves: moves)
         activity.insert(entry, at: 0)
         saveLog()
-        let dirs = Set(moves.map { ($0.to as NSString).deletingLastPathComponent })
+        didMove(moves.map { ($0.from, $0.to) })
+        return entry
+    }
+
+    // MARK: Rename
+
+    /// Renames files in place. Never replaces another file; names that swap go through temporary names.
+    @discardableResult
+    func rename(_ changes: [RenameChange], reason: String = "Renamed by you", undoManager: UndoManager? = nil,
+                announce: Bool = true, undoable: Bool = true) -> ActivityEntry? {
+        let real = changes.filter(\.isChange)
+        guard !real.isEmpty else { return nil }
+        let sizes = Dictionary(real.map { ($0.item.path, $0.item.size) }, uniquingKeysWith: { a, _ in a })
+        let done = FileOps.performRenames(real.map { ($0.item.path, $0.newPath) }, twoSteps: RenamePlanner.needsTwoSteps(real))
+        guard !done.isEmpty else {
+            if announce { AppModel.shared.showToast("Couldn't rename: the names may be in use", symbol: "exclamationmark.triangle") }
+            return nil
+        }
+        let moves = done.map { ActivityEntry.Move(from: $0.from, to: $0.to, size: sizes[$0.from] ?? 0, fileID: FileOps.fileID($0.to)) }
+        let entry = ActivityEntry(action: .renamed, reason: reason, moves: moves)
+        activity.insert(entry, at: 0)
+        saveLog()
+        didMove(done)
+        AppModel.shared.pendingSelection = Set(done.map(\.to))
+        if undoable { registerUndo(entry, name: "Rename", manager: undoManager) }
+        if announce {
+            var message = done.count == 1 ? "Renamed to “\((done[0].to as NSString).lastPathComponent)”" : "Renamed \(done.count) files"
+            if done.count < real.count { message += " (\(real.count - done.count) couldn't be renamed)" }
+            AppModel.shared.showToast(message, symbol: "pencil", undoEntry: entry.id)
+        }
+        return entry
+    }
+
+    /// Moves each file to its new path in the same folder. Returns the ones that worked.
+    nonisolated static func performRenames(_ pairs: [(from: String, to: String)], twoSteps: Bool) -> [(from: String, to: String)] {
+        let fm = FileManager.default
+        var done: [(from: String, to: String)] = []
+        if !twoSteps {
+            for p in pairs {
+                // Something may have taken the name since the plan was made: never replace it.
+                if fm.fileExists(atPath: p.to) { continue }
+                do {
+                    try fm.moveItem(atPath: p.from, toPath: p.to)
+                    done.append(p)
+                } catch {
+                    continue
+                }
+            }
+            return done
+        }
+        // Out of the way first (visible names, so nothing is ever hidden), then into place.
+        var parked: [(from: String, temp: String, to: String)] = []
+        for p in pairs {
+            let dir = (p.from as NSString).deletingLastPathComponent
+            let name = (p.from as NSString).lastPathComponent
+            let temp = (dir as NSString).appendingPathComponent("\(name) (renaming \(UUID().uuidString.prefix(6)))")
+            do {
+                try fm.moveItem(atPath: p.from, toPath: temp)
+                parked.append((p.from, temp, p.to))
+            } catch {
+                continue
+            }
+        }
+        for p in parked {
+            if fm.fileExists(atPath: p.to) {
+                try? fm.moveItem(atPath: p.temp, toPath: p.from)
+                continue
+            }
+            do {
+                try fm.moveItem(atPath: p.temp, toPath: p.to)
+                done.append((p.from, p.to))
+            } catch {
+                try? fm.moveItem(atPath: p.temp, toPath: p.from)
+            }
+        }
+        return done
+    }
+
+    // MARK: Copies Haven made
+
+    /// Records files Haven created next to others (Make Shareable). Undo moves the copies to the Trash.
+    @discardableResult
+    func recordCreated(_ pairs: [(from: String, to: String)], reason: String, undoManager: UndoManager? = nil) -> ActivityEntry? {
+        guard !pairs.isEmpty else { return nil }
+        let moves = pairs.map { p -> ActivityEntry.Move in
+            let attrs = try? FileManager.default.attributesOfItem(atPath: p.to)
+            let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+            return .init(from: p.from, to: p.to, size: size, fileID: FileOps.fileID(p.to))
+        }
+        let entry = ActivityEntry(action: .created, reason: reason, moves: moves)
+        activity.insert(entry, at: 0)
+        saveLog()
+        registerUndo(entry, name: reason, manager: undoManager)
+        let dirs = Set(pairs.map { ($0.to as NSString).deletingLastPathComponent })
+        AppModel.shared.pendingSelection = Set(pairs.map(\.to))
         Task { await LibraryStore.shared.refresh(directories: Array(dirs)) }
         return entry
+    }
+
+    // MARK: Following moves
+
+    /// Everything that remembers files by path follows them: the index, text read from them, collections, the shelf.
+    func didMove(_ pairs: [(from: String, to: String)]) {
+        guard !pairs.isEmpty else { return }
+        LibraryStore.shared.text.store.move(pairs)
+        let map = Dictionary(pairs.map { ($0.from, $0.to) }, uniquingKeysWith: { a, _ in a })
+        CollectionStore.shared.follow(map)
+        ShelfStore.shared.follow(map)
+        LibraryStore.shared.forget(paths: pairs.map(\.from))
+        let dirs = Set(pairs.map { ($0.to as NSString).deletingLastPathComponent })
+        Task { await LibraryStore.shared.refresh(directories: Array(dirs)) }
+    }
+
+    private func registerUndo(_ entry: ActivityEntry, name: String, manager: UndoManager?) {
+        guard let manager = manager ?? AppModel.mainWindow?.undoManager else { return }
+        let target = UndoTarget()
+        undoTargets[entry.id] = (target, manager)
+        manager.registerUndo(withTarget: target) { _ in
+            MainActor.assumeIsolated { FileOps.shared.undo(entry.id, viaUndoManager: true) }
+        }
+        manager.setActionName(name)
     }
 
     // MARK: Undo
@@ -142,6 +252,11 @@ final class FileOps {
         }
         let entry = activity[index]
         guard !entry.undone else { return }
+        switch entry.action {
+        case .renamed: return undoRename(entry, at: index)
+        case .created: return undoCreated(entry, at: index)
+        default: break
+        }
         let fm = FileManager.default
         var restored: [ActivityEntry.Move] = []
         // Last moved first, so folders come back before anything that was inside them.
@@ -160,12 +275,56 @@ final class FileOps {
         activity[index].undone = true
         if !restored.isEmpty {
             activity.insert(ActivityEntry(action: .restored, reason: "Undo · \(entry.reason)", moves: restored), at: 0)
-            let dirs = Set(restored.map { ($0.to as NSString).deletingLastPathComponent })
-            Task { await LibraryStore.shared.refresh(directories: Array(dirs)) }
+            didMove(restored.map { ($0.from, $0.to) })
             AppModel.shared.showToast(restored.count == 1 ? "Put back “\((restored[0].to as NSString).lastPathComponent)”" : "Put back \(restored.count) items",
                                       symbol: "arrow.uturn.backward")
         } else {
             AppModel.shared.showToast("Nothing to put back: the items are no longer in the Trash", symbol: "exclamationmark.triangle")
+        }
+        saveLog()
+    }
+
+    /// Puts the old names back (only on files that are still the ones Haven renamed).
+    private func undoRename(_ entry: ActivityEntry, at index: Int) {
+        let back = entry.moves.filter(FileOps.isStillThere).map { (from: $0.to, to: $0.from) }
+        let current = Set(back.map { $0.from.lowercased() })
+        let twoSteps = back.contains { current.contains($0.to.lowercased()) }
+        let done = FileOps.performRenames(back, twoSteps: twoSteps)
+        activity[index].undone = true
+        if done.isEmpty {
+            AppModel.shared.showToast("Nothing to undo: the files were changed since", symbol: "exclamationmark.triangle")
+        } else {
+            let sizes = Dictionary(entry.moves.map { ($0.to, $0.size) }, uniquingKeysWith: { a, _ in a })
+            let moves = done.map { ActivityEntry.Move(from: $0.from, to: $0.to, size: sizes[$0.from] ?? 0, fileID: FileOps.fileID($0.to)) }
+            activity.insert(ActivityEntry(action: .restored, reason: "Undo · \(entry.reason)", moves: moves), at: 0)
+            didMove(done)
+            AppModel.shared.pendingSelection = Set(done.map(\.to))
+            AppModel.shared.showToast(done.count == 1 ? "Name put back" : "Put back \(done.count) names", symbol: "arrow.uturn.backward")
+        }
+        saveLog()
+    }
+
+    /// Moves the copies Haven made to the Trash (only ones that are still those copies).
+    private func undoCreated(_ entry: ActivityEntry, at index: Int) {
+        var trashed: [ActivityEntry.Move] = []
+        for move in entry.moves where FileOps.isStillThere(move) {
+            var resulting: NSURL?
+            do {
+                try FileManager.default.trashItem(at: URL(fileURLWithPath: move.to), resultingItemURL: &resulting)
+                let to = (resulting as URL?)?.path ?? ""
+                trashed.append(.init(from: move.to, to: to, size: move.size, fileID: to.isEmpty ? nil : FileOps.fileID(to)))
+            } catch {
+                continue
+            }
+        }
+        activity[index].undone = true
+        if trashed.isEmpty {
+            AppModel.shared.showToast("Nothing to undo: the copies are gone already", symbol: "exclamationmark.triangle")
+        } else {
+            activity.insert(ActivityEntry(action: .trashed, reason: "Undo · \(entry.reason)", moves: trashed), at: 0)
+            LibraryStore.shared.forget(paths: trashed.map(\.from))
+            AppModel.shared.showToast(trashed.count == 1 ? "Moved the copy to the Trash" : "Moved \(trashed.count) copies to the Trash",
+                                      symbol: "trash")
         }
         saveLog()
     }
@@ -249,11 +408,13 @@ final class RulesRunner {
 
     func runIfDue(force: Bool = false) {
         let prefs = Prefs.shared
-        guard !prefs.enabledRules.isEmpty, !LaunchOptions.current.isRunningUnitTests else { return }
+        let custom = CustomRulesRunner.shared.enabledRules
+        guard !prefs.enabledRules.isEmpty || !custom.isEmpty, !LaunchOptions.current.isRunningUnitTests else { return }
         if !force, let last = prefs.lastRulesRun, Date().timeIntervalSince(last) < 3 * 3600 { return }
         for rule in AutoRule.allCases where prefs.enabledRules.contains(rule) {
             run(rule)
         }
+        if !custom.isEmpty { Task { await CustomRulesRunner.shared.runAll() } }
         prefs.lastRulesRun = Date()
     }
 

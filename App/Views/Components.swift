@@ -480,12 +480,26 @@ struct VisualEffectBackground: NSViewRepresentable {
     }
 }
 
-/// "12 MB · Yesterday" under a file name.
+/// "12 MB · Yesterday" under a file name; folders show what's inside them ("1.2 GB · 340 files").
+@MainActor
 func fileSubtitle(_ item: FileItem) -> String {
     var parts: [String] = []
-    if item.kind != .folder && item.size > 0 { parts.append(ByteSize.format(item.size)) }
+    if item.kind == .folder {
+        if let e = LibraryStore.shared.derived.folderSizes[item.path], e.files > 0 {
+            return "\(ByteSize.format(e.bytes)) · \(HavenFormat.count(e.files, "file"))"
+        }
+    } else if item.size > 0 {
+        parts.append(ByteSize.format(item.size))
+    }
     parts.append(HavenFormat.friendlyDate(item.activityDate))
     return parts.joined(separator: " · ")
+}
+
+/// A folder's size from the index, or a dash when Haven hasn't added it up (yet).
+@MainActor
+func folderSizeText(_ item: FileItem) -> String {
+    guard let e = LibraryStore.shared.derived.folderSizes[item.path] else { return "—" }
+    return ByteSize.format(e.bytes)
 }
 
 /// Small status capsule used for scans.

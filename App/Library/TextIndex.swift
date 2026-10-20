@@ -53,6 +53,29 @@ final class TextStore: @unchecked Sendable {
         return entries.count
     }
 
+    /// Text follows files Haven renamed or moved (and everything inside moved folders), so nothing is read twice.
+    func move(_ pairs: [(from: String, to: String)]) {
+        // Only folders need a look through everything stored (for the files inside them).
+        let folders = pairs.filter { p in
+            var isDir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: p.to, isDirectory: &isDir) && isDir.boolValue
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        for (from, to) in pairs {
+            if let e = entries.removeValue(forKey: from) { entries[to] = e }
+            if let f = folded.removeValue(forKey: from) { folded[to] = f }
+        }
+        for (from, to) in folders {
+            let prefix = from + "/"
+            for key in entries.keys.filter({ $0.hasPrefix(prefix) }) {
+                let moved = to + "/" + key.dropFirst(prefix.count)
+                if let e = entries.removeValue(forKey: key) { entries[moved] = e }
+                if let f = folded.removeValue(forKey: key) { folded[moved] = f }
+            }
+        }
+    }
+
     func load(from url: URL) {
         guard let d = try? Data(contentsOf: url), let e = try? JSONDecoder().decode([String: Entry].self, from: d) else { return }
         var f: [String: String] = [:]
@@ -132,7 +155,8 @@ final class TextIndex {
     nonisolated static func candidates(_ items: [FileItem], scope: OCRScope, now: Date = Date()) -> [FileItem] {
         let yearAgo = now.addingTimeInterval(-365 * 86_400)
         return items.filter { item in
-            guard !item.isCloudOnly, item.size > 0 else { return false }
+            // iWork files are often folders on disk (size 0); everything else needs some bytes to read.
+            guard !item.isCloudOnly, item.size > 0 || DocumentText.iWorkExtensions.contains(item.ext) else { return false }
             switch item.kind {
             case .image:
                 guard item.size < 60 * ByteSize.mb, item.ext != "svg", item.ext != "psd", item.ext != "icns" else { return false }
@@ -147,9 +171,12 @@ final class TextIndex {
             case .text, .code:
                 return item.size < 2 * ByteSize.mb
             case .document:
-                return ["docx", "doc", "rtf", "odt", "rtfd"].contains(item.ext) && item.size < 40 * ByteSize.mb
+                return TextExtractor.documentExtensions.contains(item.ext) && item.size < 80 * ByteSize.mb
             case .spreadsheet:
-                return ["csv", "tsv"].contains(item.ext) && item.size < 5 * ByteSize.mb
+                if ["csv", "tsv"].contains(item.ext) { return item.size < 5 * ByteSize.mb }
+                return TextExtractor.spreadsheetExtensions.contains(item.ext) && item.size < 80 * ByteSize.mb
+            case .presentation:
+                return TextExtractor.presentationExtensions.contains(item.ext) && item.size < 400 * ByteSize.mb
             default:
                 return false
             }
@@ -205,6 +232,7 @@ final class TextIndex {
             self.isWorking = false
             self.worker = nil
             self.scheduleSave()
+            CustomRulesRunner.shared.noteTextRead()
             if !self.queue.isEmpty { self.startWorker() }
         }
     }
@@ -246,16 +274,33 @@ final class TextIndex {
     }
 }
 
-/// The actual reading: Vision OCR for images, PDFKit for PDFs, AppKit for documents.
+/// The actual reading: Vision OCR for images, PDFKit for PDFs, the ZIP/XML reader for office files and
+/// e-books, AppKit for Word 97 and RTF, and OCR of the first-page picture inside Pages, Numbers and Keynote files.
 enum TextExtractor {
+    static let documentExtensions: Set<String> = ["docx", "dotx", "doc", "rtf", "rtfd", "odt", "epub", "pages"]
+    static let spreadsheetExtensions: Set<String> = ["xlsx", "xlsm", "ods", "numbers"]
+    static let presentationExtensions: Set<String> = ["pptx", "ppsx", "odp", "key"]
+
     static func extract(_ item: FileItem) -> String? {
+        if DocumentText.zippedExtensions.contains(item.ext) { return DocumentText.extract(url: item.url) }
+        if DocumentText.iWorkExtensions.contains(item.ext) { return iWorkText(item.url) }
         switch item.kind {
         case .image: return recognizeText(in: item.url)
         case .pdf: return pdfText(item.url)
+        case .code where item.ext == "html" || item.ext == "htm":
+            return plainText(item.url).map { DocumentText.xmlText(Array($0.utf8), html: true) }
         case .text, .code, .spreadsheet: return plainText(item.url)
         case .document: return documentText(item.url)
         default: return nil
         }
+    }
+
+    /// Pages, Numbers and Keynote keep a picture of the first page; reading it finds the title and opening text.
+    static func iWorkText(_ url: URL) -> String? {
+        guard let data = DocumentText.iWorkPreview(url: url),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cg = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        return recognizeText(in: cg)
     }
 
     static func recognizeText(in url: URL, maxPixels: Int = 2600) -> String? {

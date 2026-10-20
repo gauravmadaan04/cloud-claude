@@ -76,21 +76,14 @@ final class InteractionView: NSView, NSDraggingSource {
         dragged = true
         guard let urls = config?.dragURLs(), !urls.isEmpty else { return }
         let origin = convert(down.locationInWindow, from: nil)
-        let items: [NSDraggingItem] = urls.prefix(60).enumerated().map { index, url in
-            let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-            let icon = NSWorkspace.shared.icon(forFile: url.path)
-            let side: CGFloat = 56
-            let offset = CGFloat(min(index, 6)) * 5
-            item.setDraggingFrame(NSRect(x: origin.x - side / 2 + offset, y: origin.y - side / 2 - offset, width: side, height: side), contents: icon)
-            return item
-        }
-        let session = beginDraggingSession(with: items, event: down, source: self)
+        let session = beginDraggingSession(with: FileDrag.items(for: urls, at: origin), event: down, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
         session.draggingFormation = .pile
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        context == .outsideApplication ? [.copy, .generic, .link] : []
+        // Inside Haven too: onto the Shelf or a collection in the sidebar.
+        [.copy, .generic, .link]
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -99,6 +92,21 @@ final class InteractionView: NSView, NSDraggingSource {
     }
 
     override func isAccessibilityElement() -> Bool { false }
+}
+
+/// Dragging files out: every file goes along; only the first few get a picture (icons are slow to make).
+enum FileDrag {
+    @MainActor
+    static func items(for urls: [URL], at origin: NSPoint) -> [NSDraggingItem] {
+        urls.enumerated().map { index, url in
+            let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+            let side: CGFloat = 56
+            let offset = CGFloat(min(index, 6)) * 5
+            let frame = NSRect(x: origin.x - side / 2 + offset, y: origin.y - side / 2 - offset, width: side, height: side)
+            item.setDraggingFrame(frame, contents: index < 12 ? NSWorkspace.shared.icon(forFile: url.path) : nil)
+            return item
+        }
+    }
 }
 
 /// A menu item that runs a closure.
@@ -190,6 +198,50 @@ enum ItemMenu {
             model.selectedIDs = Set(items.map(\.id))
             model.showInspector = true
         })
+        menu.addItem(ClosureMenuItem(single ? "Rename…" : "Rename \(items.count) Items…", symbol: "pencil", key: "r") {
+            model.rename(items)
+        })
+        menu.addItem(.separator())
+
+        // Make Shareable: only the conversions that fit these files.
+        let kinds = ShareNaming.Kind.allCases.filter { ShareNaming.applies($0, to: items) }
+        if !kinds.isEmpty {
+            let share = NSMenuItem(title: "Make Shareable", action: nil, keyEquivalent: "")
+            share.image = NSImage(systemSymbolName: "square.and.arrow.up.on.square", accessibilityDescription: nil)
+            let sub = NSMenu()
+            for kind in kinds {
+                sub.addItem(ClosureMenuItem(kind.title, symbol: kind.symbol) { model.makeShareable(kind, items) })
+            }
+            share.submenu = sub
+            menu.addItem(share)
+        }
+
+        let collect = NSMenuItem(title: "Add to Collection", action: nil, keyEquivalent: "")
+        collect.image = NSImage(systemSymbolName: "square.stack", accessibilityDescription: nil)
+        let collections = NSMenu()
+        for c in CollectionStore.shared.collections {
+            collections.addItem(ClosureMenuItem(c.name, symbol: c.symbol) { model.addToCollection(items, c.id) })
+        }
+        if !CollectionStore.shared.collections.isEmpty { collections.addItem(.separator()) }
+        collections.addItem(ClosureMenuItem(single ? "New Collection with This File" : "New Collection with These Files", symbol: "plus") {
+            model.newCollection(with: items)
+        })
+        collect.submenu = collections
+        menu.addItem(collect)
+        if case .collection(let id)? = model.selection, !model.isSearching, let c = CollectionStore.shared.collection(id) {
+            menu.addItem(ClosureMenuItem("Remove from “\(c.name)”", symbol: "minus.circle") { model.removeFromCollection(items, id) })
+        }
+        menu.addItem(ClosureMenuItem("Add to Shelf", symbol: "tray.and.arrow.down") { model.addToShelf(items) })
+        if !single {
+            let list = NSMenuItem(title: "Copy as List", action: nil, keyEquivalent: "")
+            list.image = NSImage(systemSymbolName: "list.bullet.rectangle", accessibilityDescription: nil)
+            let sub = NSMenu()
+            for format in [ListExport.Format.names, .paths, .table] {
+                sub.addItem(ClosureMenuItem(format.title) { model.copyList(format, items) })
+            }
+            list.submenu = sub
+            menu.addItem(list)
+        }
         menu.addItem(.separator())
         let trash = ClosureMenuItem("Move to Trash", symbol: "trash", key: "\u{8}") {
             model.trash(items, reason: "Moved by you", undoManager: NSApp.keyWindow?.undoManager)

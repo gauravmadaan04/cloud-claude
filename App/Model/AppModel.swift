@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import HavenCore
+import UniformTypeIdentifiers
 
 /// Places you can go in the main window.
 enum SidebarItem: Hashable, Codable {
@@ -17,6 +18,8 @@ enum SidebarItem: Hashable, Codable {
     case cleanupCard(CleanupKind)
     case activity
     case folder(String)
+    case space
+    case collection(UUID)
 
     @MainActor
     var title: String {
@@ -34,6 +37,8 @@ enum SidebarItem: Hashable, Codable {
         case .cleanupCard(let k): return k.title
         case .activity: return "Activity"
         case .folder(let path): return FileManager.default.displayName(atPath: path)
+        case .space: return "Space"
+        case .collection(let id): return CollectionStore.shared.collection(id)?.name ?? "Collection"
         }
     }
 
@@ -52,6 +57,8 @@ enum SidebarItem: Hashable, Codable {
         case .cleanupCard(let k): return k.symbolName
         case .activity: return "clock.arrow.circlepath"
         case .folder: return "folder"
+        case .space: return "chart.pie"
+        case .collection: return "square.stack"
         }
     }
 
@@ -70,8 +77,16 @@ enum SidebarItem: Hashable, Codable {
         case .cleanupCard(let k): return "cleanup.\(k.rawValue)"
         case .activity: return "activity"
         case .folder(let p): return "folder.\((p as NSString).lastPathComponent)"
+        case .space: return "space"
+        case .collection(let id): return "collection.\(id.uuidString)"
         }
     }
+}
+
+/// Files the rename sheet is open for.
+struct RenameRequest: Identifiable {
+    let id = UUID()
+    let items: [FileItem]
 }
 
 struct Toast: Identifiable, Equatable {
@@ -165,6 +180,13 @@ final class AppModel {
     var toast: Toast?
     /// Path to select once a folder view has loaded ("Show in Haven").
     var pendingReveal: String?
+    /// Files to select once they show up in the list (just renamed, or copies just made).
+    @ObservationIgnored var pendingSelection: Set<String> = []
+    var renameRequest: RenameRequest?
+    /// Explains the Accessibility permission the Open/Save jump needs.
+    var showDialogJumpHelp = false
+    /// The rule being made or changed in the rule editor.
+    var editingRule: CustomRule?
 
     @ObservationIgnored var openWindowAction: OpenWindowAction?
     @ObservationIgnored var openSettingsAction: OpenSettingsAction?
@@ -217,6 +239,19 @@ final class AppModel {
     func setVisible(_ items: [FileItem]) {
         visibleItems = items
         if let url = quickLookURL { quickLookURLs = Self.window(around: url, in: items) }
+        if !pendingSelection.isEmpty {
+            let arrived = Self.present(pendingSelection, in: items)
+            if !arrived.isEmpty {
+                selectedIDs = arrived
+                pendingSelection.subtract(arrived)
+                if let first = items.first(where: { arrived.contains($0.id) }) {
+                    selectionAnchor = first.id
+                    selectionLead = first.id
+                    reveal(first.id, centered: true)
+                }
+                return
+            }
+        }
         if let path = pendingReveal, !Self.present([path], in: items).isEmpty {
             selectedIDs = [path]
             selectionAnchor = path
@@ -525,6 +560,74 @@ final class AppModel {
         guard !urls.isEmpty else { return false }
         FileOps.shared.copy(urls, into: dir)
         return true
+    }
+
+    // MARK: Rename, collections, shelf, sharing
+
+    func rename(_ items: [FileItem]) {
+        let usable = items.filter { $0.kind != .app || items.count == 1 }
+        guard !usable.isEmpty else { return }
+        bringMainWindowForward()
+        renameRequest = RenameRequest(items: usable)
+    }
+
+    func addToCollection(_ items: [FileItem], _ id: UUID) {
+        let added = CollectionStore.shared.add(items.map(\.path), to: id)
+        let name = CollectionStore.shared.collection(id)?.name ?? "the collection"
+        showToast(added == 0 ? "Already in “\(name)”" : (added == 1 ? "Added to “\(name)”" : "Added \(added) files to “\(name)”"),
+                  symbol: "square.stack")
+    }
+
+    func newCollection(with items: [FileItem]) {
+        let id = CollectionStore.shared.create(name: nil, paths: items.map(\.path))
+        navigate(to: .collection(id))
+        showToast(items.isEmpty ? "New collection" : "Made a collection of \(HavenFormat.count(items.count, "file"))", symbol: "square.stack")
+    }
+
+    func removeFromCollection(_ items: [FileItem], _ id: UUID) {
+        CollectionStore.shared.remove(Set(items.map(\.path)), from: id)
+        selectedIDs.subtract(items.map(\.id))
+    }
+
+    func addToShelf(_ items: [FileItem]) {
+        ShelfStore.shared.add(items.map(\.url))
+        ShelfController.shared.show()
+    }
+
+    func makeShareable(_ kind: ShareNaming.Kind, _ items: [FileItem]) {
+        ShareMaker.shared.run(kind, items: items, undoManager: AppModel.mainWindow?.undoManager)
+    }
+
+    /// The visible list (or the selected files in it) as text on the clipboard.
+    func copyList(_ format: ListExport.Format, _ items: [FileItem]) {
+        guard !items.isEmpty else { return }
+        let text = ListExport.text(items, format: format)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        let what: String
+        switch format {
+        case .names: what = items.count == 1 ? "Copied the name" : "Copied \(items.count) names"
+        case .paths: what = items.count == 1 ? "Copied the path" : "Copied \(items.count) paths"
+        case .table, .csv: what = "Copied a table of \(HavenFormat.count(items.count, "file")): paste it into Numbers or Excel"
+        }
+        showToast(what, symbol: "list.bullet.rectangle")
+    }
+
+    func exportCSV(_ items: [FileItem]) {
+        guard !items.isEmpty else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "\(selection?.title ?? "Files").csv"
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let text = ListExport.text(items, format: .csv)
+        do {
+            try Data(text.utf8).write(to: url, options: .atomic)
+            showToast("Saved “\(url.lastPathComponent)”", symbol: "tablecells")
+        } catch {
+            showToast("Couldn't save the list", symbol: "exclamationmark.triangle")
+        }
     }
 
     func togglePin(_ path: String) {
