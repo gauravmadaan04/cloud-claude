@@ -38,6 +38,10 @@ final class ShelfController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.delegate = self
+        // The shelf has its own header with a close button: no second row of window buttons above it.
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            panel.standardWindowButton(kind)?.isHidden = true
+        }
         panel.setAccessibilityIdentifier("shelf.panel")
         let host = NSHostingView(rootView: ShelfView().environment(\.theme, Theme(look: Prefs.shared.look)))
         host.sizingOptions = []

@@ -205,7 +205,7 @@ struct RuleEditorView: View {
             }
         }
         .padding(22)
-        .frame(width: 620, height: 660)
+        .frame(width: 620, height: 600)
         .task(id: rule) {
             try? await Task.sleep(for: .milliseconds(120))
             if Task.isCancelled { return }
