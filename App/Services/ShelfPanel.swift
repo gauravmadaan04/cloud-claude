@@ -101,9 +101,10 @@ struct ShelfView: View {
                 footer
             }
         }
-        .frame(width: 290, height: 400)
+        // The whole window, title bar area included: no empty strip above the header or below the footer.
+        .frame(width: 290)
+        .frame(maxHeight: .infinity)
         .background(VisualEffectBackground(material: .popover))
-        // Up into the (hidden) title bar, so there's no empty strip above the header.
         .ignoresSafeArea()
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
