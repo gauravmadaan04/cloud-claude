@@ -103,6 +103,8 @@ struct ShelfView: View {
         }
         .frame(width: 290, height: 400)
         .background(VisualEffectBackground(material: .popover))
+        // Up into the (hidden) title bar, so there's no empty strip above the header.
+        .ignoresSafeArea()
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(theme.accent, lineWidth: targeted ? 3 : 0)
