@@ -78,10 +78,10 @@ public enum FileKind: String, Codable, CaseIterable, Sendable, Hashable {
         }
     }
 
-    /// Kinds whose text Haven can read (OCR, PDF text, plain text).
+    /// Kinds whose text Haven can read (OCR, PDF text, office documents, plain text).
     public var hasReadableText: Bool {
         switch self {
-        case .image, .pdf, .document, .spreadsheet, .text, .code: return true
+        case .image, .pdf, .document, .spreadsheet, .presentation, .text, .code: return true
         default: return false
         }
     }

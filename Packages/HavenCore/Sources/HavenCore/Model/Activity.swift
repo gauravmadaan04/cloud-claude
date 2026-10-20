@@ -3,7 +3,8 @@ import Foundation
 /// A record of something Haven moved or trashed, so it can be undone later.
 public struct ActivityEntry: Codable, Identifiable, Hashable, Sendable {
     public enum Action: String, Codable, Sendable {
-        case trashed, moved, restored
+        /// `created`: copies Haven made (Make Shareable); undoing one moves the copies to the Trash.
+        case trashed, moved, restored, renamed, created
     }
 
     public struct Move: Codable, Hashable, Sendable {
@@ -47,6 +48,9 @@ public struct ActivityEntry: Codable, Identifiable, Hashable, Sendable {
         case .trashed: return "Moved \(things) to the Trash"
         case .moved: return "Filed \(things)"
         case .restored: return "Put back \(things)"
+        case .renamed: return "Renamed \(things)"
+        case .created:
+            return n == 1 ? "Made “\((moves[0].to as NSString).lastPathComponent)”" : "Made \(n) files"
         }
     }
 }
