@@ -114,6 +114,7 @@ struct ShelfView: View {
             }.value
             if !Task.isCancelled { items = made }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shelf")
     }
 

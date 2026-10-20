@@ -108,10 +108,14 @@ final class CollectionStore {
             for e in entries {
                 guard !FileManager.default.fileExists(atPath: e.path), let mark = e.bookmark else { continue }
                 var stale = false
-                if let url = try? URL(resolvingBookmarkData: mark, options: [.withoutUI, .withoutMounting], relativeTo: nil, bookmarkDataIsStale: &stale),
-                   url.path != e.path, FileManager.default.fileExists(atPath: url.path) {
-                    moves[e.path] = url.path
+                guard let url = try? URL(resolvingBookmarkData: mark, options: [.withoutUI, .withoutMounting], relativeTo: nil, bookmarkDataIsStale: &stale) else { continue }
+                var now = url.path
+                // Keep the spelling the collection used (/var rather than /private/var).
+                if !e.path.hasPrefix("/private/"), now.hasPrefix("/private/"),
+                   FileManager.default.fileExists(atPath: String(now.dropFirst("/private".count))) {
+                    now = String(now.dropFirst("/private".count))
                 }
+                if now != e.path, FileManager.default.fileExists(atPath: now) { moves[e.path] = now }
             }
             return moves
         }.value

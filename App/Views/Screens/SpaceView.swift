@@ -67,6 +67,7 @@ struct SpaceView: View {
         } message: {
             Text("You can put it back with Undo or from the Trash.")
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("space")
     }
 

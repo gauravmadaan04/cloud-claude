@@ -68,6 +68,8 @@ final class ShareMaker {
                 o.made.append((items.count == 1 ? items[0].path : dir, dest))
                 o.bytesAfter = fileSize(dest)
             } else {
+                // A half-written ZIP is Haven's own (the name was free), so it goes.
+                try? fm.removeItem(atPath: dest)
                 o.failed = items.count
             }
             return o
@@ -183,9 +185,10 @@ final class ShareMaker {
                 ],
             ],
         ]
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("haven-smaller-pdf-\(UUID().uuidString).qfilter")
+        // One filter file, rewritten each time (so a run never leaves a pile of them behind).
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("haven-smaller-pdf.qfilter")
         if let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0),
-           (try? data.write(to: file)) != nil {
+           (try? data.write(to: file, options: .atomic)) != nil {
             let custom: QuartzFilter? = QuartzFilter(url: file)
             if let custom { filters.append(custom) }
         }

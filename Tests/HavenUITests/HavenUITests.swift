@@ -50,6 +50,17 @@ final class HavenUITests: XCTestCase {
 
     func file(_ name: String) -> XCUIElement { el("file." + name) }
 
+    /// The menu item you can see right now (a right-click menu's item, not the same item in the menu bar's closed menus).
+    func menuItem(_ title: String, timeout: TimeInterval = 4) -> XCUIElement {
+        let all = app.menuItems.matching(NSPredicate(format: "title == %@", title))
+        let end = Date().addingTimeInterval(timeout)
+        repeat {
+            for i in 0..<all.count where all.element(boundBy: i).isHittable { return all.element(boundBy: i) }
+            usleep(150_000)
+        } while Date() < end
+        return all.firstMatch
+    }
+
     @discardableResult
     func waitFor(_ element: XCUIElement, _ timeout: TimeInterval = 20, _ message: String = "") -> Bool {
         let ok = element.waitForExistence(timeout: timeout)
@@ -574,7 +585,7 @@ final class HavenUITests: XCTestCase {
         waitFor(file("Goa Beach.jpg"), 15)
         NSPasteboard.general.clearContents()
         el("filter.copyList").click()
-        app.menuItems["Copy Names"].click()
+        menuItem("Copy Names").click()
         sleep(1)
         let names = NSPasteboard.general.string(forType: .string) ?? ""
         XCTAssertTrue(names.contains("Goa Beach.jpg"), "Copy Names should list the files: \(names)")
@@ -597,8 +608,8 @@ final class HavenUITests: XCTestCase {
         let goa = file("Goa Beach.jpg")
         waitFor(goa, 15)
         goa.rightClick()
-        app.menuItems["Add to Collection"].hover()
-        app.menuItems["New Collection with This File"].click()
+        menuItem("Add to Collection").hover()
+        menuItem("New Collection with This File").click()
         waitFor(page("Collection"), 10, "The new collection should open")
         waitFor(file("Goa Beach.jpg"), 10, "with the file in it")
         sleep(1)
@@ -609,8 +620,8 @@ final class HavenUITests: XCTestCase {
         let heic = file("IMG_2041.heic")
         waitFor(heic, 15)
         heic.rightClick()
-        app.menuItems["Make Shareable"].hover()
-        app.menuItems["Save as JPEG"].click()
+        menuItem("Make Shareable").hover()
+        menuItem("Save as JPEG").click()
         XCTAssertTrue(waitOnDisk("Pictures/Trips/IMG_2041 2.jpg", 20), "A JPEG copy should be made (the name IMG_2041.jpg is taken)")
         XCTAssertTrue(exists("Pictures/Trips/IMG_2041.heic"), "The original stays")
         sleep(1)

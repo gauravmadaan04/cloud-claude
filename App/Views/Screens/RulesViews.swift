@@ -32,33 +32,45 @@ struct CustomRulesSection: View {
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
-                    ForEach(ideas, id: \.name) { idea in
-                        Button { model.editingRule = idea } label: {
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: ruleSymbol(idea.action))
-                                    .foregroundStyle(theme.accent)
-                                    .frame(width: 22)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(idea.name).fontWeight(.semibold)
-                                    Text(CustomRulePlanner.describe(idea, home: LaunchOptions.current.homeForRoots))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .multilineTextAlignment(.leading)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                Spacer(minLength: 0)
+                // A plain grid (only a handful of ideas): every card exists right away, even below the fold.
+                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                    ForEach(Array(stride(from: 0, to: ideas.count, by: 2)), id: \.self) { i in
+                        GridRow {
+                            ideaCard(ideas[i])
+                            if i + 1 < ideas.count {
+                                ideaCard(ideas[i + 1])
+                            } else {
+                                Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .cardStyle(theme, padding: 12)
-                            .interactiveCard()
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("rules.idea.\(idea.name)")
                     }
                 }
             }
         }
+    }
+
+    private func ideaCard(_ idea: CustomRule) -> some View {
+        Button { model.editingRule = idea } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: ruleSymbol(idea.action))
+                    .foregroundStyle(theme.accent)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(idea.name).fontWeight(.semibold)
+                    Text(CustomRulePlanner.describe(idea, home: LaunchOptions.current.homeForRoots))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .cardStyle(theme, padding: 12)
+            .interactiveCard()
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("rules.idea.\(idea.name)")
     }
 }
 
@@ -208,6 +220,7 @@ struct RuleEditorView: View {
         } message: {
             Text("Files it already tidied stay where they are.")
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ruleEditor")
     }
 

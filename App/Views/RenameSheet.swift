@@ -163,6 +163,7 @@ struct RenameSheet: View {
             changes = result
             planned = true
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("rename.sheet")
     }
 
