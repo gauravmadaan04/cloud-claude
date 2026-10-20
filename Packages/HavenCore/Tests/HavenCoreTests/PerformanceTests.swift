@@ -113,4 +113,29 @@ final class PerformanceTests: XCTestCase {
         let decoded = try time("binary decode", repeat: 2) { try IndexCodec.decode(bin) }
         XCTAssertEqual(decoded.items.count, items.count)
     }
+
+    /// The newer features on the same big library: Space numbers, rules, collections, renames, list export.
+    func testNewFeaturesSpeed() {
+        let items = SyntheticLibrary.make(count: Self.size)
+        let tops = ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music"].map { "/Users/me/" + $0 }
+        let sizes = time("folder sizes (whole index)", repeat: 3) { FolderSizes.compute(items, tops: tops) }
+        XCTAssertEqual(tops.reduce(Int64(0)) { $0 + (sizes[$1]?.bytes ?? 0) }, items.totalSize)
+        _ = time("space report", repeat: 3) { SpaceReport.compute(items) }
+        _ = time("biggest 15 files", repeat: 3) { SpaceReport.biggestFiles(items, under: nil, limit: 15) }
+        _ = time("biggest 15 files in Downloads", repeat: 3) { SpaceReport.biggestFiles(items, under: "/Users/me/Downloads", limit: 15) }
+
+        let rule = CustomRule(name: "x", folders: ["/Users/me/Downloads"], conditions: [.source("*"), .nameContains("invoice")],
+                              action: .move(to: "/Users/me/Documents/Invoices", byMonth: true))
+        _ = time("plan a rule", repeat: 3) { CustomRulePlanner.plan(rule, items: items, now: Date(timeIntervalSince1970: 1_790_000_000)) }
+
+        var collection = FileCollection(name: "x")
+        collection.add(stride(from: 0, to: items.count, by: max(1, items.count / 500)).map { items[$0].path })
+        _ = time("open a 500-file collection", repeat: 3) { collection.resolve(in: items) }
+
+        let batch = Array(items.prefix(5_000))
+        _ = time("plan renaming 5,000 files", repeat: 2) {
+            RenamePlanner.plan(batch, template: RenameTemplate(pattern: "{date} {name} {n:4}")) { _ in [] }
+        }
+        _ = time("copy 300,000 files as a table", repeat: 1) { ListExport.text(items, format: .table) }
+    }
 }

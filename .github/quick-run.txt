@@ -1,2 +1,2 @@
 config: Debug
-tests: none
+tests: HavenTests/NewFeatureTests
