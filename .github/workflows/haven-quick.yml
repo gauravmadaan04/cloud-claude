@@ -36,10 +36,11 @@ jobs:
           xcodegen generate
 
       - name: Build app and tests
+        # Only the targets being run: the in-app tests use debug-only sample files.
         run: |
           set -o pipefail
           xcodebuild build-for-testing -project Haven.xcodeproj -scheme Haven -configuration "$CONFIG" -destination 'platform=macOS' \
-            -derivedDataPath "$DD" CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES ENABLE_TESTABILITY=YES 2>&1 \
+            -derivedDataPath "$DD" -only-testing:"$TESTS" CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES ENABLE_TESTABILITY=YES 2>&1 \
             | tee build.log | grep -E "error:|\*\*" || true
           grep -q "TEST BUILD SUCCEEDED" build.log
 
