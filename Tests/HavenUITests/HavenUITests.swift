@@ -479,6 +479,189 @@ final class HavenUITests: XCTestCase {
         XCTAssertEqual(app.textFields["search.field"].value as? String ?? "", "", "⌘A in the search field selects its text")
     }
 
+    // MARK: New features
+
+    /// The whole screen (for floating panels like Quick Search and the Shelf).
+    func snapScreen(_ name: String) {
+        let shot = XCUIScreen.main.screenshot()
+        let a = XCTAttachment(screenshot: shot)
+        a.name = name
+        a.lifetime = .keepAlways
+        add(a)
+        try? FileManager.default.createDirectory(atPath: "/private/tmp/haven-shots", withIntermediateDirectories: true)
+        try? shot.pngRepresentation.write(to: URL(fileURLWithPath: "/private/tmp/haven-shots/\(name).png"))
+    }
+
+    func exists(_ relative: String) -> Bool {
+        FileManager.default.fileExists(atPath: Self.fixtureRoot + "/" + relative)
+    }
+
+    func waitOnDisk(_ relative: String, _ timeout: TimeInterval = 15, gone: Bool = false) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if exists(relative) != gone { return true }
+            usleep(200_000)
+        }
+        return false
+    }
+
+    /// Text in screenshots is read in the background; searching for it waits until it's there.
+    func waitForText(_ query: String, finds name: String) {
+        search(query)
+        XCTAssertTrue(file(name).waitForExistence(timeout: 90), "Text in \(name) should be read")
+        clearSearch()
+    }
+
+    func value(_ element: XCUIElement) -> String {
+        (element.value as? String) ?? element.label
+    }
+
+    func test09_RenameSpaceAndLists() throws {
+        launch(onboarding: false)
+        requireHome("rename")
+        waitForText("boarding gate", finds: "Screenshot 2026-10-12 at 09.41.22.png")
+
+        // One file: type a title read from the screenshot; the extension stays.
+        el("sidebar.screenshots").click()
+        let shot = file("Screenshot 2026-10-12 at 09.41.22.png")
+        waitFor(shot, 15)
+        shot.click()
+        app.typeKey("r", modifierFlags: .command)
+        waitFor(el("rename.sheet"), 10, "⌘R should open Rename")
+        let pattern = el("rename.pattern")
+        pattern.click()
+        pattern.typeKey("a", modifierFlags: .command)
+        pattern.typeText("{title}")
+        let firstNew = el("rename.new.0")
+        expectation(for: NSPredicate(format: "value CONTAINS 'Boarding Pass.png'"), evaluatedWith: firstNew)
+        waitForExpectations(timeout: 10)
+        snap("80-rename-one")
+        app.buttons["rename.apply"].click()
+        XCTAssertTrue(waitOnDisk("Desktop/Boarding Pass.png"), "The file should be renamed on disk")
+        XCTAssertFalse(exists("Desktop/Screenshot 2026-10-12 at 09.41.22.png"))
+        waitFor(file("Boarding Pass.png"), 15, "The renamed file shows up, still selected")
+        snap("81-renamed")
+        // ⌘Z puts the old name back.
+        app.typeKey("z", modifierFlags: .command)
+        XCTAssertTrue(waitOnDisk("Desktop/Screenshot 2026-10-12 at 09.41.22.png"), "⌘Z should undo the rename")
+        XCTAssertFalse(exists("Desktop/Boarding Pass.png"))
+
+        // Many files: Smart Names, previewed, then cancelled.
+        waitFor(file("Screenshot 2026-10-12 at 09.41.22.png"), 15)
+        file("Screenshot 2026-10-12 at 09.41.22.png").click()
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("r", modifierFlags: .command)
+        waitFor(el("rename.sheet"), 10)
+        expectation(for: NSPredicate(format: "value CONTAINS 'files will be renamed'"), evaluatedWith: el("rename.summary"))
+        waitForExpectations(timeout: 10)
+        sleep(1)
+        snap("82-rename-many")
+        app.typeKey(.escape, modifierFlags: [])
+        sleep(1)
+
+        // Space: where the room goes, folder by folder.
+        el("sidebar.space").click()
+        waitFor(el("space"), 15, "The Space page should open")
+        sleep(2)
+        snap("83-space")
+        el("space.folder.Downloads").click()
+        waitFor(app.staticTexts["Files right in this folder"], 10, "Clicking a folder looks inside it")
+        sleep(1)
+        snap("84-space-downloads")
+
+        // Copy the list of files on a page.
+        el("sidebar.category.images").click()
+        waitFor(file("Goa Beach.jpg"), 15)
+        NSPasteboard.general.clearContents()
+        el("filter.copyList").click()
+        app.menuItems["Copy Names"].click()
+        sleep(1)
+        let names = NSPasteboard.general.string(forType: .string) ?? ""
+        XCTAssertTrue(names.contains("Goa Beach.jpg"), "Copy Names should list the files: \(names)")
+
+        // Quick Search starts with recent folders (for Open/Save dialogs).
+        app.menuBars.menuBarItems["File"].click()
+        app.menuItems["Quick Search…"].click()
+        waitFor(el("quicksearch.field"), 10)
+        sleep(1)
+        snapScreen("85-quicksearch-folders")
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
+    func test10_CollectionsShelfAndShare() throws {
+        launch(onboarding: false)
+        requireHome("collections")
+
+        // A new collection from a right-click.
+        el("sidebar.category.images").click()
+        let goa = file("Goa Beach.jpg")
+        waitFor(goa, 15)
+        goa.rightClick()
+        app.menuItems["Add to Collection"].hover()
+        app.menuItems["New Collection with This File"].click()
+        waitFor(page("Collection"), 10, "The new collection should open")
+        waitFor(file("Goa Beach.jpg"), 10, "with the file in it")
+        sleep(1)
+        snap("86-collection")
+
+        // Make Shareable: a JPEG copy of a HEIC photo, next to it.
+        el("sidebar.category.images").click()
+        let heic = file("IMG_2041.heic")
+        waitFor(heic, 15)
+        heic.rightClick()
+        app.menuItems["Make Shareable"].hover()
+        app.menuItems["Save as JPEG"].click()
+        XCTAssertTrue(waitOnDisk("Pictures/Trips/IMG_2041 2.jpg", 20), "A JPEG copy should be made (the name IMG_2041.jpg is taken)")
+        XCTAssertTrue(exists("Pictures/Trips/IMG_2041.heic"), "The original stays")
+        sleep(1)
+        snap("87-made-jpeg")
+
+        // The Shelf: drag a file onto it.
+        app.typeKey("s", modifierFlags: [.command, .option])
+        let shelf = el("shelf")
+        waitFor(shelf, 10, "⌥⌘S should show the Shelf")
+        sleep(1)
+        snapScreen("88-shelf-empty")
+        file("Goa Beach.jpg").press(forDuration: 0.8, thenDragTo: shelf)
+        waitFor(el("shelf.item.Goa Beach.jpg"), 10, "The dropped file sits on the shelf")
+        sleep(1)
+        snapScreen("89-shelf")
+        app.typeKey("s", modifierFlags: [.command, .option])
+    }
+
+    func test11_YourOwnRules() throws {
+        launch(onboarding: false)
+        requireHome("rules")
+        waitForText("pay by 30 oct", finds: "invoice-4821.png")
+
+        app.typeKey("k", modifierFlags: [.command, .shift])
+        let idea = el("rules.idea.File invoices from Gmail")
+        waitFor(idea, 15, "Rule ideas should be on Clean Up")
+        idea.click()
+        waitFor(el("ruleEditor"), 10, "The rule editor should open")
+        let preview = el("ruleEditor.preview")
+        expectation(for: NSPredicate(format: "value CONTAINS 'matches 1 file'"), evaluatedWith: preview)
+        waitForExpectations(timeout: 20)
+        sleep(1)
+        snap("90-rule-editor")
+        app.buttons["ruleEditor.save"].click()
+
+        let toggle = el("rule.toggle.File invoices from Gmail")
+        waitFor(toggle, 10, "The saved rule shows on Clean Up")
+        toggle.click()
+        XCTAssertTrue(waitOnDisk("Documents/Invoices/invoice-4821.png", 30), "Turning the rule on files the invoice")
+        XCTAssertFalse(exists("Downloads/invoice-4821.png"))
+        sleep(1)
+        snap("91-rules")
+
+        el("sidebar.activity").click()
+        waitFor(app.buttons["activity.undo"], 10)
+        sleep(1)
+        snap("92-activity")
+        app.buttons["activity.undo"].firstMatch.click()
+        XCTAssertTrue(waitOnDisk("Downloads/invoice-4821.png", 15), "Undo puts the invoice back")
+    }
+
     // MARK: Videos
 
     /// Double-clicking a video opens it in the big preview and plays it; a damaged one shows a message.

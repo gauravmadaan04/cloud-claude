@@ -130,7 +130,8 @@ struct RenameSheet: View {
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button(changing.count <= 1 ? "Rename" : "Rename \(changing.count) Files") {
-                    FileOps.shared.rename(changes, undoManager: undoManager)
+                    // The main window owns ⌘Z (this sheet closes now).
+                    FileOps.shared.rename(changes, undoManager: AppModel.mainWindow?.undoManager ?? undoManager)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

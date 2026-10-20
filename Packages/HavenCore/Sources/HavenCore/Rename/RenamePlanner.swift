@@ -71,6 +71,12 @@ public struct RenameChange: Hashable, Sendable, Identifiable {
     /// A number was added to keep the name unique in its folder.
     public let adjusted: Bool
 
+    public init(item: FileItem, newName: String, adjusted: Bool = false) {
+        self.item = item
+        self.newName = newName
+        self.adjusted = adjusted
+    }
+
     public var id: String { item.path }
     public var newPath: String { (item.parentPath as NSString).appendingPathComponent(newName) }
     public var isChange: Bool { newName != item.name }
