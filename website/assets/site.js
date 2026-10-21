@@ -1,4 +1,5 @@
-// Shared behaviour for every page: the phone menu, Buy and Download buttons, the toast and the phone buy bar.
+// Shared behaviour for every page: the phone menu, Buy and Download buttons, the toast, the phone buy bar,
+// the launch offer and "buy now, install on your Mac later" for people who aren't on a Mac.
 (function () {
   "use strict";
   var cfg = window.HAVEN || {};
@@ -33,18 +34,67 @@
     });
   }
 
-  // Buy buttons go straight to Stripe when a Payment Link is set.
+  // Not on a Mac (a phone, a tablet, a PC at work): "buy now, install on your Mac later" replaces Mac-only wording.
+  var ua = navigator.userAgent || "";
+  var iPadAsMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  var onMac = /Macintosh/.test(ua) && !iPadAsMac;
+  var root = document.documentElement;
+  if (!onMac) root.classList.add("away");
+  if (iPadAsMac || /iPhone|iPad|iPod|Android|Mobile/.test(ua)) root.classList.add("phone");
+  if (!onMac) {
+    document.querySelectorAll("[data-away]").forEach(function (el) { el.innerHTML = el.getAttribute("data-away"); });
+  }
+
+  // "Send to my Mac": the share sheet (AirDrop, Messages, Mail to yourself), or the link copied.
+  document.querySelectorAll("[data-send]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var url = new URL(btn.getAttribute("data-send") || location.pathname, location.href).href.split("#")[0];
+      var share = { title: "Haven for Mac", text: "Haven: find any file on your Mac by describing it.", url: url };
+      if (navigator.share) {
+        navigator.share(share).catch(function () {});
+        return;
+      }
+      var copied = function () { window.havenToast("Link copied. Open it on your Mac, or send it there with AirDrop or Messages."); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(copied, function () { window.havenToast("Open this address on your Mac: <code>" + url + "</code>", 8000); });
+      } else {
+        window.havenToast("Open this address on your Mac: <code>" + url + "</code>", 8000);
+      }
+    });
+  });
+
+  // How checkout works, in the provider's own terms.
+  var co = cfg.checkout || {};
+  if (co.provider) {
+    var line = "Secure checkout by " + co.provider + (co.payWith ? " · " + co.payWith : "") +
+      (co.localCurrency ? " · pay in your own currency" : " · prices in US dollars") + " · tax handled for you";
+    document.querySelectorAll("[data-payline]").forEach(function (el) { el.textContent = line; });
+    document.querySelectorAll("[data-provider]").forEach(function (el) { el.textContent = co.provider; });
+  }
+
+  // The launch offer shows only while it's on (and until its last day, if it has one).
+  var launch = cfg.launch || {};
+  var endsOn = launch.endsOn ? new Date(launch.endsOn + "T23:59:59") : null;
+  if (launch.on && (!endsOn || isNaN(endsOn) || endsOn >= new Date())) {
+    document.querySelectorAll("[data-launch]").forEach(function (el) { el.hidden = false; });
+    if (endsOn && !isNaN(endsOn)) {
+      var day = endsOn.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      document.querySelectorAll("[data-launch-until]").forEach(function (el) { el.textContent = ", if you buy by " + day; });
+    }
+  }
+
+  // Buy buttons go straight to checkout when a plan's link is set.
   var planNames = { one: "1 Mac", three: "3 Macs", five: "5 Macs" };
   document.querySelectorAll("[data-buy]").forEach(function (a) {
     var plan = a.getAttribute("data-buy");
-    var url = cfg.checkout && cfg.checkout[plan];
+    var url = co[plan];
     if (url) {
       a.href = url;
       return;
     }
     a.addEventListener("click", function (e) {
       e.preventDefault();
-      window.havenToast("Checkout for " + planNames[plan] + " isn't connected yet. Add its Stripe Payment Link in <code>assets/config.js</code>.");
+      window.havenToast("Checkout for " + planNames[plan] + " isn't connected yet. Add its checkout link in <code>assets/config.js</code>.");
     });
   });
 

@@ -121,6 +121,7 @@ public enum QueryParser {
         "type", "kind", "kinds", "types", "saying", "says", "say", "text",
         // How people describe a file from memory: "the contract Sam sent", "where someone said budget".
         "sent", "someone", "somebody", "said", "mentioned", "mentions", "talked", "spoke", "he", "she", "they", "we", "it",
+        "think", "maybe", "probably", "guess", "remember",
     ]
 
     /// Prepositions that never stand alone as search words.

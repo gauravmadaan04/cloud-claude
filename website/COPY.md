@@ -17,7 +17,7 @@ decade, so claims alone don't land. We lead with a mechanism they haven't heard 
 - *Mechanism of the solution, "the Recall Index":* Haven builds a private index, on your Mac, of the five
   things memory actually keeps: what it was, when, where it came from, what's inside (even inside pictures),
   and what was said.
-- *Proof:* working demos on the page, measured speed (300,000 files, slowest search 0.09 s), 206 automated
+- *Proof:* working demos on the page, measured speed (300,000 files, slowest search 0.09 s), 209 automated
   tests on every build, a privacy design anyone can check (it works with Wi-Fi off), and a 30-day guarantee.
 
 **Second problem, "the Upload Tax":** when you do find the file, small jobs (shrink, sign, merge, convert)
@@ -48,8 +48,9 @@ Haven · How it works · Tools · Clean Up · Compare · Pricing · FAQ · **Buy
 - Sub: No file name needed. Type what you remember, like "the invoice Sam emailed last week", and Haven finds it
   in under a second. Then sign, shrink, merge, convert or transcribe it with one right-click. 27 tools, all on
   your Mac. Nothing uploaded.
-- CTA: **Get Haven for $49** · secondary: See it work
-- Under CTA: One-time payment · 30-day money-back guarantee · macOS 14 or later
+- CTA: **Get Haven for $49** · secondary: Watch the real app
+- Under CTA: One-time payment · 30-day money-back guarantee · macOS 14 or later (not on a Mac: "Buy now, install
+  on your Mac later", plus "Send this page to your Mac", which opens the share sheet so iPhone users can AirDrop it)
 - Demo: a messy pile of files; the search types itself; the right files fly out of the pile.
 
 ### The story [agitate with a scene the reader has lived]
@@ -59,9 +60,9 @@ You need the contract Sam sent last week. You know it exists. You type "contract
 Desktop. At 10:06 you join the call flustered, with the wrong version open.
 
 **It isn't you. It's the Filename Trap.**
-Your Mac files everything by name. But the names were written by your camera, your scanner and a download
-button. You never chose them, so you can't remember them. You remember moments: who sent it, roughly when,
-what was on it. Finder asks for the one thing you never knew.
+Your Mac lists everything by name, and its search looks for the exact words you type. But the names were written
+by your camera, your scanner and a download button. You never chose them, so you can't remember them. You
+remember moments: who sent it, roughly when, what was on it. Type a word you remember and you get 214 results.
 
 **And when you finally find it, the Upload Tax.**
 It's too big to email. It needs a signature. It's six PDFs that should be one. So you search "compress video
@@ -81,6 +82,22 @@ the five things your memory actually keeps:
 Mix them in plain English. Demo: 300,000 files as 300,000 dots; add a cue and watch them disappear until one
 is left. *Haven searched 300,000 files in at most 0.09 s in our tests.*
 
+### The real app [proof it isn't a mock-up]
+**This is the real app, recorded on a Mac.** The demos run in your browser; this is Haven itself doing the same
+jobs, recorded by our build machine with sample files. Nothing is staged: we only sped up the typing and cut the waiting. Five chapters:
+describe it ("the invoice Sam emailed last week"), text in a screenshot, right-click tools, what was said, clean
+up with Undo.
+
+### Spotlight [the objection, answered with a concession]
+**"Doesn't Spotlight do this already?" Partly. Here's exactly where.** Five things you'd look for, Spotlight and
+Haven side by side. One of them Spotlight does too (text in screenshots, since macOS Ventura), and we say so: the
+concession is what makes the other four believable. Every Spotlight claim is checked against Apple's guides for
+macOS 26 and 27; "doesn't hear recordings" was also tested on macOS 26.6 with Spotlight's own importers.
+
+### Price, early [a buying moment before the long middle]
+Haven is $49, once. Search by memory, Clean Up and all 27 tools. Backed by the 30-Day "Find It or It's Free"
+Guarantee. [Get Haven]
+
 ### Toolkit [second promise, demo]
 **Found it? Fix it with one right-click.**
 27 tools for images, PDFs, video, audio and on-device AI live in the menu you already use. Choose a tool and a
@@ -95,7 +112,7 @@ Demo: a Mac desktop. Right-click a file, open Tools, pick one, watch it work.
 working demo for every tool: convert and resize with live sizes, rotate sideways photos, split, organize and
 extract pages, receipts into one PDF, lock a PDF and try to open it, unlock with the password, trim with
 handles, a GIF that loops, mute, merge clips in order, change speed, convert and trim audio, translate a letter
-into five languages, summarize a report.
+into five languages, summarize a report. Each finished demo ends with "All 27 tools, $49 once".
 
 ### Clean Up [third promise, demo]
 **Then get gigabytes back. Without the fear.**
@@ -107,14 +124,19 @@ You see every file first. Everything goes to the Trash, never straight to deleti
 PDF editor, transcription app, disk cleaner, duplicate finder, file search, batch renamer, folder rules, dialog
 helper, video converter, disk map, drop shelf, converter sites: about $540 bought separately. Haven: $49.
 
-### Privacy proof [proof by demonstration]
+### Privacy proof [proof by demonstration, then full disclosure]
 **Pull the plug. It still works.**
 Search, text recognition, transcription, background removal and every tool run on your Mac's own chips.
-Turn Wi-Fi off and Haven doesn't notice. No account. No analytics. No uploads, ever.
+Once Haven is set up, turn Wi-Fi off and it doesn't notice. No account. No analytics. No uploads.
+
+Everything Haven ever sends over the internet: the speech model download the first time you transcribe (Hugging
+Face), a language download by macOS the first time you translate into it (Apple), your license key and a random ID
+when you activate a Mac, Haven's and macOS's version when it checks for updates (can be turned off). Everything
+else: nothing. Proof: the network log from the film recording.
 
 ### Proof stack [credibility without testimonials]
 - 300,000 files searched in at most 0.09 s, measured
-- 206 automated tests run on a real Mac for every build
+- 209 automated tests run on a real Mac for every build
 - Native SwiftUI, one app for Apple silicon and Intel
 - Speech recognition by Whisper, running locally
 
@@ -129,6 +151,12 @@ Each part of Haven next to the app people buy for that job and its price. Total 
 
 ### Pricing
 1 Mac $49 · 3 Macs $79 (best for most people) · 5 Macs $99. Buttons: "Get Haven for 1 Mac" and so on.
+- Launch offer (only while it's on): **Haven 2 is included free when it comes**, with the last day if one is set.
+  A real reason to buy now, with no fake countdown. The terms keep the promise for everyone who bought during it.
+- Checkout line: Secure checkout by Dodo Payments · Apple Pay or card · pay in your own currency · tax handled for
+  you. Dodo Payments is the merchant of record, so tax, receipts and license keys are handled worldwide.
+- Not on a Mac: "Buy on your phone now. Your key and download link arrive by email, ready for your Mac."
+- After paying: thanks.html (download on a Mac, or "install on your Mac later" with Send to my Mac on a phone).
 
 ### Guarantee [risk reversal, named]
 **The 30-Day "Find It or It's Free" Guarantee.**
@@ -136,8 +164,9 @@ Use Haven for 30 days. If it doesn't find a file you'd given up on, save you rea
 isn't for you, email us and we'll refund every cent. No forms. No questions.
 
 ### FAQ [objections]
-What's the catch? · Is it a subscription? · Why no free trial? · Does it replace Finder? · Are my files
-uploaded? · Could it delete something? · Will it slow my Mac down? · Which Macs? · How do licenses work?
+What's the catch? · Why no free trial? · Doesn't Spotlight already do this? · Can I buy on my phone and install
+later? · What happens when Haven 2 comes out? · Does it replace Finder? · Are my files uploaded? · Could it delete
+something? · Will it slow my Mac down? · Which Macs? · How do licenses work?
 
 ### Close + P.S.
 **Your files already know everything. Now you can ask them.**

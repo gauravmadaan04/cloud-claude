@@ -46,6 +46,9 @@ final class QueryParserTests: XCTestCase {
         XCTAssertEqual(QueryParser.parse("the contract Sam sent last week").query.terms, ["contract", "sam"])
         XCTAssertEqual(QueryParser.parse("photos sent via whatsapp").query.sourceIDs, ["whatsapp"])
         XCTAssertEqual(QueryParser.parse("one week ago").query.terms, [], "“one” still counts as a number")
+        let unsure = QueryParser.parse("the pdf from last tuesday i think")
+        XCTAssertEqual(unsure.query.terms, [])
+        XCTAssertEqual(unsure.query.kinds, [.pdf])
     }
 
     func testPhotosFromWhatsApp() {

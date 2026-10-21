@@ -413,7 +413,7 @@
     },
 
     clean: function (stage) {
-      var rows = [["Location", "38.7139° N, 9.1394° W (Lisbon)"], ["Camera", "Apple iPhone 16 Pro"], ["Lens", "24 mm ƒ/1.78"], ["Taken", "Saturday, 18:42"], ["Software", "iOS 26.0"], ["Orientation", "Portrait"]];
+      var rows = [["Location", "38.7139° N, 9.1394° W"], ["Camera", "Apple iPhone 16 Pro"], ["Lens", "24 mm ƒ/1.78"], ["Taken", "Saturday, 18:42"], ["Software", "iOS 26.0"], ["Orientation", "Portrait"]];
       stage.innerHTML = shell("Remove Private Details", ["IMG_4021.HEIC", "Tools", "Remove Private Details"],
         '<div class="meta-card"><div class="th th-photo" style="--ph:' + PH.sunset + '"></div><div><table class="meta"><tbody id="meta-rows">' +
         rows.map(function (r) { return "<tr><th>" + r[0] + "</th><td>" + r[1] + "</td></tr>"; }).join("") +
@@ -673,6 +673,100 @@
       }
     }
     if (auto) loop(); else run("the invoice from gmail last week");
+  }
+
+  // ---------------------------------------------------------------- The real app, recorded on a Mac
+  // Chapter starts and captions are seconds into assets/film/haven-film.mp4.
+  var FILM = {
+    chapters: [2.41, 12.29, 19.28, 33.98, 54.19],
+    captions: [
+      [0.1, 2.16, "This is Haven, the real app, on a Mac with sample files."],
+      [2.41, 5.84, "Type what you remember: “the invoice Sam emailed last week”."],
+      [6.09, 9.04, "Haven reads it as chips: From email, Last week, “invoice”, “sam”. One result."],
+      [9.29, 12.04, "scan0047.pdf. The name says nothing; the invoice inside does."],
+      [12.29, 15.93, "Text inside screenshots is searchable too."],
+      [16.18, 19.13, "“wifi” finds the screenshot that says “Wi-Fi password”."],
+      [19.38, 21.73, "Right-click any file for 27 tools."],
+      [21.98, 30.13, "Tools › Convert Images › JPEG."],
+      [30.38, 33.83, "The JPEG appears next to the original, which stays as it was."],
+      [34.08, 44.46, "Tools › Transcribe… runs Whisper on the Mac itself."],
+      [44.71, 46.96, "Transcribed (the wait is cut). The text sits next to the recording."],
+      [47.21, 50.64, "Now search for something said in the call."],
+      [50.89, 54.04, "Found: the recording, and its transcript."],
+      [54.29, 58.5, "Clean Up groups what you can safely clear."],
+      [58.75, 64.17, "Old installers: you see every file, then they go to the Trash."],
+      [64.42, 67.96, "Changed your mind? Undo puts them back."],
+    ],
+  };
+
+  function film() {
+    var frame = $("film-frame"), video = $("film-video");
+    if (!frame || !video) return;
+    var playBtn = $("film-play"), cap = $("film-cap"), prog = $("film-progress");
+    var chapters = Array.prototype.slice.call(document.querySelectorAll("#film-chapters [data-ch]"));
+    var touched = false, inView = false;
+    video.loop = true;
+
+    function start() {
+      var p = video.play();
+      if (p && p.catch) p.catch(function () { frame.classList.remove("playing"); });
+      frame.classList.add("playing");
+    }
+    function stop() { video.pause(); frame.classList.remove("playing"); }
+
+    playBtn.addEventListener("click", function () { touched = true; start(); });
+    video.addEventListener("click", function () { touched = true; if (video.paused) start(); else stop(); });
+    chapters.forEach(function (b) {
+      b.addEventListener("click", function () {
+        touched = true;
+        var t = FILM.chapters[+b.getAttribute("data-ch")] || 0;
+        if (video.readyState >= 1) video.currentTime = t;
+        else video.addEventListener("loadedmetadata", function once() { video.removeEventListener("loadedmetadata", once); video.currentTime = t; });
+        start();
+      });
+    });
+    video.addEventListener("loadedmetadata", function () {
+      if (video.videoWidth) frame.style.setProperty("--film-ar", video.videoWidth + " / " + video.videoHeight);
+    });
+    video.addEventListener("timeupdate", function () {
+      var t = video.currentTime, d = video.duration || 1;
+      prog.style.width = (t / d) * 100 + "%";
+      var c = FILM.captions.filter(function (x) { return t >= x[0] && t < x[1]; })[0];
+      if (c) { if (cap.textContent !== c[2]) cap.textContent = c[2]; cap.classList.add("on"); } else cap.classList.remove("on");
+      var ch = 0;
+      FILM.chapters.forEach(function (s, i) { if (t >= s) ch = i; });
+      chapters.forEach(function (b, i) { b.setAttribute("aria-pressed", String(i === ch)); });
+    });
+    video.addEventListener("error", function () { playBtn.hidden = true; }, true);
+
+    // Plays by itself (muted) while it's on screen, unless motion is reduced or someone paused it.
+    if (!reduce && "IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        inView = es[0].isIntersecting;
+        if (inView && !touched) start();
+        else if (!inView && !video.paused) { video.pause(); frame.classList.remove("playing"); }
+      }, { threshold: 0.45 }).observe(frame);
+    }
+  }
+
+  // ---------------------------------------------------------------- Spotlight, honestly
+  function vs() {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll("#vs-tabs [data-vs]"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll("#vs-panels [data-vs]"));
+    if (!tabs.length) return;
+    function select(i, focus) {
+      tabs.forEach(function (t, k) { t.setAttribute("aria-selected", String(k === i)); t.tabIndex = k === i ? 0 : -1; });
+      panels.forEach(function (p, k) { p.hidden = k !== i; });
+      if (focus) tabs[i].focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function () { select(i); });
+      t.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowRight") { e.preventDefault(); select((i + 1) % tabs.length, true); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); select((i + tabs.length - 1) % tabs.length, true); }
+      });
+    });
+    select(0);
   }
 
   // ---------------------------------------------------------------- Story: the clock runs late as you read
@@ -1205,6 +1299,16 @@
     ];
     var timers = [];
     function later(fn, ms) { var t = setInterval(fn, ms); timers.push(t); return t; }
+    // Every finished demo ends with the offer.
+    new MutationObserver(function () {
+      var m = stage.querySelector(".made");
+      if (!m || stage.querySelector(".studio-buy")) return;
+      var a = document.createElement("a");
+      a.className = "studio-buy";
+      a.href = "#buy";
+      a.innerHTML = 'All 27 tools, $49 once<svg aria-hidden="true"><use href="#i-arrow"/></svg>';
+      m.insertAdjacentElement("afterend", a);
+    }).observe(stage, { childList: true, subtree: true });
     function cleanup() { timers.forEach(clearInterval); timers = []; }
 
     // ---- small builders
@@ -1775,4 +1879,6 @@
   flips();
   receipt();
   studio();
+  film();
+  vs();
 })();
