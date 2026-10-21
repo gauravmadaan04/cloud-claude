@@ -1,0 +1,33 @@
+name: Spotlight check
+
+# Evidence for the website's comparison: what macOS's own Spotlight importers pull out of a spoken recording,
+# a video with speech and a PDF (mdimport -t prints the attributes Spotlight would index, without indexing).
+on:
+  push:
+    branches: [haven-spotlight]
+
+jobs:
+  check:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - name: Sample files
+        run: |
+          mkdir -p ~/spot && cd ~/spot
+          say -o "Planning call.m4a" --file-format=m4af --data-format=aac "The quarterly budget is approved and the launch moves to Friday."
+          say -o speech.aiff "The quarterly budget is approved and the launch moves to Friday."
+          # A video with the same speech as its soundtrack.
+          brew install ffmpeg >/dev/null 2>&1 || true
+          ffmpeg -loglevel error -f lavfi -i color=c=blue:s=320x240:d=5 -i speech.aiff -shortest -c:v libx264 -c:a aac "Team call.mov" || true
+          cupsfilter -i text/plain -m application/pdf <(echo "Invoice from Sam. Quarterly budget approved.") > Invoice.pdf 2>/dev/null || true
+          ls -la
+
+      - name: What Spotlight's importers read
+        run: |
+          cd ~/spot
+          sw_vers
+          for f in "Planning call.m4a" "Team call.mov" "Invoice.pdf"; do
+            echo "=================== $f"
+            mdimport -t -d2 "$f" 2>&1 | grep -E "kMDItem(TextContent|Title|Duration|Codecs|ContentType)|budget|Imported" | head -20
+            echo "--- mentions 'budget':"; mdimport -t -d3 "$f" 2>&1 | grep -ci "budget" || true
+          done
