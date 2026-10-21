@@ -72,7 +72,7 @@ struct UnavailableSheet: View {
                 .foregroundStyle(.secondary)
             HStack {
                 Spacer()
-                Button("OK") { dismiss() }.keyboardShortcut(.defaultAction)
+                Button("OK") { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(22)

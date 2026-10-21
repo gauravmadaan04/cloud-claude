@@ -1,2 +1,2 @@
 config: Debug
-tests: HavenTests/ToolEngineTests
+tests: HavenTests/ToolEngineTests,HavenUITests/HavenUITests/test12_FileTools

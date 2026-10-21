@@ -534,7 +534,8 @@ struct SummarizeSheet: View {
                     Button("Save as Text File") { save() }
                 }
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                // Esc closes it too.
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(22)

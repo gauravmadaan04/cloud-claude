@@ -5,7 +5,11 @@ import XCTest
 /// Drives the real app like a person would, on a sample home folder, and keeps screenshots of every screen.
 final class HavenUITests: XCTestCase {
     static let fixtureRoot = "/private/tmp/haven-uitest-fixture"
+    static let toolsRoot = "/private/tmp/haven-tools-fixture"
+    static let testModel = "/Users/Shared/haven-test-models/ggml-base.en-q5_1.bin"
     var app: XCUIApplication!
+    /// The sample folder the current test checks on disk.
+    var root = HavenUITests.fixtureRoot
 
     override func setUpWithError() throws {
         continueAfterFailure = true
@@ -505,7 +509,7 @@ final class HavenUITests: XCTestCase {
     }
 
     func exists(_ relative: String) -> Bool {
-        FileManager.default.fileExists(atPath: Self.fixtureRoot + "/" + relative)
+        FileManager.default.fileExists(atPath: root + "/" + relative)
     }
 
     func waitOnDisk(_ relative: String, _ timeout: TimeInterval = 15, gone: Bool = false) -> Bool {
@@ -698,6 +702,132 @@ final class HavenUITests: XCTestCase {
         snap("92-activity")
         app.buttons["activity.undo"].firstMatch.click()
         XCTAssertTrue(waitOnDisk("Downloads/invoice-4821.png", 15), "Undo puts the invoice back")
+    }
+
+    // MARK: File Tools
+
+    /// Right-click tools on real images, PDFs, video and a spoken voice memo, from their own sample folder.
+    func test12_FileTools() throws {
+        root = Self.toolsRoot
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-HavenFixtureRoot", Self.toolsRoot,
+            "-HavenMakeFixtures", "tools",
+            "-HavenResetState", "YES",
+            "-HavenSkipOnboarding", "YES",
+            "-HavenWhisperModel", Self.testModel,
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US",
+        ]
+        app.launch()
+        app.activate()
+        waitFor(el("sidebar.category.images"), 60)
+
+        // Every tool on one page.
+        app.typeKey("t", modifierFlags: [.command, .shift])
+        waitFor(el("tools"), 15, "⇧⌘T should open File Tools")
+        waitFor(el("tool.transcribe"), 10)
+        sleep(1)
+        snap("93-file-tools")
+
+        func tool(_ file: XCUIElement, _ title: String, _ choice: String? = nil) {
+            file.rightClick()
+            menuItem("Tools").hover()
+            if let choice {
+                menuItem(title).hover()
+                menuItem(choice).click()
+            } else {
+                menuItem(title).click()
+            }
+        }
+
+        // Images: a photo that says where it was taken, made safe to share; a HEIC made into a JPEG.
+        el("sidebar.category.images").click()
+        let goa = file("Goa Trip.jpg")
+        waitFor(goa, 20)
+        tool(goa, "Remove Private Details")
+        XCTAssertTrue(waitOnDisk("Pictures/Goa Trip (clean).jpg", 20), "a clean copy is made")
+        tool(file("Hills.heic"), "Convert Images", "JPEG")
+        XCTAssertTrue(waitOnDisk("Pictures/Hills.jpg", 20))
+        XCTAssertTrue(exists("Pictures/Hills.heic"), "the original stays")
+        waitFor(file("Hills.jpg"), 15, "the new file shows up")
+        sleep(1)
+        snap("94-image-tools")
+
+        // PDFs: merge two (in an order you can change), reorganize pages, add a password.
+        el("sidebar.category.documents").click()
+        let contract = file("Contract.pdf"), appendix = file("Appendix.pdf")
+        waitFor(contract, 20)
+        contract.click()
+        XCUIElement.perform(withKeyModifiers: .command) { appendix.click() }
+        tool(contract, "Merge PDFs…")
+        waitFor(el("merge.list"), 10, "Merge asks for the order")
+        sleep(1)
+        snap("95-merge-order")
+        el("merge.go").click()
+        XCTAssertTrue(waitOnDisk("Documents/Contract (merged).pdf", 20) || exists("Documents/Appendix (merged).pdf"), "merged")
+
+        tool(file("Contract.pdf"), "Organize Pages…")
+        let firstPage = el("page.1")
+        waitFor(firstPage, 10, "the pages are shown")
+        firstPage.click()
+        el("pages.rotateRight").click()
+        sleep(1)
+        snap("96-organize-pages")
+        el("pages.save").click()
+        XCTAssertTrue(waitOnDisk("Documents/Contract (edited).pdf", 20))
+
+        tool(file("Contract.pdf"), "Add Password…")
+        let pw = el("password.field")
+        waitFor(pw, 10)
+        pw.click()
+        pw.typeText("mango42")
+        el("password.again").click()
+        el("password.again").typeText("mango42")
+        el("password.go").click()
+        XCTAssertTrue(waitOnDisk("Documents/Contract (locked).pdf", 20))
+
+        // Video: compress (a job with progress), then a GIF.
+        el("sidebar.category.videos").click()
+        let beach = file("Beach Clip.mov")
+        waitFor(beach, 20)
+        tool(beach, "Compress Video", "Smallest (540p)")
+        if el("job").waitForExistence(timeout: 5) { snapScreen("97-job-progress") }
+        XCTAssertTrue(waitOnDisk("Movies/Beach Clip (540p).mp4", 60), "compressed")
+        tool(file("Beach Clip.mov"), "Make a GIF", "Small (320 px)")
+        XCTAssertTrue(waitOnDisk("Movies/Beach Clip.gif", 60))
+
+        // A spoken voice memo: transcribed with Whisper, then found by what was said.
+        el("sidebar.category.music").click()
+        let memo = file("Voice Memo.m4a")
+        waitFor(memo, 20)
+        tool(memo, "Transcribe…")
+        waitFor(el("transcribe.go"), 10, "the transcription window opens")
+        el("transcribe.srt").click()
+        sleep(1)
+        snap("98-transcribe")
+        el("transcribe.go").click()
+        XCTAssertTrue(waitOnDisk("Music/Voice Memo.txt", 120), "a transcript is written")
+        XCTAssertTrue(waitOnDisk("Music/Voice Memo.srt", 10), "and subtitles")
+        search("quarterly budget")
+        waitFor(file("Voice Memo.m4a"), 20, "searching for what was said finds the memo")
+        sleep(1)
+        snap("99-search-what-was-said")
+        clearSearch()
+
+        // ⌘Z takes back what the last tool made.
+        app.typeKey("z", modifierFlags: .command)
+        XCTAssertTrue(waitOnDisk("Music/Voice Memo.txt", 15, gone: true), "Undo moves the transcript to the Trash")
+
+        // Summaries and translation open (what they can do depends on the Mac).
+        el("sidebar.category.documents").click()
+        let notes = file("Meeting Notes.txt")
+        waitFor(notes, 20)
+        tool(notes, "Summarize…")
+        waitFor(el("toolSheet"), 10)
+        sleep(2)
+        snap("99b-summarize")
+        app.typeKey(.escape, modifierFlags: [])
     }
 
     // MARK: Videos

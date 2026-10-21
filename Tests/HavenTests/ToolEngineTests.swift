@@ -81,7 +81,7 @@ final class ToolEngineTests: XCTestCase {
         let other = path("Lake.png")
         FixtureFactory.scene(seed: 5, size: CGSize(width: 600, height: 400), to: other, type: .png)
         let made = try await run(.convertImage, [photo, other], .imageFormat(.tiff))
-        XCTAssertEqual(Set(made), ["Hills.tiff", "Lake.tiff"])
+        XCTAssertEqual(Set(made), ["Hills 2.tiff", "Lake.tiff"], "Hills.tiff exists already, so the new one is numbered")
         XCTAssertTrue(exists("Hills.jpg") && exists("Lake.png"), "originals stay")
     }
 
@@ -238,7 +238,7 @@ final class ToolEngineTests: XCTestCase {
 
     func testVideoTools() async throws {
         let clip = path("Beach.mov"), second = path("Sunset.mov")
-        FixtureFactory.video(seconds: 3, size: CGSize(width: 1280, height: 720), to: clip)
+        FixtureFactory.video(seconds: 3, size: CGSize(width: 1280, height: 720), detailed: true, to: clip)
         FixtureFactory.video(seconds: 2, size: CGSize(width: 1280, height: 720), hue: 0.6, to: second)
         let original = await duration(clip)
         XCTAssertEqual(original, 3, accuracy: 0.1)
@@ -308,7 +308,7 @@ final class ToolEngineTests: XCTestCase {
             let file = try AVAudioFile(forReading: URL(fileURLWithPath: path(made[0])))
             XCTAssertGreaterThan(file.length, 100_000)
         }
-        do { let value = try await run(.convertAudio, [path("Chime.m4a")], .audioFormat(.wav)); XCTAssertEqual(value, ["Chime (converted).wav"]) }
+        do { let value = try await run(.convertAudio, [path("Chime.m4a")], .audioFormat(.wav)); XCTAssertEqual(value, ["Chime 2.wav"], "the original WAV is never replaced") }
 
         var extras = ToolExtras()
         extras.timeRange = CMTimeRange(start: CMTime(seconds: 0.5, preferredTimescale: 600), duration: CMTime(seconds: 1, preferredTimescale: 600))

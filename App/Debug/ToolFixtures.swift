@@ -13,6 +13,7 @@ extension FixtureFactory {
 
     static func makeTools(at root: String) {
         let fm = FileManager.default
+        try? fm.removeItem(atPath: root)
         func dir(_ rel: String) -> String {
             let p = (root as NSString).appendingPathComponent(rel)
             try? fm.createDirectory(atPath: p, withIntermediateDirectories: true)
@@ -36,7 +37,7 @@ extension FixtureFactory {
 
         The launch moves to Friday because the printer needs two more days. Please send your slides by Thursday.
         """.write(toFile: at(documents, "Meeting Notes.txt"), atomically: true, encoding: .utf8)
-        video(seconds: 3, size: CGSize(width: 1280, height: 720), to: at(movies, "Beach Clip.mov"))
+        video(seconds: 3, size: CGSize(width: 1280, height: 720), detailed: true, to: at(movies, "Beach Clip.mov"))
         video(seconds: 2, size: CGSize(width: 1280, height: 720), hue: 0.6, to: at(movies, "Sunset Clip.mov"))
         speech(spokenMemo, to: at(music, "Voice Memo.m4a"))
         wav(seconds: 3, frequency: 523, to: at(music, "Chime.wav"))
@@ -133,8 +134,9 @@ extension FixtureFactory {
     }
 
     /// An H.264 video with a moving square over a colour wash, and (optionally) a tone as its soundtrack.
+    /// `detailed` adds fine, changing texture (like real footage), so the video isn't trivially small.
     static func video(seconds: Double, size: CGSize = CGSize(width: 640, height: 360), fps: Int32 = 30, hue: CGFloat = 0.08,
-                      audio: Bool = true, to path: String) {
+                      audio: Bool = true, detailed: Bool = false, to path: String) {
         let url = URL(fileURLWithPath: path)
         try? FileManager.default.removeItem(at: url)
         guard let writer = try? AVAssetWriter(outputURL: url, fileType: path.lowercased().hasSuffix(".mp4") ? .mp4 : .mov) else { return }
@@ -166,7 +168,7 @@ extension FixtureFactory {
                     group.leave()
                     return
                 }
-                if let pool = adaptor.pixelBufferPool, let pb = drawFrame(frame, of: frames, pool: pool, hue: hue) {
+                if let pool = adaptor.pixelBufferPool, let pb = drawFrame(frame, of: frames, pool: pool, hue: hue, detailed: detailed) {
                     adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: fps))
                 }
                 frame += 1
@@ -196,7 +198,7 @@ extension FixtureFactory {
         done.wait()
     }
 
-    private static func drawFrame(_ i: Int, of count: Int, pool: CVPixelBufferPool, hue: CGFloat) -> CVPixelBuffer? {
+    private static func drawFrame(_ i: Int, of count: Int, pool: CVPixelBufferPool, hue: CGFloat, detailed: Bool) -> CVPixelBuffer? {
         var buffer: CVPixelBuffer?
         CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer)
         guard let pb = buffer else { return nil }
@@ -209,6 +211,18 @@ extension FixtureFactory {
         let t = CGFloat(i) / CGFloat(max(1, count))
         ctx.setFillColor(NSColor(hue: (hue + t * 0.2).truncatingRemainder(dividingBy: 1), saturation: 0.55, brightness: 0.9, alpha: 1).cgColor)
         ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        if detailed {
+            // Grain that changes every frame, like footage from a camera.
+            var seed = UInt64(i &+ 1) &* 0x9E37_79B9_7F4A_7C15
+            func next() -> CGFloat {
+                seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+                return CGFloat(seed >> 40) / CGFloat(1 << 24)
+            }
+            for _ in 0..<2_500 {
+                ctx.setFillColor(CGColor(gray: next(), alpha: 0.6))
+                ctx.fill(CGRect(x: next() * CGFloat(w), y: next() * CGFloat(h), width: 3 + next() * 9, height: 3 + next() * 9))
+            }
+        }
         ctx.setFillColor(CGColor(gray: 1, alpha: 0.9))
         let side = CGFloat(h) / 3
         ctx.fill(CGRect(x: (CGFloat(w) - side) * t, y: (CGFloat(h) - side) / 2, width: side, height: side))
