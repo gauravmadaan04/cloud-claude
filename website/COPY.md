@@ -48,7 +48,8 @@ Haven · How it works · Tools · Clean Up · Compare · Pricing · FAQ · **Buy
 - Sub: No file name needed. Type what you remember, like "the invoice Sam emailed last week", and Haven finds it
   in under a second. Then sign, shrink, merge, convert or transcribe it with one right-click. 27 tools, all on
   your Mac. Nothing uploaded.
-- CTA: **Get Haven for $49** · secondary: Watch the real app
+- Demo first, then the CTA: the search bar and the file pile sit right under the sub, so the promise is tried before
+  the price. CTA: **Get Haven for $49** · secondary: Watch the real app
 - Under CTA: One-time payment · 30-day money-back guarantee · macOS 14 or later (not on a Mac: "Buy now, install
   on your Mac later", plus "Send this page to your Mac", which opens the share sheet so iPhone users can AirDrop it)
 - Demo: a messy pile of files; the search types itself; the right files fly out of the pile.
