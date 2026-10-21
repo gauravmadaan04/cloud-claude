@@ -233,22 +233,32 @@ struct TranscribeSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             ToolSheetHeader(tool: .transcribe, items: request.items)
             if models.isReady {
-                Form {
-                    Picker("Language", selection: $language) {
-                        Text("Work it out").tag("auto")
-                        Divider()
-                        ForEach(Transcriber.languages, id: \.code) { Text($0.name).tag($0.code) }
+                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
+                    GridRow {
+                        Text("Language").foregroundStyle(.secondary)
+                        Picker("Language", selection: $language) {
+                            Text("Work it out").tag("auto")
+                            Divider()
+                            ForEach(Transcriber.languages, id: \.code) { Text($0.name).tag($0.code) }
+                        }
+                        .labelsHidden()
+                        .frame(width: 200)
                     }
-                    Toggle("Translate into English as well", isOn: $toEnglish)
-                    LabeledContent("Save as") {
-                        VStack(alignment: .leading) {
+                    GridRow {
+                        Text("Save as").foregroundStyle(.secondary)
+                        HStack(spacing: 16) {
                             Toggle("Text (.txt)", isOn: $text).accessibilityIdentifier("transcribe.text")
                             Toggle("Subtitles (.srt)", isOn: $subtitles).accessibilityIdentifier("transcribe.srt")
                         }
                     }
+                    GridRow {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                        Toggle("Also translate into English", isOn: $toEnglish)
+                    }
                 }
-                .formStyle(.grouped)
-                .frame(height: 210)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 Label("Saved next to each file. What's said becomes searchable in Haven. Nothing leaves your Mac.", systemImage: "lock.shield")
                     .font(.callout).foregroundStyle(.secondary)
             } else {

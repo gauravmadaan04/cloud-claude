@@ -85,7 +85,7 @@ struct ToolCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .frame(width: 236, height: 64, alignment: .topLeading)
+            .frame(width: 214, height: 64, alignment: .topLeading)
             .cardStyle(theme, padding: 12)
             .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous).strokeBorder(theme.accent, lineWidth: targeted ? 2.5 : 0))
             .interactiveCard()

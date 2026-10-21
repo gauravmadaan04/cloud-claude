@@ -111,6 +111,8 @@ final class ToolEngineTests: XCTestCase {
         let after = ImageTools.privateDetails(URL(fileURLWithPath: path("Goa Trip (clean).jpg")))
         XCTAssertFalse(after.any, "\(after)")
         XCTAssertTrue(size(path("Goa Trip (clean).jpg")) == size(photo))
+        let bytes = { (p: String) in MediaTools.size(URL(fileURLWithPath: p)) }
+        XCTAssertLessThanOrEqual(bytes(path("Goa Trip (clean).jpg")), bytes(photo) + 2_000, "the picture is copied, not re-compressed")
         XCTAssertTrue(ImageTools.privateDetails(URL(fileURLWithPath: photo)).location, "the original keeps everything")
 
         // A GIF can't be copied as is: it becomes a clean PNG.
@@ -352,6 +354,22 @@ final class ToolEngineTests: XCTestCase {
             XCTFail("a video without sound has nothing to transcribe")
         } catch {
             XCTAssertTrue(error.localizedDescription.contains("no sound"), error.localizedDescription)
+        }
+    }
+
+    func testModelDownloadsAreCheckedBeforeUse() async throws {
+        let source = dir.appendingPathComponent("model.bin")
+        try Data((0..<3_000_000).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ $0 >> 9) }).write(to: source)
+        let expected = try WhisperModels.sha256(of: source)
+        XCTAssertEqual(expected.count, 64)
+        let temp = try await ModelDownloader(progress: { _ in }).download(source)
+        defer { try? FileManager.default.removeItem(at: temp) }
+        XCTAssertEqual(try WhisperModels.sha256(of: temp), expected, "the download arrives intact")
+        XCTAssertNotEqual(temp.path, source.path)
+        // The published checksums are the real ones (64 hex characters each).
+        for model in WhisperModel.allCases {
+            XCTAssertEqual(model.sha256.count, 64)
+            XCTAssertTrue(model.url.absoluteString.hasSuffix(model.fileName))
         }
     }
 

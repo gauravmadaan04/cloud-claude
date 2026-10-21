@@ -119,7 +119,7 @@ final class WhisperModels {
 }
 
 /// A download with progress and cancellation.
-private final class ModelDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+final class ModelDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     let progress: @Sendable (Double) -> Void
     private var continuation: CheckedContinuation<URL, Error>?
     private var kept: URL?

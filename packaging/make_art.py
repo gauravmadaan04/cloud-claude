@@ -296,6 +296,34 @@ def readme_pdf(path):
         c.drawString(68, y, title)
         y = para(body, 68, y - 17, pw - 120, size=10.5) - 10
     c.showPage()
+
+    # Page 4: file tools
+    header("File Tools", "Convert, compress, edit and transcribe, all on your Mac.")
+    y = ph - 185
+    tools = [
+        ("How to use them", "Right-click a file (or several) and choose Tools: you only see the ones that fit. Or open "
+         "File Tools (⇧⌘T) and click a tool, or drop files on it. New files go next to the originals, which never "
+         "change, and Undo moves them to the Trash."),
+        ("Images", "Convert between JPEG, PNG, HEIC, TIFF and WebP; resize; rotate; remove location, camera and dates "
+         "before you share; cut out the subject with Remove Background."),
+        ("PDF", "Merge, split into pages, reorder, rotate or take out pages, pick pages for a new PDF, turn photos into "
+         "a PDF and pages into pictures, add or remove a password, and sign with a signature you draw once."),
+        ("Video and audio", "Compress, convert to MP4 or MOV, trim, make a GIF, take out the sound or keep only the "
+         "sound, merge clips and change speed. Audio converts to M4A, WAV, AIFF or FLAC. No extra software needed."),
+        ("Transcribe", "Whisper (OpenAI's open-source speech model) turns what's said in videos and voice memos into "
+         "text or subtitles, on your Mac. The first time, Haven downloads the model (190 or 574 MB). What's said "
+         "becomes searchable too: search “quarterly budget” and find the meeting recording."),
+        ("Translate and summarize", "Translate documents and subtitles with the languages built into macOS (macOS 15 "
+         "or later). Summaries come from Apple Intelligence on Macs that have it (macOS 26)."),
+    ]
+    for title, body in tools:
+        c.setFillColor(accent)
+        c.circle(56, y + 4, 3.5, stroke=0, fill=1)
+        c.setFillColor(ink)
+        c.setFont("DVB", 12.5)
+        c.drawString(68, y, title)
+        y = para(body, 68, y - 17, pw - 120, size=10.5) - 10
+    c.showPage()
     c.save()
 
 

@@ -153,19 +153,31 @@ enum ImageTools {
         )
     }
 
+    /// Where, with what and when: the tags a clean copy leaves out (as CGImageMetadata paths).
+    static let privateTags = [
+        "tiff:Make", "tiff:Model", "tiff:Software", "tiff:DateTime", "tiff:Artist", "tiff:HostComputer", "tiff:Copyright",
+        "exif:DateTimeOriginal", "exif:DateTimeDigitized", "exif:SubsecTimeOriginal", "exif:SubsecTimeDigitized", "exif:SubsecTime",
+        "exif:OffsetTime", "exif:OffsetTimeOriginal", "exif:OffsetTimeDigitized", "exif:UserComment", "exif:MakerNote",
+        "exifEX:LensMake", "exifEX:LensModel", "exifEX:LensSpecification", "exifEX:BodySerialNumber", "exifEX:LensSerialNumber",
+        "exifEX:CameraOwnerName", "aux:Lens", "aux:LensInfo", "aux:SerialNumber",
+    ]
+
     /// A copy without location, camera, dates or editing history. Pixels aren't touched (no re-compression)
     /// where macOS can copy the image as is; the picture keeps its orientation and colours.
     static func removeDetails(_ url: URL, dest: URL) throws {
         let (src, props) = try source(url)
         let sameFormat = ImageFormat.of(url.pathExtension) != nil && ImageFormat.of(url.pathExtension) == ImageFormat.of(dest.pathExtension)
         if sameFormat, let type = CGImageSourceGetType(src), let out = CGImageDestinationCreateWithURL(dest as CFURL, type, 1, nil) {
-            let orientation = props[kCGImagePropertyOrientation] as? UInt32 ?? 1
+            // Each private tag set to null is taken out; the picture itself is copied byte for byte.
+            let drop = CGImageMetadataCreateMutable()
+            for path in privateTags {
+                CGImageMetadataSetValueWithPath(drop, nil, path as CFString, kCFNull)
+            }
             let opts: [CFString: Any] = [
-                kCGImageDestinationMetadata: CGImageMetadataCreateMutable(),
-                kCGImageDestinationMergeMetadata: false,
+                kCGImageDestinationMetadata: drop,
+                kCGImageDestinationMergeMetadata: true,
                 kCGImageMetadataShouldExcludeGPS: true,
                 kCGImageMetadataShouldExcludeXMP: true,
-                kCGImageDestinationOrientation: orientation,
             ]
             var error: Unmanaged<CFError>?
             if CGImageDestinationCopyImageSource(out, src, opts as CFDictionary, &error), !privateDetails(dest).any {
@@ -175,7 +187,7 @@ enum ImageTools {
         // Formats macOS can't copy as is: draw the pixels into a fresh file with no details at all.
         try? FileManager.default.removeItem(at: dest)
         let image = try upright(src, props: props, maxSide: nil)
-        try write(image, as: ImageFormat.of(dest.pathExtension) ?? .png, to: dest, props: [:], quality: 0.95)
+        try write(image, as: ImageFormat.of(dest.pathExtension) ?? .png, to: dest, props: [:], quality: 0.9)
     }
 
     /// Cuts the subject out on a transparent background (PNG), with the same on-device model as Photos.

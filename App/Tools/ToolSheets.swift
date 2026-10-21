@@ -312,6 +312,8 @@ struct PDFPagesSheet: View {
                         .resizable()
                         .scaledToFit()
                         .rotationEffect(.degrees(Double(edit.rotation)))
+                        // A sideways page is as wide as an upright one is tall: shrink it to fit.
+                        .scaleEffect(edit.rotation % 180 == 0 ? 1 : 0.8)
                         .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
                 } else {
                     RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06))

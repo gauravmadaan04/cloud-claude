@@ -290,6 +290,9 @@ private struct AboutSettings: View {
             HStack {
                 Button("Keyboard Shortcuts") { AppModel.shared.showShortcuts = true; AppModel.shared.bringMainWindowForward() }
                 Button("Welcome Tour") { AppModel.shared.replayOnboarding() }
+                Button("Acknowledgements") {
+                    if let url = Bundle.main.url(forResource: "Acknowledgements", withExtension: "txt") { NSWorkspace.shared.open(url) }
+                }
             }
         }
         .padding(30)
@@ -305,9 +308,9 @@ struct ShortcutsHelpView: View {
     private var groups: [(String, [(String, String)])] {
         [
             ("Anywhere", [(prefs.hotKey.display, "Quick Search"), ("⌃↩", "In Quick Search: go there in an Open/Save dialog"),
-                          ("⌥⌘S", "Shelf"), ("⇧⌘T", "File Tools")]),
+                          ("⌥⌘S", "Shelf")]),
             ("Finding", [("⌘F", "Search"), ("⌘[  ⌘]", "Back / Forward"), ("⇧⌘H", "Home"), ("⇧⌘J", "Downloaded From"),
-                         ("⇧⌘D", "Duplicates"), ("⇧⌘K", "Clean Up"), ("⌥⌘L", "Downloads")]),
+                         ("⇧⌘D", "Duplicates"), ("⇧⌘K", "Clean Up"), ("⌥⌘L", "Downloads"), ("⇧⌘T", "File Tools")]),
             ("Files", [("Space  ⌘Y", "Quick Look"), ("Double-click", "Large preview"), ("↩  ⌘↓  ⌘O", "Open"),
                        ("⌘↑", "Enclosing folder"), ("⌘A", "Select all"), ("⇧ + arrows", "Extend selection"),
                        ("Type a name", "Jump to a file"), ("⌘I", "Inspector"), ("⌘C", "Copy files"), ("⌘V", "Paste into this folder"),

@@ -110,7 +110,8 @@ struct FileCollectionView<Header: View>: View {
                 }
                 .onChange(of: model.revealRequest) { _, _ in
                     guard let target = model.scrollTarget else { return }
-                    focused = true
+                    // Files a tool just made are selected, but typing in the search box keeps its focus.
+                    if !model.searchFieldFocused { focused = true }
                     withAnimation(.easeOut(duration: 0.15)) {
                         proxy.scrollTo(target.id, anchor: target.centered ? .center : nil)
                     }
