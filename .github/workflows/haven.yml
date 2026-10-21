@@ -3,6 +3,7 @@ name: Haven macOS
 on:
   push:
     branches: [haven-mac]
+    paths-ignore: ['website/**']
   workflow_dispatch:
 
 concurrency:
