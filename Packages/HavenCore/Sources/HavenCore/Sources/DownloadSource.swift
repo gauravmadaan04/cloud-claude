@@ -241,6 +241,13 @@ public enum SourceClassifier {
         return nil
     }
 
+    /// Every source that is an inbox: "emailed" or "an email attachment" means any of these.
+    public static let emailSourceIDs: Set<String> = ["gmail", "outlook", "mail"]
+    /// Words that mean "it came by email" on their own ("the invoice Sam emailed").
+    public static let emailedWords: Set<String> = ["emailed", "e-mailed", "mailed", "attachment", "attachments"]
+    /// Words that name email after "from", "in" or "via" ("from email", "in my inbox").
+    public static let emailWords: Set<String> = ["email", "emails", "e-mail", "e-mails", "inbox"]
+
     /// Brand names distinctive enough to act as a source filter without "from" ("whatsapp photos").
     public static let bareKeywords: Set<String> = [
         "gmail", "whatsapp", "chatgpt", "canva", "figma", "telegram", "github", "dropbox", "onedrive", "instagram",

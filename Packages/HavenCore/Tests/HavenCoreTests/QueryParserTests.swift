@@ -32,6 +32,22 @@ final class QueryParserTests: XCTestCase {
         XCTAssertEqual(QueryParser.parse("movies 2gb").query.minSize, 2 * ByteSize.gb)
     }
 
+    /// The way people actually describe a file: who sent it, how, and the filler words around it.
+    func testDescribingFromMemory() {
+        let p = QueryParser.parse("the invoice Sam emailed last week")
+        XCTAssertEqual(p.query.sourceIDs, SourceClassifier.emailSourceIDs)
+        XCTAssertEqual(p.query.date, .lastWeek)
+        XCTAssertEqual(p.query.terms, ["invoice", "sam"])
+        XCTAssertEqual(p.chips.map(\.label), ["From email", "Last week", "“invoice”", "“sam”"])
+        XCTAssertEqual(labels("email attachments from last week"), ["From email", "Last week"])
+        XCTAssertEqual(labels("invoice from my inbox"), ["From email", "“invoice”"])
+        XCTAssertEqual(QueryParser.parse("the one with the wifi password").query.terms, ["wifi", "password"])
+        XCTAssertEqual(QueryParser.parse("the recording where someone said budget").query.terms, ["budget"])
+        XCTAssertEqual(QueryParser.parse("the contract Sam sent last week").query.terms, ["contract", "sam"])
+        XCTAssertEqual(QueryParser.parse("photos sent via whatsapp").query.sourceIDs, ["whatsapp"])
+        XCTAssertEqual(QueryParser.parse("one week ago").query.terms, [], "“one” still counts as a number")
+    }
+
     func testPhotosFromWhatsApp() {
         let p = QueryParser.parse("photos from whatsapp")
         XCTAssertEqual(p.query.kinds, [.image])

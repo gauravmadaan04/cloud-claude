@@ -40,7 +40,11 @@ final class HavenAppDelegate: NSObject, NSApplicationDelegate {
         guard !opts.isRunningUnitTests else { return }
         #if DEBUG
         if opts.makeFixtures, let root = opts.fixtureRoot {
-            if opts.fixtureSet == "tools" { FixtureFactory.makeTools(at: root) } else { FixtureFactory.make(at: root) }
+            switch opts.fixtureSet {
+            case "tools": FixtureFactory.makeTools(at: root)
+            case "film": FixtureFactory.makeFilm(at: root)
+            default: FixtureFactory.make(at: root)
+            }
         }
         #endif
         Self.applyHotKey()

@@ -9,6 +9,7 @@ import Foundation
 ///   -HavenAppearance dark       start in light/dark/system appearance (not saved)
 ///   -HavenLook minimal          start in the playful/minimal look (not saved)
 ///   -HavenMakeFixtures tools    sample files for the tools (photos, PDFs, a video, a voice memo) instead
+///   -HavenMakeFixtures film     the usual sample files plus clutter, an emailed invoice and a recorded call (for the film)
 ///   -HavenWhisperModel <path>   transcribe with this model file (the tests use a small one)
 struct LaunchOptions {
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
@@ -19,7 +20,7 @@ struct LaunchOptions {
     let skipOnboarding: Bool
     let appearance: String?
     let look: String?
-    /// "tools" for the tools' sample files.
+    /// "tools" for the tools' sample files, "film" for the product film's.
     let fixtureSet: String?
     let whisperModel: String?
 
@@ -34,7 +35,7 @@ struct LaunchOptions {
         }
         fixtureRoot = value("-HavenFixtureRoot").map { ($0 as NSString).expandingTildeInPath }
         fixtureSet = value("-HavenMakeFixtures")?.lowercased()
-        makeFixtures = flag("-HavenMakeFixtures") || fixtureSet == "tools"
+        makeFixtures = flag("-HavenMakeFixtures") || fixtureSet == "tools" || fixtureSet == "film"
         whisperModel = value("-HavenWhisperModel").map { ($0 as NSString).expandingTildeInPath }
         resetState = flag("-HavenResetState")
         skipOnboarding = flag("-HavenSkipOnboarding")

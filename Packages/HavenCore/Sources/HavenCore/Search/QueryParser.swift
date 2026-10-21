@@ -119,6 +119,8 @@ public enum QueryParser {
         "or", "of", "please", "everything", "list", "named", "called", "about", "containing", "contain", "contains",
         "mentioning", "where", "what", "whats", "have", "has", "had", "to", "&", "+", "-", "–", "your", "our", "those", "these",
         "type", "kind", "kinds", "types", "saying", "says", "say", "text",
+        // How people describe a file from memory: "the contract Sam sent", "where someone said budget".
+        "sent", "someone", "somebody", "said", "mentioned", "mentions", "talked", "spoke", "he", "she", "they", "we", "it",
     ]
 
     /// Prepositions that never stand alone as search words.
@@ -223,6 +225,11 @@ public enum QueryParser {
                 }
                 if matchTag() || matchExtension() || matchSort() || matchDateField() || matchDate() || matchSize()
                     || matchSource() || matchLocation() || matchType() {
+                    continue
+                }
+                // "the one with the wifi password"
+                if w == "one", ["the", "that", "this"].contains(t(i - 1)) {
+                    i += 1
                     continue
                 }
                 if QueryParser.stopwords.contains(w) || QueryParser.prepositions.contains(w) {
@@ -558,6 +565,7 @@ public enum QueryParser {
 
         mutating func matchSource() -> Bool {
             let w = tok[i]
+            if matchEmail() { return true }
             var j = i
             var prefixed = false
             if ["from", "via", "on", "through", "by", "using"].contains(w) {
@@ -586,6 +594,31 @@ public enum QueryParser {
                 return true
             }
             return false
+        }
+
+        /// "the invoice Sam emailed", "an email attachment", "from my inbox": anything that came from an inbox.
+        mutating func matchEmail() -> Bool {
+            let w = tok[i]
+            if SourceClassifier.emailedWords.contains(w) {
+                addEmail(end: i + 1)
+                return true
+            }
+            if SourceClassifier.emailWords.contains(w), SourceClassifier.emailedWords.contains(t(i + 1)) {
+                addEmail(end: i + 2)
+                return true
+            }
+            guard ["from", "via", "by", "through", "in", "on"].contains(w) else { return false }
+            var j = i + 1
+            if ["my", "the", "an", "a"].contains(t(j)) { j += 1 }
+            guard SourceClassifier.emailWords.contains(t(j)) || SourceClassifier.emailedWords.contains(t(j)) else { return false }
+            addEmail(end: SourceClassifier.emailedWords.contains(t(j + 1)) ? j + 2 : j + 1)
+            return true
+        }
+
+        mutating func addEmail(end: Int) {
+            query.sourceIDs.formUnion(SourceClassifier.emailSourceIDs)
+            sources.append((DownloadSource(id: "email", name: "email", symbol: "envelope", tint: .blue), Array(i..<end)))
+            i = end
         }
 
         mutating func add(source: DownloadSource, end: Int) {

@@ -100,6 +100,27 @@ final class SearchEngineTests: XCTestCase {
         XCTAssertEqual(run("beach images", textLookup: text), ["holiday.jpg"])
     }
 
+    func testDescribedFromMemory() {
+        let text: SearchEngine.TextLookup = {
+            if $0.hasSuffix("attachment.pdf") { return "invoice from sam patel. total due 12,400" }
+            if $0.hasSuffix("notes.txt") { return "guest wi-fi password: haven2026" }
+            return nil
+        }
+        XCTAssertEqual(run("the invoice Sam emailed", textLookup: text), ["attachment.pdf"])
+        XCTAssertEqual(run("the one with the wifi password", textLookup: text), ["notes.txt"], "“wifi” finds “wi-fi”")
+        XCTAssertEqual(run("invoice from outlook", textLookup: text), [], "Gmail isn't Outlook")
+    }
+
+    func testHyphensInTextDontCount() {
+        func has(_ needle: String, _ hay: String) -> Bool { TextMatch.containsIgnoringHyphens(Array(needle.utf8), in: hay) }
+        XCTAssertTrue(has("wifi", "the wi-fi password"))
+        XCTAssertTrue(has("email", "send an e-mail"))
+        XCTAssertTrue(has("wifi", "wifi"))
+        XCTAssertFalse(has("wifi", "wi fi"))
+        XCTAssertFalse(has("wi-fi", "wifi"), "a hyphen you type is matched as typed")
+        XCTAssertFalse(has("wifi", "wi-f"))
+    }
+
     func testFoldersOnlyForNameSearches() {
         XCTAssertEqual(run("invoices"), ["Invoices"])
         XCTAssertFalse(run("from gmail").contains("Invoices"))

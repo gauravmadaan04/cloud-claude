@@ -46,6 +46,31 @@ public enum TextMatch {
         }
     }
 
+    /// Like `contains`, but hyphens inside the text don't count, so "wifi" finds "wi-fi" and "email" finds "e-mail".
+    public static func containsIgnoringHyphens(_ needle: [UInt8], in hay: String) -> Bool {
+        let check: (UnsafeBufferPointer<UInt8>) -> Bool = { findIgnoringHyphens(needle, in: $0) }
+        if let hit = hay.utf8.withContiguousStorageIfAvailable(check) { return hit }
+        return Array(hay.utf8).withUnsafeBufferPointer(check)
+    }
+
+    static func findIgnoringHyphens(_ needle: [UInt8], in hay: UnsafeBufferPointer<UInt8>) -> Bool {
+        let n = needle.count, h = hay.count
+        guard n > 1, !needle.contains(45) else { return false }
+        let first = needle[0]
+        var i = 0
+        while i < h {
+            if hay[i] == first {
+                var j = 1, k = i + 1
+                while j < n && k < h {
+                    if hay[k] == needle[j] { j += 1; k += 1 } else if hay[k] == 45 { k += 1 } else { break }
+                }
+                if j == n { return true }
+            }
+            i += 1
+        }
+        return false
+    }
+
     /// How well a word matches a folded name: 30 at the start, 20 at a word start, 12 inside a word, 0 if absent.
     public static func score(_ term: [UInt8], in name: String) -> Int {
         let compute: (UnsafeBufferPointer<UInt8>) -> Int = { buf in

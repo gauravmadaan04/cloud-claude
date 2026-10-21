@@ -242,7 +242,7 @@ public enum SearchEngine {
                 // Only kinds Haven reads text from (or transcribed) can match inside the file.
                 guard item.kind.hasSearchableText, let text else { return nil }
                 if content == nil { content = .some(text(item.path)) }
-                if let c = content!, TextMatch.contains(term, in: c) {
+                if let c = content!, TextMatch.contains(term, in: c) || TextMatch.containsIgnoringHyphens(term, in: c) {
                     score += 4
                     onlyText = true
                     continue

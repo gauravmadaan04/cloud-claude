@@ -963,4 +963,157 @@ final class HavenUITests: XCTestCase {
         done.wait()
         if writer.status != .completed { throw writer.error ?? CocoaError(.fileWriteUnknown) }
     }
+
+    // MARK: Film
+
+    /// Not a check: plays the website's product film on the real app while the film workflow records the screen.
+    /// Notes when each moment starts in /private/tmp/haven-film/marks.json, so the footage can be cut to them.
+    func test90_Film() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["HAVEN_FILM"] == "1", "Only for the film workflow")
+        let out = URL(fileURLWithPath: "/private/tmp/haven-film")
+        try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        var marks: [[String: Any]] = []
+        func mark(_ name: String) {
+            marks.append(["name": name, "t": Date().timeIntervalSince1970])
+            if let data = try? JSONSerialization.data(withJSONObject: marks, options: [.prettyPrinted]) {
+                try? data.write(to: out.appendingPathComponent("marks.json"))
+            }
+        }
+        func pause(_ seconds: Double) { usleep(useconds_t(seconds * 1_000_000)) }
+        func typeSlowly(_ text: String) {
+            let field = app.textFields["search.field"]
+            field.click()
+            field.typeKey("a", modifierFlags: .command)
+            field.typeKey(.delete, modifierFlags: [])
+            pause(0.4)
+            for ch in text { field.typeText(String(ch)); usleep(30_000) }
+        }
+        func openTool(_ item: XCUIElement, _ path: [String]) {
+            item.rightClick()
+            pause(0.9)
+            for (i, title) in path.enumerated() {
+                let entry = menuItem(title)
+                if i == path.count - 1 { entry.click() } else { entry.hover(); pause(0.8) }
+            }
+        }
+        root = "/private/tmp/haven-film-fixture"
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-HavenFixtureRoot", root,
+            "-HavenMakeFixtures", "film",
+            "-HavenResetState", "YES",
+            "-HavenSkipOnboarding", "YES",
+            "-HavenWhisperModel", Self.testModel,
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US",
+        ]
+        app.launch()
+        app.activate()
+        requireHome("film")
+
+        // Where the window is, for cropping.
+        let f = app.windows.firstMatch.frame
+        let screen = NSScreen.main?.frame ?? .zero
+        let info: [String: Double] = ["x": Double(f.minX), "y": Double(f.minY), "w": Double(f.width), "h": Double(f.height),
+                                      "screenW": Double(screen.width), "screenH": Double(screen.height),
+                                      "scale": Double(NSScreen.main?.backingScaleFactor ?? 1)]
+        if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
+            try? data.write(to: out.appendingPathComponent("window.json"))
+        }
+
+        // Before the film: let text in pictures and PDFs be read and thumbnails drawn (cut from the footage).
+        search("wifi password")
+        _ = file("Screenshot 2026-10-18 at 11.02.40.png").waitForExistence(timeout: 120)
+        search("invoice sam")
+        _ = file("scan0047.pdf").waitForExistence(timeout: 60)
+        clearSearch()
+        app.typeKey(.escape, modifierFlags: [])
+        app.typeKey("h", modifierFlags: [.command, .shift])
+        waitFor(el("home.tile.images"), 10)
+        pause(4)
+
+        // 1. Home.
+        mark("home")
+        pause(2.5)
+
+        // 2. Describe it.
+        mark("describe")
+        typeSlowly("the invoice Sam emailed last week")
+        mark("describe.typed")
+        waitFor(file("scan0047.pdf"), 20, "the invoice is found")
+        pause(2.8)
+        snap("film-01-describe")
+        mark("describe.open")
+        file("scan0047.pdf").doubleClick()
+        waitFor(el("preview.overlay"), 10)
+        pause(3)
+        snap("film-02-invoice")
+        app.typeKey(.escape, modifierFlags: [])
+        pause(1)
+
+        // 3. Text inside a screenshot.
+        mark("screenshot")
+        typeSlowly("the one with the wifi password")
+        mark("screenshot.typed")
+        waitFor(file("Screenshot 2026-10-18 at 11.02.40.png"), 20, "the screenshot is found by its text")
+        pause(2.8)
+        snap("film-03-wifi")
+
+        // 4. Right-click tools: a HEIC from the phone becomes a JPEG next to it.
+        mark("tools")
+        clearSearch()
+        app.typeKey(.escape, modifierFlags: [])
+        app.typeKey("l", modifierFlags: [.command, .option])
+        let heic = file("IMG_4021.HEIC")
+        waitFor(heic, 15)
+        pause(1.5)
+        openTool(heic, ["Tools", "Convert Images", "JPEG"])
+        XCTAssertTrue(waitOnDisk("Downloads/IMG_4021.jpg", 20), "a JPEG is made")
+        waitFor(file("IMG_4021.jpg"), 15)
+        pause(2.2)
+        snap("film-04-converted")
+
+        // 5. What was said: transcribe a recorded call, then find it by a phrase from it.
+        mark("said")
+        el("sidebar.category.music").click()
+        let memo = file("New Recording 14.m4a")
+        waitFor(memo, 15)
+        pause(1.2)
+        openTool(memo, ["Tools", "Transcribe…"])
+        waitFor(el("transcribe.go"), 10, "the transcription window opens")
+        pause(1.5)
+        el("transcribe.go").click()
+        mark("said.wait")
+        XCTAssertTrue(waitOnDisk("Music/New Recording 14.txt", 180), "a transcript is written")
+        mark("said.done")
+        pause(1.5)
+        typeSlowly("where someone said quarterly budget")
+        mark("said.typed")
+        waitFor(file("New Recording 14.m4a"), 20, "the recording is found by what was said")
+        pause(2.8)
+        snap("film-05-said")
+
+        // 6. Clean Up, safely: review, move to the Trash, undo.
+        mark("cleanup")
+        clearSearch()
+        app.typeKey(.escape, modifierFlags: [])
+        app.typeKey("k", modifierFlags: [.command, .shift])
+        waitFor(el("cleanup.card.oldInstallers"), 20)
+        pause(2.2)
+        snap("film-06-cleanup")
+        el("cleanup.card.oldInstallers").click()
+        waitFor(el("cleanup.trashAll"), 10)
+        pause(2)
+        el("cleanup.trashAll").click()
+        let confirm = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Move All to Trash'")).firstMatch
+        waitFor(confirm, 10)
+        pause(1.2)
+        confirm.click()
+        waitFor(el("toast.undo"), 10)
+        pause(1.6)
+        snap("film-07-trashed")
+        el("toast.undo").click()
+        pause(2)
+        mark("end")
+    }
 }

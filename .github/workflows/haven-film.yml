@@ -1,0 +1,127 @@
+name: Haven film
+
+# Records the website's product film: the real app (Debug build, sample files) driven by HavenUITests.test90_Film
+# while the screen is recorded. Also logs every network connection the Haven process opens during the run.
+on:
+  workflow_dispatch:
+    inputs:
+      appearance:
+        description: "light or dark"
+        default: "light"
+  push:
+    branches: [haven-film]
+
+concurrency:
+  group: haven-film-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  film:
+    runs-on: macos-26
+    timeout-minutes: 50
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      DD: build/dd
+      ONLY: HavenUITests/HavenUITests/test90_Film
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: A sharper screen (best effort)
+        continue-on-error: true
+        run: |
+          system_profiler SPDisplaysDataType | grep -E "Resolution|Retina|Display Type|UI Looks" || true
+          brew install jakehilborn/jakehilborn/displayplacer >/dev/null 2>&1 || true
+          displayplacer list > modes.txt 2>&1 || true
+          grep -E "Persistent screen id|mode [0-9]+:.*(current)?" modes.txt | head -60 || true
+          # The largest HiDPI mode up to 1440 points wide, else the largest plain mode up to 1920.
+          CMD=$(python3 - <<'PY'
+          import re
+          txt = open("modes.txt").read()
+          sid = re.search(r"Persistent screen id: (\S+)", txt)
+          best = None
+          for m in re.finditer(r"mode (\d+): res:(\d+)x(\d+).*?scaling:(on|off)", txt):
+              n, w, h, sc = int(m[1]), int(m[2]), int(m[3]), m[4] == "on"
+              ok = (sc and w <= 1440) or (not sc and w <= 1920)
+              key = (sc, w * h)
+              if ok and (best is None or key > best[0]): best = (key, n)
+          if sid and best: print(f'id:{sid[1]} mode:{best[1]}')
+          PY
+          )
+          echo "Switching to: $CMD"
+          [ -n "$CMD" ] && displayplacer "$CMD" || true
+          sleep 3
+          system_profiler SPDisplaysDataType | grep -E "Resolution|UI Looks" || true
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build app and the film run (Debug)
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project Haven.xcodeproj -scheme Haven -destination 'platform=macOS' \
+            -derivedDataPath "$DD" -only-testing:$ONLY CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES 2>&1 \
+            | tee build.log | grep -E "error:|\*\*" || true
+          grep -q "TEST BUILD SUCCEEDED" build.log
+
+      - name: Allow UI automation
+        run: sudo automationmodetool enable-automationmode-without-authentication || true
+
+      - name: Speech model for transcription
+        run: |
+          mkdir -p /Users/Shared/haven-test-models
+          f=/Users/Shared/haven-test-models/ggml-base.en-q5_1.bin
+          [ -f "$f" ] || curl -sSL --retry 3 -o "$f" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin
+          echo "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f  $f" | shasum -a 256 -c
+
+      - name: A quiet desktop
+        continue-on-error: true
+        run: |
+          defaults write com.apple.dock autohide -bool true
+          defaults write com.apple.dock autohide-delay -float 1000
+          killall Dock || true
+          osascript -e 'tell application "Finder" to close every window' || true
+          if [ "${{ inputs.appearance }}" = "dark" ]; then
+            osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' || true
+          fi
+
+      - name: Record the film
+        run: |
+          mkdir -p build/film
+          rm -rf /private/tmp/haven-film /private/tmp/haven-shots
+          # Every network connection the Haven process has open, checked twice a second for the whole run.
+          ( while true; do lsof -nP -i -a -c '/^Haven$/' 2>/dev/null | tail -n +2; sleep 0.5; done ) > build/film/haven-network.log &
+          NET=$!
+          python3 -c "import time; print(time.time())" > build/film/rec-start.txt
+          screencapture -v -V 900 -C -x build/film/raw.mov &
+          REC=$!
+          sleep 3
+          if ! kill -0 $REC 2>/dev/null; then echo "screencapture stopped early"; fi
+          set +e
+          TEST_RUNNER_HAVEN_FILM=1 xcodebuild test-without-building -project Haven.xcodeproj -scheme Haven -destination 'platform=macOS' \
+            -derivedDataPath "$DD" -only-testing:$ONLY -resultBundlePath build/Film.xcresult 2>&1 \
+            | tee film.log | grep -E "Test Case|error:|passed|failed|skipped|XCTAssert"
+          STATUS=${PIPESTATUS[0]}
+          python3 -c "import time; print(time.time())" > build/film/rec-end.txt
+          sleep 2
+          kill -INT $REC 2>/dev/null; sleep 6; kill $REC 2>/dev/null
+          kill $NET 2>/dev/null
+          cp /private/tmp/haven-film/*.json build/film/ 2>/dev/null
+          cp /private/tmp/haven-shots/film-*.png build/film/ 2>/dev/null
+          ls -la build/film
+          echo "Haven network log lines: $(wc -l < build/film/haven-network.log)"
+          sort -u build/film/haven-network.log | head -40
+          exit $STATUS
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: film
+          path: |
+            build/film
+            film.log
+            modes.txt
+          retention-days: 14
+          if-no-files-found: ignore
