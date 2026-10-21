@@ -27,31 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: A sharper screen (best effort)
-        continue-on-error: true
-        run: |
-          system_profiler SPDisplaysDataType | grep -E "Resolution|Retina|Display Type|UI Looks" || true
-          brew install jakehilborn/jakehilborn/displayplacer >/dev/null 2>&1 || true
-          displayplacer list > modes.txt 2>&1 || true
-          grep -E "Persistent screen id|mode [0-9]+:.*(current)?" modes.txt | head -60 || true
-          # The largest HiDPI mode up to 1440 points wide, else the largest plain mode up to 1920.
-          CMD=$(python3 - <<'PY'
-          import re
-          txt = open("modes.txt").read()
-          sid = re.search(r"Persistent screen id: (\S+)", txt)
-          best = None
-          for m in re.finditer(r"mode (\d+): res:(\d+)x(\d+).*?scaling:(on|off)", txt):
-              n, w, h, sc = int(m[1]), int(m[2]), int(m[3]), m[4] == "on"
-              ok = (sc and w <= 1440) or (not sc and w <= 1920)
-              key = (sc, w * h)
-              if ok and (best is None or key > best[0]): best = (key, n)
-          if sid and best: print(f'id:{sid[1]} mode:{best[1]}')
-          PY
-          )
-          echo "Switching to: $CMD"
-          [ -n "$CMD" ] && displayplacer "$CMD" || true
-          sleep 3
-          system_profiler SPDisplaysDataType | grep -E "Resolution|UI Looks" || true
+      - name: Screen
+        run: system_profiler SPDisplaysDataType | grep -E "Resolution|UI Looks" || true
 
       - name: Generate Xcode project
         run: |
@@ -91,11 +68,17 @@ jobs:
         run: |
           mkdir -p build/film
           rm -rf /private/tmp/haven-film /private/tmp/haven-shots
-          # Every network connection the Haven process has open, checked twice a second for the whole run.
-          ( while true; do lsof -nP -i -a -c '/^Haven$/' 2>/dev/null | tail -n +2; sleep 0.5; done ) > build/film/haven-network.log &
+          # Every internet connection the Haven process has open, checked twice a second for the whole run,
+          # and a note of each check that found Haven running (so an empty log means "none", not "not looking").
+          ( while true; do
+              if pgrep -x Haven >/dev/null; then echo "$(date +%s) running" >> build/film/haven-alive.log; fi
+              lsof -nP -i -a -c '/^Haven$/' 2>/dev/null | tail -n +2
+              sleep 0.5
+            done ) > build/film/haven-network.log &
           NET=$!
           python3 -c "import time; print(time.time())" > build/film/rec-start.txt
-          screencapture -v -V 900 -C -x build/film/raw.mov &
+          # Stops by itself after -V seconds and only then writes the file (a background job here ignores Ctrl-C).
+          screencapture -v -V 470 -C -x build/film/raw.mov &
           REC=$!
           sleep 3
           if ! kill -0 $REC 2>/dev/null; then echo "screencapture stopped early"; fi
@@ -105,13 +88,14 @@ jobs:
             | tee film.log | grep -E "Test Case|error:|passed|failed|skipped|XCTAssert"
           STATUS=${PIPESTATUS[0]}
           python3 -c "import time; print(time.time())" > build/film/rec-end.txt
-          sleep 2
-          kill -INT $REC 2>/dev/null; sleep 6; kill $REC 2>/dev/null
           kill $NET 2>/dev/null
-          cp /private/tmp/haven-film/*.json build/film/ 2>/dev/null
-          cp /private/tmp/haven-shots/film-*.png build/film/ 2>/dev/null
-          ls -la build/film
-          echo "Haven network log lines: $(wc -l < build/film/haven-network.log)"
+          echo "Waiting for the recording to finish…"
+          wait $REC
+          mkdir -p build/film/attachments
+          xcrun xcresulttool export attachments --path build/Film.xcresult --output-path build/film/attachments >/dev/null 2>&1 || true
+          ls -la build/film build/film/attachments | head -40
+          echo "Checks that found Haven running: $(wc -l < build/film/haven-alive.log)"
+          echo "Internet connections Haven had open: $(wc -l < build/film/haven-network.log)"
           sort -u build/film/haven-network.log | head -40
           exit $STATUS
 

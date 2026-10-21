@@ -967,18 +967,19 @@ final class HavenUITests: XCTestCase {
     // MARK: Film
 
     /// Not a check: plays the website's product film on the real app while the film workflow records the screen.
-    /// Notes when each moment starts in /private/tmp/haven-film/marks.json, so the footage can be cut to them.
+    /// Attaches when each moment started (film-marks) and where the window is (film-window), so the footage can be cut.
     func test90_Film() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["HAVEN_FILM"] == "1", "Only for the film workflow")
-        let out = URL(fileURLWithPath: "/private/tmp/haven-film")
-        try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         var marks: [[String: Any]] = []
-        func mark(_ name: String) {
-            marks.append(["name": name, "t": Date().timeIntervalSince1970])
-            if let data = try? JSONSerialization.data(withJSONObject: marks, options: [.prettyPrinted]) {
-                try? data.write(to: out.appendingPathComponent("marks.json"))
-            }
+        func mark(_ name: String) { marks.append(["name": name, "t": Date().timeIntervalSince1970]) }
+        func attach(_ name: String, _ object: Any) {
+            guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted]) else { return }
+            let a = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            a.name = name
+            a.lifetime = .keepAlways
+            add(a)
         }
+        defer { attach("film-marks", marks) }
         func pause(_ seconds: Double) { usleep(useconds_t(seconds * 1_000_000)) }
         func typeSlowly(_ text: String) {
             let field = app.textFields["search.field"]
@@ -1017,9 +1018,7 @@ final class HavenUITests: XCTestCase {
         let info: [String: Double] = ["x": Double(f.minX), "y": Double(f.minY), "w": Double(f.width), "h": Double(f.height),
                                       "screenW": Double(screen.width), "screenH": Double(screen.height),
                                       "scale": Double(NSScreen.main?.backingScaleFactor ?? 1)]
-        if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
-            try? data.write(to: out.appendingPathComponent("window.json"))
-        }
+        attach("film-window", info)
 
         // Before the film: let text in pictures and PDFs be read and thumbnails drawn (cut from the footage).
         search("wifi password")
