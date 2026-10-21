@@ -85,6 +85,9 @@ public enum FileKind: String, Codable, CaseIterable, Sendable, Hashable {
         default: return false
         }
     }
+
+    /// Text search can match inside: what Haven reads, plus what was said in transcribed audio and video.
+    public var hasSearchableText: Bool { hasReadableText || self == .audio || self == .video }
 }
 
 /// The six library folders shown on Home and in the sidebar.

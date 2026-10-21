@@ -20,6 +20,7 @@ enum SidebarItem: Hashable, Codable {
     case folder(String)
     case space
     case collection(UUID)
+    case tools
 
     @MainActor
     var title: String {
@@ -38,6 +39,7 @@ enum SidebarItem: Hashable, Codable {
         case .activity: return "Activity"
         case .folder(let path): return FileManager.default.displayName(atPath: path)
         case .space: return "Space"
+        case .tools: return "File Tools"
         case .collection(let id): return CollectionStore.shared.collection(id)?.name ?? "Collection"
         }
     }
@@ -58,6 +60,7 @@ enum SidebarItem: Hashable, Codable {
         case .activity: return "clock.arrow.circlepath"
         case .folder: return "folder"
         case .space: return "chart.pie"
+        case .tools: return "wrench.and.screwdriver"
         case .collection: return "square.stack"
         }
     }
@@ -78,6 +81,7 @@ enum SidebarItem: Hashable, Codable {
         case .activity: return "activity"
         case .folder(let p): return "folder.\((p as NSString).lastPathComponent)"
         case .space: return "space"
+        case .tools: return "tools"
         case .collection(let id): return "collection.\(id.uuidString)"
         }
     }
@@ -187,6 +191,8 @@ final class AppModel {
     var showDialogJumpHelp = false
     /// The rule being made or changed in the rule editor.
     var editingRule: CustomRule?
+    /// A tool that asks for something first (a password, pages, a range…).
+    var toolSheet: ToolSheetRequest?
 
     @ObservationIgnored var openWindowAction: OpenWindowAction?
     @ObservationIgnored var openSettingsAction: OpenSettingsAction?

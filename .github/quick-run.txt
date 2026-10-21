@@ -1,2 +1,2 @@
 config: Debug
-tests: HavenUITests/HavenUITests/test10_CollectionsShelfAndShare
+tests: HavenTests/ToolEngineTests

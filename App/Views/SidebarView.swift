@@ -85,6 +85,7 @@ struct SidebarView: View {
                 }
             }
             Section("Tools") {
+                row(.tools)
                 row(.sources)
                 row(.duplicates)
                 row(.cleanup)

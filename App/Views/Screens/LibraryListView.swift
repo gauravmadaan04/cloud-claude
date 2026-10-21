@@ -283,6 +283,8 @@ struct DetailView: View {
             FolderView(path: path)
         case .space:
             SpaceView()
+        case .tools:
+            ToolsView()
         case .collection(let id):
             CollectionView(id: id)
         }

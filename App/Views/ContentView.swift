@@ -49,6 +49,14 @@ struct ContentView: View {
         .sheet(item: $model.renameRequest) { request in RenameSheet(items: request.items) }
         .sheet(item: $model.editingRule) { rule in RuleEditorView(rule: rule) }
         .sheet(isPresented: $model.showDialogJumpHelp) { DialogJumpHelpView() }
+        .sheet(item: $model.toolSheet) { request in ToolSheetView(request: request) }
+        .overlay(alignment: .bottomTrailing) {
+            if !model.showOnboarding {
+                JobsView()
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
+            }
+        }
         .environment(\.theme, theme)
         .tint(theme.accent)
         .preferredColorScheme(prefs.appearance.colorScheme)

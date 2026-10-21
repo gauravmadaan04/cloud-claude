@@ -60,6 +60,13 @@ jobs:
         if: failure()
         run: grep -E "error:" build.log | sort -u | head -200 || true
 
+      - name: Speech model for the transcription tests
+        run: |
+          mkdir -p /Users/Shared/haven-test-models
+          f=/Users/Shared/haven-test-models/ggml-base.en-q5_1.bin
+          [ -f "$f" ] || curl -sSL --retry 3 -o "$f" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin
+          echo "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f  $f" | shasum -a 256 -c
+
       - name: Allow UI automation
         if: env.TESTS != 'none'
         run: sudo automationmodetool enable-automationmode-without-authentication || true

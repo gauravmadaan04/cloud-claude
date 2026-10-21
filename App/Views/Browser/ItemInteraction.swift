@@ -217,6 +217,7 @@ enum ItemMenu {
             share.submenu = sub
             menu.addItem(share)
         }
+        if let tools = ToolActions.menuItem(for: items) { menu.addItem(tools) }
 
         let collect = NSMenuItem(title: "Add to Collection", action: nil, keyEquivalent: "")
         collect.image = NSImage(systemSymbolName: "square.stack", accessibilityDescription: nil)

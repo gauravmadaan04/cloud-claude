@@ -40,7 +40,7 @@ final class HavenAppDelegate: NSObject, NSApplicationDelegate {
         guard !opts.isRunningUnitTests else { return }
         #if DEBUG
         if opts.makeFixtures, let root = opts.fixtureRoot {
-            FixtureFactory.make(at: root)
+            if opts.fixtureSet == "tools" { FixtureFactory.makeTools(at: root) } else { FixtureFactory.make(at: root) }
         }
         #endif
         Self.applyHotKey()
@@ -175,6 +175,9 @@ struct HavenCommands: Commands {
         CommandGroup(after: .windowArrangement) {
             Button("Shelf") { ShelfController.shared.toggle() }
                 .keyboardShortcut("s", modifiers: [.command, .option])
+        }
+        CommandMenu("Tools") {
+            ToolsMenuContent()
         }
         CommandMenu("Music") {
             Button("Play / Pause") { MusicPlayer.shared.togglePlayPause() }

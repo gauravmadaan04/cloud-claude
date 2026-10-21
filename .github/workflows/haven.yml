@@ -57,6 +57,13 @@ jobs:
       - name: Allow UI automation
         run: sudo automationmodetool enable-automationmode-without-authentication || true
 
+      - name: Speech model for the transcription tests
+        run: |
+          mkdir -p /Users/Shared/haven-test-models
+          f=/Users/Shared/haven-test-models/ggml-base.en-q5_1.bin
+          [ -f "$f" ] || curl -sSL --retry 3 -o "$f" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin
+          echo "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f  $f" | shasum -a 256 -c
+
       - name: Integration tests (OCR, PDFs, metadata, duplicates, trash/undo)
         id: unit
         continue-on-error: true

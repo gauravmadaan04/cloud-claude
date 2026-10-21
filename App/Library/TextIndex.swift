@@ -260,6 +260,13 @@ final class TextIndex {
         }
     }
 
+    /// Text Haven got another way (a transcript of a video or voice memo) is searchable straight away.
+    func remember(_ text: String, for item: FileItem) {
+        store.set(text, for: item)
+        bumpVersion(force: true)
+        scheduleSave()
+    }
+
     /// Text for Copy Text: cached, or read right now.
     func text(for item: FileItem) async -> String? {
         if store.isFresh(item), let t = store.raw(for: item.path) { return t }

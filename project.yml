@@ -21,6 +21,8 @@ settings:
 packages:
   HavenCore:
     path: Packages/HavenCore
+  WhisperCpp:
+    path: Packages/WhisperCpp
 targets:
   Haven:
     type: application
@@ -29,6 +31,7 @@ targets:
       - path: App
     dependencies:
       - package: HavenCore
+      - package: WhisperCpp
     info:
       path: App/Info.plist
       properties:

@@ -17,6 +17,8 @@ struct SettingsView: View {
                 .tabItem { Label("Text", systemImage: "text.viewfinder") }
             CleanupSettingsView()
                 .tabItem { Label("Clean Up", systemImage: "sparkles") }
+            AISettings()
+                .tabItem { Label("AI", systemImage: "waveform.and.magnifyingglass") }
             AboutSettings()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
@@ -303,7 +305,7 @@ struct ShortcutsHelpView: View {
     private var groups: [(String, [(String, String)])] {
         [
             ("Anywhere", [(prefs.hotKey.display, "Quick Search"), ("⌃↩", "In Quick Search: go there in an Open/Save dialog"),
-                          ("⌥⌘S", "Shelf")]),
+                          ("⌥⌘S", "Shelf"), ("⇧⌘T", "File Tools")]),
             ("Finding", [("⌘F", "Search"), ("⌘[  ⌘]", "Back / Forward"), ("⇧⌘H", "Home"), ("⇧⌘J", "Downloaded From"),
                          ("⇧⌘D", "Duplicates"), ("⇧⌘K", "Clean Up"), ("⌥⌘L", "Downloads")]),
             ("Files", [("Space  ⌘Y", "Quick Look"), ("Double-click", "Large preview"), ("↩  ⌘↓  ⌘O", "Open"),
@@ -382,5 +384,57 @@ struct SearchTipsView: View {
         }
         .padding(24)
         .frame(width: 560)
+    }
+}
+
+/// The on-device AI features: the Whisper model for transcription, translation and summaries.
+private struct AISettings: View {
+    @Environment(\.theme) private var theme
+    private var models: WhisperModels { .shared }
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(WhisperModel.allCases) { model in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(model.title)").fontWeight(.medium)
+                            Text(model.detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if models.installed.contains(model) {
+                            Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green).labelStyle(.titleAndIcon)
+                            Button("Remove") { models.remove(model) }
+                        } else if models.downloading == model {
+                            ProgressView(value: models.progress).frame(width: 90)
+                            Button("Stop") { models.cancelDownload() }
+                        } else {
+                            Button("Download") { models.download(model) }.disabled(models.downloading != nil)
+                        }
+                    }
+                }
+            } header: {
+                Text("Transcription (Whisper)")
+            } footer: {
+                Text("Whisper is OpenAI's open-source speech model (MIT licence), run by whisper.cpp. Audio never leaves your Mac.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Translation") {
+                if #available(macOS 15.0, *) {
+                    Label("Uses the languages built into macOS. It may ask to download a language the first time.", systemImage: "checkmark.circle")
+                } else {
+                    Label("Needs macOS 15 or later.", systemImage: "xmark.circle").foregroundStyle(.secondary)
+                }
+            }
+            Section("Summaries") {
+                if let reason = Summarizer.unavailableReason {
+                    Label(reason, systemImage: "xmark.circle").foregroundStyle(.secondary)
+                } else {
+                    Label("Apple Intelligence makes summaries on this Mac.", systemImage: "checkmark.circle")
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { models.refresh() }
     }
 }

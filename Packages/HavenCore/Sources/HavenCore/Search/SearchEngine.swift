@@ -239,8 +239,8 @@ public enum SearchEngine {
                     continue
                 }
                 if TextMatch.contains(term, in: item.searchParent) { score += 5; continue }
-                // Only kinds Haven reads text from can match inside the file.
-                guard item.kind.hasReadableText, let text else { return nil }
+                // Only kinds Haven reads text from (or transcribed) can match inside the file.
+                guard item.kind.hasSearchableText, let text else { return nil }
                 if content == nil { content = .some(text(item.path)) }
                 if let c = content!, TextMatch.contains(term, in: c) {
                     score += 4
