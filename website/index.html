@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Haven for Mac</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Haven is the productivity toolkit for your Mac's files. Search in plain English, free up gigabytes safely, and convert, compress, merge, sign or transcribe with a right-click. Private, on-device, $49 once.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Haven for Mac: find any file, fix any file">
+<meta property="og:description" content="Plain-English search, safe clean-up and 27 file tools in one private Mac app. One-time purchase.">
+<meta property="og:image" content="assets/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/img/icon-64.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/caveat-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Haven","operatingSystem":"macOS 14 or later","applicationCategory":"UtilitiesApplication","description":"Plain-English file search, safe clean-up and 27 file tools for images, PDFs, video, audio and on-device AI.","offers":[{"@type":"Offer","name":"1 Mac","price":"49.00","priceCurrency":"USD"},{"@type":"Offer","name":"3 Macs","price":"79.00","priceCurrency":"USD"},{"@type":"Offer","name":"5 Macs","price":"99.00","priceCurrency":"USD"}]}
+</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5V14h5v6.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-photo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M10.2 9.4v5.2l4.4-2.6z" fill="currentColor"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6.5l10-2V16"/><circle cx="6.8" cy="18" r="2.2"/><circle cx="16.8" cy="16" r="2.2"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4.5 4.5v11a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M13.5 3.5v5h5M8.5 12.5h7M8.5 16h5"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="4.5" rx="1.2"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></symbol>
+    <symbol id="i-apps" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.8"/><rect x="13" y="13" width="7" height="7" rx="1.8"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v8M8.5 12.5L12 16l3.5-3.5"/></symbol>
+    <symbol id="i-tools" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.3-3.3a6 6 0 0 1-7.9 7.9l-6.5 6.5a2.1 2.1 0 0 1-3-3l6.5-6.5a6 6 0 0 1 7.9-7.9z"/></symbol>
+    <symbol id="i-dup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3.5l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1L4 10.5l5.1-1.9z"/><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+    <symbol id="i-pie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5V12l6 6"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+    <symbol id="i-sign" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15.5c2.5-.5 4-6 6-9.5 1-1.7 2.6-1.3 2 1-.7 2.8-2.7 7.3-1.6 8.3 1 .9 2.5-2.3 3.6-2.3 1 0 .4 2 1.5 2.1 1 .1 2-1.3 3.5-1.6"/><path d="M3.5 20h17"/></symbol>
+    <symbol id="i-cutout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="12" cy="10.5" r="2.8"/><path d="M7 19.5c.8-2.6 2.8-4 5-4s4.2 1.4 5 4"/></symbol>
+    <symbol id="i-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h5.5V4M20 14.5h-5.5V20M9.5 9.5L4 4M14.5 14.5L20 20"/></symbol>
+    <symbol id="i-captions" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z"/><path d="M7.5 10h4M13.5 10h3M7.5 13h2.5M12 13h4.5"/></symbol>
+    <symbol id="i-merge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3.5h-2A1.5 1.5 0 0 0 5 5v9a1.5 1.5 0 0 0 1.5 1.5h2"/><path d="M15.5 3.5h2A1.5 1.5 0 0 1 19 5v9a1.5 1.5 0 0 1-1.5 1.5h-2"/><path d="M12 6v14M9 17l3 3 3-3"/></symbol>
+    <symbol id="i-locoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 4.5L4.5 11l6.5 2 2 6.5z"/><path d="M3.5 3.5l17 17"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l7 2.8v5.2c0 4.3-3 7.8-7 9-4-1.2-7-4.7-7-9V6.3z"/><path d="M8.8 12l2.3 2.3 4.2-4.6"/></symbol>
+    <symbol id="i-tray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5l2.4-7.2a1.5 1.5 0 0 1 1.4-1h9.4a1.5 1.5 0 0 1 1.4 1l2.4 7.2v4.7a1.5 1.5 0 0 1-1.5 1.5h-14a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5"/></symbol>
+    <symbol id="i-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8.5 4.5L12 13 3.5 8.5z"/><path d="M3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5"/></symbol>
+    <symbol id="i-jump" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h8A1.5 1.5 0 0 1 20.5 9v9a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18z"/><path d="M9.5 13.5h6.5M13.5 11l2.5 2.5-2.5 2.5"/></symbol>
+    <symbol id="i-menubar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5h17"/><rect x="11" y="8" width="9.5" height="11" rx="2"/><path d="M13.5 11.5h4.5M13.5 15h3"/></symbol>
+    <symbol id="i-rules" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 6h2.5a3 3 0 0 1 3 3 3 3 0 0 0 2.5 3M8 18h2.5a3 3 0 0 0 3-3 3 3 0 0 1 2.5-3"/></symbol>
+    <symbol id="i-rename" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 17.5l4-11 4 11M5 13.5h5"/><path d="M14.5 5.5h5M17 5.5v13M14.5 18.5h5"/></symbol>
+    <symbol id="i-cmd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h6v6H9zM9 9V6.5A2.5 2.5 0 1 0 6.5 9H9M15 9V6.5A2.5 2.5 0 1 1 17.5 9H15M15 15v2.5a2.5 2.5 0 1 0 2.5-2.5H15M9 15v2.5A2.5 2.5 0 1 1 6.5 15H9"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5.5L5 9.5l4 4"/><path d="M5 9.5h9.5a5 5 0 0 1 0 10H11"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/><path d="M9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11v2M7.5 8.5v7M11 5.5v13M14.5 8v8M18 10v4M21 11.2v1.6"/></symbol>
+    <symbol id="i-translate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h9M8 3.5v2M11 5.5c-.6 3.2-2.8 6.3-6.5 8M5.8 8.5c1.1 2.1 3 3.8 5.4 4.8"/><path d="M12.5 20.5l3.8-9 3.8 9M13.8 17.5h5"/></symbol>
+    <symbol id="i-lines" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 10h14M5 14h9M5 18h6"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3.5L5.5 13.5H12l-1 7 7.5-10H12z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l8 4v9l-8 4-8-4v-9z"/><path d="M4 7.5l8 4 8-4M12 11.5v9"/></symbol>
+    <symbol id="i-shot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5V6a1.5 1.5 0 0 1 1.5-1.5H8M16 4.5h2.5A1.5 1.5 0 0 1 20 6v2.5M20 15.5V18a1.5 1.5 0 0 1-1.5 1.5H16M8 19.5H5.5A1.5 1.5 0 0 1 4 18v-2.5"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M2.5 18.5h19"/></symbol>
+    <symbol id="i-infinity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 9a3 3 0 1 0 0 6c3.5 0 5.5-6 9-6a3 3 0 1 1 0 6c-3.5 0-5.5-6-9-6z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="M6 6l3.5 3.5M14.5 14.5L18 18M18 6l-3.5 3.5M9.5 14.5L6 18"/></symbol>
+    <symbol id="i-lr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7l-4 5 4 5M15 7l4 5-4 5"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.3-3.5-8.5S9.6 5.9 12 3.5z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14.5v-11M8 7l4-3.5L16 7"/><path d="M8 10.5H6.5A1.5 1.5 0 0 0 5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5H16"/></symbol>
+    <symbol id="i-disk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="12" rx="2.5"/><path d="M7 14.5h.01M10 14.5h7"/></symbol>
+  </defs>
+</svg>
+
+<header class="gnav" id="top">
+  <div class="wrap-wide gnav-in">
+    <a class="brand" href="index.html"><img src="assets/img/icon-64.png" alt="" width="28" height="28">Haven</a>
+    <ul class="gnav-links">
+      <li><a href="index.html#search">Search</a></li>
+      <li><a href="index.html#tools">File Tools</a></li>
+      <li><a href="index.html#cleanup">Clean Up</a></li>
+      <li><a href="compare.html">Compare</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+    </ul>
+    <div class="gnav-cta">
+      <a class="btn-quiet btn-sm" href="download.html" data-download>Try free</a>
+      <a class="btn btn-sm" href="pricing.html#plans">Buy</a>
+    </div>
+    <button class="menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="menu-sheet"><span></span><span></span></button>
+    <div class="menu-sheet" id="menu-sheet">
+      <ul class="wrap-wide">
+        <li><a href="index.html#search">Search</a></li>
+        <li><a href="index.html#tools">File Tools</a></li>
+        <li><a href="index.html#cleanup">Clean Up</a></li>
+        <li><a href="compare.html">Compare</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="download.html">Download free trial</a></li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Hero -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-copy">
+      <img class="hero-icon" src="assets/img/icon-256.png" alt="Haven app icon" width="92" height="92">
+      <p class="eyebrow">Haven for Mac</p>
+      <h1 class="h1" id="hero-title">Find any file.<br>Fix any file.</h1>
+      <p class="lead">Haven is the productivity toolkit for everything on your Mac. <strong>Search in plain English</strong>, <strong>clear out gigabytes safely</strong>, and <strong>convert, compress, merge, sign or transcribe</strong> with a right-click. It all runs on your Mac, so your files never leave it.</p>
+      <div class="cta-row">
+        <a class="btn btn-lg" href="download.html" data-download>Download free trial</a>
+        <a class="btn-line btn-lg" href="pricing.html#plans">Buy for $49</a>
+      </div>
+      <p class="hero-fine">14 days free with every feature. No account, no card. For macOS 14 Sonoma or later.</p>
+    </div>
+
+    <div class="wrap-wide hero-stage">
+      <div class="mac" id="hero-mac" role="group" aria-label="Haven search, interactive example">
+        <aside class="mac-side" aria-hidden="true">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="side-i"><svg><use href="#i-home"/></svg>Home</span>
+          <span class="side-i"><svg><use href="#i-clock"/></svg>Recents</span>
+          <p class="side-h">Library</p>
+          <span class="side-i"><svg><use href="#i-photo"/></svg>Images<span class="ct">8,412</span></span>
+          <span class="side-i"><svg><use href="#i-film"/></svg>Videos<span class="ct">316</span></span>
+          <span class="side-i"><svg><use href="#i-music"/></svg>Music<span class="ct">1,204</span></span>
+          <span class="side-i"><svg><use href="#i-doc"/></svg>Documents<span class="ct">5,930</span></span>
+          <span class="side-i"><svg><use href="#i-archive"/></svg>Archives<span class="ct">188</span></span>
+          <p class="side-h">Tools</p>
+          <span class="side-i"><svg><use href="#i-tools"/></svg>File Tools</span>
+          <span class="side-i"><svg><use href="#i-download"/></svg>Downloaded From</span>
+          <span class="side-i"><svg><use href="#i-dup"/></svg>Duplicates</span>
+          <span class="side-i"><svg><use href="#i-sparkle"/></svg>Clean Up</span>
+          <span class="side-i"><svg><use href="#i-pie"/></svg>Space</span>
+        </aside>
+        <div class="mac-main">
+          <div class="mac-bar">
+            <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+            <label class="mac-field" for="hero-q">
+              <svg aria-hidden="true"><use href="#i-search"/></svg>
+              <span class="sr">Search your files</span>
+              <input id="hero-q" type="search" autocomplete="off" spellcheck="false" value="pdfs from last week" placeholder="Search, like “pdfs from last week”">
+            </label>
+          </div>
+          <div class="mac-body" id="hero-body">
+            <div class="readas" id="hero-readas" aria-live="polite"></div>
+            <div class="resmeta"><span id="hero-count"></span><span>Sorted by date</span></div>
+            <div class="grid-files" id="hero-results"></div>
+          </div>
+        </div>
+      </div>
+      <div class="try" id="hero-try">
+        <span>Try</span>
+        <button type="button">pdfs from last week</button>
+        <button type="button">screenshots over 5 MB</button>
+        <button type="button">photos from whatsapp</button>
+        <button type="button">big videos older than a year</button>
+        <button type="button">budget</button>
+        <button type="button">wifi password</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- The problem -->
+  <section class="sec band" aria-labelledby="why-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Why Haven</p>
+        <h2 class="h2" id="why-title">Your Mac holds everything. Finding it is the hard part.</h2>
+        <p class="lead">Hundreds of thousands of files, a dozen single-purpose apps, and a browser full of free converter sites. Haven brings all of it into one place, on your Mac.</p>
+      </div>
+      <div class="trio">
+        <div>
+          <div class="glyph"><svg aria-hidden="true"><use href="#i-search"/></svg></div>
+          <h3>You remember the file, not its name.</h3>
+          <p>It was a PDF someone emailed you last week. Finder wants the exact file name. Haven only needs what you remember about it.</p>
+        </div>
+        <div>
+          <div class="glyph"><svg aria-hidden="true"><use href="#i-globe"/></svg></div>
+          <h3>Small jobs send you to strange websites.</h3>
+          <p>Shrinking a video or signing a form shouldn't mean uploading private files to a site you found a minute ago. In Haven it's a right-click, and the file stays on your Mac.</p>
+        </div>
+        <div>
+          <div class="glyph"><svg aria-hidden="true"><use href="#i-disk"/></svg></div>
+          <h3>Your disk fills up while you're busy.</h3>
+          <p>Installers you ran once. Downloads you never opened. The same photo three times. Haven finds them, you check them, and Undo is always there.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Search -->
+  <section class="sec" id="search" aria-labelledby="search-title">
+    <div class="wrap">
+      <div class="sec-head center">
+        <p class="eyebrow">Search</p>
+        <h2 class="h2" id="search-title">Search the way you remember.</h2>
+        <p class="lead">Type it the way you'd say it. Haven understands <strong>dates, sizes, file types</strong> and <strong>where a file came from</strong>. It also reads what's inside: words in PDFs and documents, text in screenshots and photos, even what was said in a recording.</p>
+      </div>
+      <div class="seg-wrap">
+        <div class="seg" role="tablist" aria-label="Ways Haven searches" id="lens-tabs">
+          <button type="button" role="tab" aria-selected="true" aria-controls="lens-image" id="lt-image">Text in images</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="lens-speech" id="lt-speech">What was said</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="lens-source" id="lt-source">Where it came from</button>
+        </div>
+      </div>
+
+      <div class="lens" role="tabpanel" id="lens-image" aria-labelledby="lt-image">
+        <div class="lens-art">
+          <div class="whiteboard" aria-label="Photo of a whiteboard">
+            <span class="ln"><span>Q4 roadmap</span></span>
+            <span class="ln hl" id="wb-hit"><span>Launch plan: Oct 28</span></span>
+            <span class="ln"><span>• beta invites Mon</span></span>
+            <span class="ln"><span>• pricing page ✓</span></span>
+            <span class="ln red"><span>budget review → Thu</span></span>
+          </div>
+        </div>
+        <div class="lens-copy">
+          <div class="lens-q" aria-hidden="true"><svg><use href="#i-search"/></svg><span id="lq-image">launch plan</span><span class="caret"></span></div>
+          <h3 class="h3">It reads your screenshots and photos.</h3>
+          <p class="copy">Haven reads the words in screenshots, photos and scans with Apple's on-device text recognition. Search for something you saw once, a Wi-Fi password, a booking code, a line on a whiteboard, and the picture turns up.</p>
+          <p class="fine">IMG_2207.HEIC · from WhatsApp · 8 days ago</p>
+        </div>
+      </div>
+
+      <div class="lens" role="tabpanel" id="lens-speech" aria-labelledby="lt-speech" hidden>
+        <div class="lens-art">
+          <div class="vframe">
+            <div class="pic" aria-hidden="true"><span class="split-line"></span><span class="rec">Team call.mov · 32:14</span></div>
+            <div class="tl" id="speech-cues"></div>
+          </div>
+        </div>
+        <div class="lens-copy">
+          <div class="lens-q" aria-hidden="true"><svg><use href="#i-search"/></svg><span id="lq-speech">budget</span><span class="caret"></span></div>
+          <h3 class="h3">It finds what was said.</h3>
+          <p class="copy">Transcribe a meeting, a lecture or a voice memo once, and every word in it becomes searchable. Search for what someone said, and the recording turns up with the line it's in.</p>
+          <p class="fine">Transcription uses Whisper, running on your Mac.</p>
+        </div>
+      </div>
+
+      <div class="lens" role="tabpanel" id="lens-source" aria-labelledby="lt-source" hidden>
+        <div class="lens-art">
+          <div class="srcs" id="srcs"></div>
+        </div>
+        <div class="lens-copy">
+          <h3 class="h3">It remembers where every download came from.</h3>
+          <p class="copy">Gmail, WhatsApp, Slack, ChatGPT, AirDrop and 25 more, or any website. Pick a source to see everything it sent you.</p>
+          <ul class="src-list" id="src-list" aria-live="polite"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- File Tools -->
+  <section class="sec band" id="tools" aria-labelledby="tools-title">
+    <div class="wrap-wide">
+      <div class="sec-head center">
+        <p class="eyebrow">File Tools</p>
+        <h2 class="h2" id="tools-title">27 tools. One right-click.</h2>
+        <p class="lead">The tools you used to hunt for online are now in the menu you already use. Choose a file, pick a tool, and <strong>a new file appears next to the original</strong>. The original is never changed.</p>
+      </div>
+
+      <div class="tools-demo">
+        <div class="tool-pick" role="tablist" aria-label="Try a tool" id="tool-pick">
+          <button type="button" role="tab" aria-selected="true" data-tool="sign"><span class="ic"><svg aria-hidden="true"><use href="#i-sign"/></svg></span><span><b>Sign PDF</b><small>Draw it once, place it anywhere</small></span></button>
+          <button type="button" role="tab" aria-selected="false" data-tool="cutout"><span class="ic"><svg aria-hidden="true"><use href="#i-cutout"/></svg></span><span><b>Remove Background</b><small>Cut out the subject in one click</small></span></button>
+          <button type="button" role="tab" aria-selected="false" data-tool="compress"><span class="ic"><svg aria-hidden="true"><use href="#i-compress"/></svg></span><span><b>Compress Video</b><small>Much smaller, still sharp</small></span></button>
+          <button type="button" role="tab" aria-selected="false" data-tool="transcribe"><span class="ic"><svg aria-hidden="true"><use href="#i-captions"/></svg></span><span><b>Transcribe</b><small>Speech to text and subtitles</small></span></button>
+          <button type="button" role="tab" aria-selected="false" data-tool="merge"><span class="ic"><svg aria-hidden="true"><use href="#i-merge"/></svg></span><span><b>Merge PDFs</b><small>Several files, one document</small></span></button>
+          <button type="button" role="tab" aria-selected="false" data-tool="clean"><span class="ic"><svg aria-hidden="true"><use href="#i-locoff"/></svg></span><span><b>Remove Private Details</b><small>Location and camera out</small></span></button>
+        </div>
+        <div class="stage" id="tool-stage" role="tabpanel" aria-live="polite"></div>
+      </div>
+
+      <div class="alltools" aria-label="Every tool in Haven">
+        <div class="at-row">
+          <h3><svg aria-hidden="true"><use href="#i-photo"/></svg>Images<span class="n">5</span></h3>
+          <div><ul class="pills"><li>Convert Images</li><li>Resize Images</li><li>Rotate Images</li><li>Remove Private Details</li><li>Remove Background</li></ul><p class="fine">JPEG, PNG, HEIC, TIFF and WebP. Most image tools work on hundreds of files at once.</p></div>
+        </div>
+        <div class="at-row">
+          <h3><svg aria-hidden="true"><use href="#i-doc"/></svg>PDF<span class="n">9</span></h3>
+          <div><ul class="pills"><li>Merge PDFs</li><li>Split PDF</li><li>Organize Pages</li><li>Extract Pages</li><li>Images to PDF</li><li>PDF to Images</li><li>Add Password</li><li>Remove Password</li><li>Sign PDF</li></ul><p class="fine">Reorder, rotate or delete pages, and draw your signature once to use it again.</p></div>
+        </div>
+        <div class="at-row">
+          <h3><svg aria-hidden="true"><use href="#i-film"/></svg>Video<span class="n">8</span></h3>
+          <div><ul class="pills"><li>Compress Video</li><li>Convert Video</li><li>Trim Video</li><li>Make a GIF</li><li>Extract Audio</li><li>Mute Video</li><li>Merge Videos</li><li>Change Speed</li></ul><p class="fine">Compress to 1080p, 720p or 540p, convert to MP4 or MOV. No extra software to install.</p></div>
+        </div>
+        <div class="at-row">
+          <h3><svg aria-hidden="true"><use href="#i-wave"/></svg>Audio<span class="n">2</span></h3>
+          <div><ul class="pills"><li>Convert Audio</li><li>Trim Audio</li></ul><p class="fine">M4A, WAV, AIFF and FLAC.</p></div>
+        </div>
+        <div class="at-row">
+          <h3><svg aria-hidden="true"><use href="#i-sparkle"/></svg>On-device AI<span class="n">3</span></h3>
+          <div><ul class="pills"><li>Transcribe</li><li>Translate</li><li>Summarize</li></ul><p class="fine">Text or .srt subtitles in 20+ languages with Whisper, which downloads once (190 MB, or 574 MB for best quality). Translate needs macOS 15. Summarize needs Apple Intelligence on macOS 26.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Clean Up -->
+  <section class="sec" id="cleanup" aria-labelledby="cleanup-title">
+    <div class="wrap-wide">
+      <div class="split">
+        <div>
+          <p class="eyebrow">Clean Up</p>
+          <h2 class="h2" id="cleanup-title">Get gigabytes back. Undo anything.</h2>
+          <p class="lead" style="margin-top:18px">Haven finds installers you used once, downloads you never opened, old screenshots, duplicates and big videos you forgot about.</p>
+          <ul class="points">
+            <li><svg aria-hidden="true"><use href="#i-search"/></svg><span><strong>You see every file first.</strong>Each group opens a review list, with the best copy of each duplicate already chosen to keep.</span></li>
+            <li><svg aria-hidden="true"><use href="#i-trash"/></svg><span><strong>Files go to the Trash.</strong>Nothing is ever deleted outright, and apps you installed stay put when their installers go.</span></li>
+            <li><svg aria-hidden="true"><use href="#i-undo"/></svg><span><strong>Undo is always there.</strong>Press ⌘Z, or open Activity and put back anything Haven has moved, renamed or made.</span></li>
+          </ul>
+        </div>
+        <div class="mac rel" id="clean-mac" role="group" aria-label="Clean Up, interactive example">
+          <div class="mac-main" style="grid-column:1/-1">
+            <div class="mac-bar"><div class="lights" aria-hidden="true" style="display:flex"><i></i><i></i><i></i></div><span class="mac-title">Clean Up</span></div>
+            <div class="mac-body">
+              <div class="disk">
+                <div class="disk-top"><b id="disk-free">63.2 GB free</b><span>Macintosh HD · 494 GB · example Mac</span></div>
+                <div class="disk-bar" id="disk-bar" aria-hidden="true"></div>
+                <div class="disk-legend" id="disk-legend"></div>
+              </div>
+              <div class="cards4" id="clean-cards"></div>
+              <div class="clean-foot">
+                <span id="clean-sum">Pick what to clear</span>
+                <button class="wbtn" type="button" id="clean-go">Move to Trash</button>
+              </div>
+            </div>
+          </div>
+          <div class="wtoast" id="clean-toast" role="status"><span id="clean-toast-msg"></span><button type="button" id="clean-undo">Undo</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Smart Rename -->
+  <section class="sec band" id="rename" aria-labelledby="rename-title">
+    <div class="wrap-wide">
+      <div class="split flip">
+        <div>
+          <p class="eyebrow">Smart Rename</p>
+          <h2 class="h2" id="rename-title">Make sense of IMG_4021.</h2>
+          <p class="lead" style="margin-top:18px">Rename one file or five thousand. Haven can <strong>read the title inside a scan or PDF</strong> and put the date in front, so names sort themselves.</p>
+          <ul class="points">
+            <li><svg aria-hidden="true"><use href="#i-rename"/></svg><span><strong>Mix text and details.</strong>Date taken, date added, a counter, the title in the file, where it came from.</span></li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg><span><strong>See every new name first.</strong>Clashes get a number automatically, and extensions never change.</span></li>
+            <li><svg aria-hidden="true"><use href="#i-undo"/></svg><span><strong>Changed your mind?</strong>One Undo puts every old name back.</span></li>
+          </ul>
+        </div>
+        <div class="mac" role="group" aria-label="Smart Rename, interactive example">
+          <div class="mac-main" style="grid-column:1/-1">
+            <div class="mac-bar"><div class="lights" aria-hidden="true" style="display:flex"><i></i><i></i><i></i></div><span class="mac-title">Rename 5 Files</span></div>
+            <div class="mac-body">
+              <div class="rn-controls">
+                <div class="optrow" role="group" aria-label="Presets" id="rn-presets">
+                  <button class="opt" type="button" aria-pressed="true" data-p="{date} {title}">Smart</button>
+                  <button class="opt" type="button" aria-pressed="false" data-p="{date} {name}">Add date</button>
+                  <button class="opt" type="button" aria-pressed="false" data-p="{source} {n:2}">Numbered</button>
+                  <button class="opt" type="button" aria-pressed="false" data-p="{kind} – {title}">By kind</button>
+                </div>
+                <div class="rn-pattern">
+                  <label for="rn-input">New name</label>
+                  <input id="rn-input" type="text" value="{date} {title}" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="tokens" id="rn-tokens" aria-label="Insert a detail">
+                  <button type="button">{date}</button><button type="button">{title}</button><button type="button">{name}</button><button type="button">{n}</button><button type="button">{source}</button><button type="button">{kind}</button>
+                </div>
+              </div>
+              <ul class="rn-list" id="rn-list" aria-live="polite"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Everyday -->
+  <section class="sec" id="more" aria-labelledby="more-title">
+    <div class="wrap-wide">
+      <div class="sec-head center">
+        <p class="eyebrow">And everything around it</p>
+        <h2 class="h2" id="more-title">The little things add up.</h2>
+        <p class="lead">Small, quick features that save a few seconds dozens of times a day.</p>
+      </div>
+      <div class="feats">
+        <div class="feat big">
+          <div>
+            <svg class="fi" aria-hidden="true"><use href="#i-search"/></svg>
+            <h3>Quick Search, from any app</h3>
+            <p>Press <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>Space</kbd>, type a few letters and press Return. Open the file, show it in Finder or copy it, without leaving what you're doing.</p>
+          </div>
+          <div style="display:grid;gap:12px;justify-items:start">
+            <button class="btn" type="button" id="qs-open">Try Quick Search</button>
+            <span class="fine">Or press ⇧⌘Space on this page.</span>
+          </div>
+        </div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-tray"/></svg><h3>Drop Shelf</h3><p>A place to park files while you switch apps. Drag them in, then drag them all out together.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-stack"/></svg><h3>Collections</h3><p>Playlists for files. Put a file in as many collections as you like; nothing is moved or copied.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-jump"/></svg><h3>Dialog Jump</h3><p>In any Open or Save dialog, jump straight to the folder you have open in Haven.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-download"/></svg><h3>Downloaded From</h3><p>Every download sorted by where it came from, with a From filter on every list.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-dup"/></svg><h3>Duplicates</h3><p>Identical files and look-alike photos, like bursts, edits and HEIC and JPEG pairs, with the best one picked to keep.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-pie"/></svg><h3>Space</h3><p>See which folders take the most room. Every folder's size is worked out in a fraction of a second.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-rules"/></svg><h3>Rules</h3><p>File screenshots by month or move invoices from Gmail into a folder, automatically. Off until you turn them on.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-menubar"/></svg><h3>Menu bar downloads</h3><p>Your ten newest downloads in the menu bar, ready to drag into an email or a chat.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-share"/></svg><h3>Make Shareable</h3><p>Right-click to get a JPEG of any photo, shrink big images or scanned PDFs to fit email limits, or zip several files at once.</p></div>
+        <div class="feat"><svg class="fi" aria-hidden="true"><use href="#i-cmd"/></svg><h3>Built like a Mac app</h3><p>Space for Quick Look, ⌘C and ⌘V, ⌘Z, type to select, plus actions for the Shortcuts app and Siri.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Looks -->
+  <section class="sec band" aria-labelledby="looks-title">
+    <div class="wrap-wide looks">
+      <div class="sec-head center" style="margin-bottom:0">
+        <p class="eyebrow">Design</p>
+        <h2 class="h2" id="looks-title">Feels at home on your Mac.</h2>
+        <p class="lead">Big thumbnails, a calm layout and folders that show what's in them. Choose Playful or Minimal, in light or dark.</p>
+      </div>
+      <div class="looks-ctl">
+        <div class="seg" role="radiogroup" aria-label="Look" id="look-style">
+          <button type="button" role="radio" aria-checked="true" data-v="playful">Playful</button>
+          <button type="button" role="radio" aria-checked="false" data-v="minimal">Minimal</button>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Appearance" id="look-mode">
+          <button type="button" role="radio" aria-checked="true" data-v="light">Light</button>
+          <button type="button" role="radio" aria-checked="false" data-v="dark">Dark</button>
+        </div>
+      </div>
+      <figure>
+        <img id="look-img" src="assets/img/look-playful-light.webp" alt="Haven's Home screen in the Playful look, light appearance" width="1024" height="674" >
+        <figcaption class="fine">Real screenshots of Haven 1.0 with a sample library.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="sec" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap-wide privacy">
+      <div>
+        <p class="eyebrow">Privacy</p>
+        <h2 class="h2" id="privacy-title">Your files stay on your Mac.</h2>
+        <p class="lead" style="margin-top:18px">Haven has no account, no cloud and no analytics. The clever parts run on your Mac's own chips, so private files stay private, and nearly everything works without an internet connection.</p>
+        <p class="copy" style="margin-top:18px">Haven goes online for three things only: downloading a speech model if you ask for transcription, checking for updates, and activating your license. <a href="privacy.html">Read the privacy policy</a></p>
+      </div>
+      <div class="ondevice">
+        <ul>
+          <li><span class="ic"><svg aria-hidden="true"><use href="#i-photo"/></svg></span><span><b>Text in images and scans</b><small>Apple Vision text recognition</small></span><span class="where">On your Mac</span></li>
+          <li><span class="ic"><svg aria-hidden="true"><use href="#i-captions"/></svg></span><span><b>Speech to text</b><small>Whisper, running locally</small></span><span class="where">On your Mac</span></li>
+          <li><span class="ic"><svg aria-hidden="true"><use href="#i-cutout"/></svg></span><span><b>Background removal</b><small>Apple Vision subject detection</small></span><span class="where">On your Mac</span></li>
+          <li><span class="ic"><svg aria-hidden="true"><use href="#i-translate"/></svg></span><span><b>Translation</b><small>Apple's Translation framework</small></span><span class="where">On your Mac</span></li>
+          <li><span class="ic"><svg aria-hidden="true"><use href="#i-lines"/></svg></span><span><b>Summaries</b><small>Apple Intelligence</small></span><span class="where">On your Mac</span></li>
+          <li><span class="ic"><svg aria-hidden="true"><use href="#i-search"/></svg></span><span><b>Your search index</b><small>Kept in your user Library folder</small></span><span class="where">On your Mac</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Speed -->
+  <section class="sec band" aria-labelledby="speed-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Speed</p>
+        <h2 class="h2" id="speed-title">Quick with 300,000 files.</h2>
+        <p class="lead">Haven keeps a compact index of your files, so answers arrive while you're still typing.</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><b class="num">0.09<small>s</small></b><span>Slowest of 10 test searches across 300,000 files.</span></div>
+        <div class="stat"><b class="num">0.14<small>s</small></b><span>To total the size of every folder in that library.</span></div>
+        <div class="stat"><b class="num">0.12<small>s</small></b><span>To preview new names for 5,000 files.</span></div>
+      </div>
+      <p class="fine" style="margin-top:28px">Measured in October 2026 on a GitHub Actions macOS runner with a generated library of 300,000 files. Times on your Mac will vary with its speed and the size of your library.</p>
+    </div>
+  </section>
+
+  <!-- Value -->
+  <section class="sec" aria-labelledby="value-title">
+    <div class="wrap-wide replace">
+      <div>
+        <p class="eyebrow">Value</p>
+        <h2 class="h2" id="value-title">One app instead of a drawer full.</h2>
+        <p class="lead" style="margin-top:18px">Bought one at a time, apps for these jobs cost <strong>well over $300</strong>, and several are subscriptions. Haven does them all for <strong>$49, once</strong>.</p>
+        <p style="margin-top:22px"><a class="more" href="compare.html#cost">See the full comparison</a></p>
+      </div>
+      <ul class="jobs">
+        <li>PDF editor</li><li>Video compressor</li><li>Background remover</li><li>Transcription app</li><li>Duplicate finder</li><li>Disk space analyzer</li><li>Batch renamer</li><li>File search utility</li><li>Folder automation</li><li>Open and Save dialog helper</li><li>Drag-and-drop shelf</li><li>Online converter sites</li>
+        <li class="haven"><img src="assets/img/icon-64.png" alt="" width="20" height="20">Haven · $49 once</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="sec band" id="plans" aria-labelledby="plans-title">
+    <div class="wrap-wide">
+      <div class="sec-head center">
+        <p class="eyebrow">Pricing</p>
+        <h2 class="h2" id="plans-title">Pay once. Keep it.</h2>
+        <p class="lead">No subscription. Every feature in every plan, with free updates for all of version 1.</p>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div><h3>1 Mac</h3><p class="who">For your own Mac.</p></div>
+          <div class="price"><b>$49</b><span>one time</span></div>
+          <p class="per">Everything, on one Mac.</p>
+          <a class="btn-quiet" href="pricing.html#plans" data-buy="one">Buy for 1 Mac</a>
+          <ul>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Every feature and all 27 tools</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Free updates for version 1</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Move it to a new Mac any time</li>
+          </ul>
+        </div>
+        <div class="plan pick">
+          <span class="flag">Best for most people</span>
+          <div><h3>3 Macs</h3><p class="who">Your desktop, your laptop, one more.</p></div>
+          <div class="price"><b>$79</b><span>one time</span></div>
+          <p class="per">$26.33 a Mac · <strong>save $68</strong></p>
+          <a class="btn" href="pricing.html#plans" data-buy="three">Buy for 3 Macs</a>
+          <ul>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Every feature and all 27 tools</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Free updates for version 1</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Share with people you live with</li>
+          </ul>
+        </div>
+        <div class="plan">
+          <div><h3>5 Macs</h3><p class="who">For a family or a small team.</p></div>
+          <div class="price"><b>$99</b><span>one time</span></div>
+          <p class="per">$19.80 a Mac · <strong>save $146</strong></p>
+          <a class="btn-quiet" href="pricing.html#plans" data-buy="five">Buy for 5 Macs</a>
+          <ul>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Every feature and all 27 tools</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>Free updates for version 1</li>
+            <li><svg aria-hidden="true"><use href="#i-check"/></svg>One license key for everyone</li>
+          </ul>
+        </div>
+      </div>
+      <div class="guarantee">
+        <span class="seal"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>
+        <div><b>Try it for 14 days, then 30 days to change your mind.</b><p>Use every feature free before you pay. If Haven isn't right for you within 30 days of buying, write to us and you'll get a full refund.</p></div>
+      </div>
+      <p class="fine" style="text-align:center;margin-top:24px">Prices in US dollars. Sales tax or VAT is added at checkout where it applies. Secure checkout by Stripe. <a href="pricing.html">Pricing details</a></p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="sec" aria-labelledby="faq-title">
+    <div class="wrap-text">
+      <div class="sec-head">
+        <h2 class="h2" id="faq-title">Questions, answered.</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Is Haven a subscription?</summary>
+          <div class="a"><p>No. You pay once and Haven is yours to keep. Every update to version 1 is free. If there's ever a Haven 2, the version you have keeps working.</p></div>
+        </details>
+        <details>
+          <summary>Does Haven replace Finder?</summary>
+          <div class="a"><p>No, it works alongside Finder. Your files stay in the folders they're already in. Haven indexes them so you can find them, clean up and work on them faster, and any file is one shortcut away from Finder.</p></div>
+        </details>
+        <details>
+          <summary>Are my files uploaded anywhere?</summary>
+          <div class="a"><p>No. Search, text recognition, transcription, background removal and every file tool run on your Mac. There's no account and no analytics. Haven goes online only to download a speech model if you ask for transcription, check for updates and activate your license.</p></div>
+        </details>
+        <details>
+          <summary>Could Haven delete something I need?</summary>
+          <div class="a"><p>Haven never deletes anything outright. Clean Up and Duplicates always show you the files first. When you confirm, they go to the Trash, and Undo puts them back. File tools never change your originals; they make new files next to them.</p></div>
+        </details>
+        <details>
+          <summary>Which Macs does it run on?</summary>
+          <div class="a"><p>Any Mac with macOS 14 Sonoma or later, Apple silicon or Intel. Translate needs macOS 15 or later, and Summarize needs a Mac with Apple Intelligence on macOS 26.</p></div>
+        </details>
+        <details>
+          <summary>What happens when the trial ends?</summary>
+          <div class="a"><p>Your files stay exactly where they are and nothing is lost. Haven asks for a license to keep going. Buy one and paste the key, and everything carries on as before.</p></div>
+        </details>
+      </div>
+      <p style="margin-top:28px"><a class="more" href="faq.html">All questions</a></p>
+    </div>
+  </section>
+
+  <!-- Final -->
+  <section class="sec band" aria-labelledby="final-title">
+    <div class="wrap final">
+      <img src="assets/img/icon-256.png" alt="" width="104" height="104">
+      <h2 class="h2" id="final-title">Try Haven free for 14 days.</h2>
+      <p class="lead">Install it, let it read your folders, and search for something you lost last month. If Haven doesn't earn its place on your Mac, you don't pay a thing.</p>
+      <div class="cta-row">
+        <a class="btn btn-lg" href="download.html" data-download>Download free trial</a>
+        <a class="btn-line btn-lg" href="pricing.html#plans">Buy for $49</a>
+      </div>
+      <p class="hero-fine">macOS 14 Sonoma or later · Apple silicon and Intel · 11 MB download</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap-wide">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="index.html"><img src="assets/img/icon-64.png" alt="" width="28" height="28">Haven</a>
+        <p>The productivity toolkit for your Mac's files. Search, clean up and work on anything, privately, on your Mac.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="index.html#search">Search</a></li>
+          <li><a href="index.html#tools">File Tools</a></li>
+          <li><a href="index.html#cleanup">Clean Up</a></li>
+          <li><a href="compare.html">Compare</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support</h4>
+        <ul>
+          <li><a href="download.html">Download</a></li>
+          <li><a href="download.html#install">Install guide</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="faq.html#licenses">Licenses and refunds</a></li>
+          <li><a href="faq.html#contact">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="privacy.html">Privacy Policy</a></li>
+          <li><a href="terms.html">Terms of Sale</a></li>
+          <li><a href="terms.html#license">License Agreement</a></li>
+          <li><a href="terms.html#refunds">Refund Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Haven. All rights reserved.</span>
+      <span>Made for macOS 14 Sonoma and later.</span>
+    </div>
+    <p class="foot-legal">Apple, Mac, macOS, Finder, Spotlight, Siri and Apple Intelligence are trademarks of Apple Inc., registered in the U.S. and other countries and regions. Haven is an independent app and is not affiliated with or endorsed by Apple Inc. Other product and company names mentioned here may be trademarks of their owners.</p>
+  </div>
+</footer>
+
+<div class="buybar" id="buybar"><span><b>Haven</b> · $49 once · 14-day free trial</span><a class="btn btn-sm" href="pricing.html#plans">Buy</a></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/config.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/demos.js"></script>
+</body>
+</html>
