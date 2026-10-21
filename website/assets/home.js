@@ -1,4 +1,4 @@
-// The working demos on the home page. Everything here is sample data drawn in the browser; nothing is uploaded.
+// The home page demos. Everything is sample data drawn in the browser; nothing is uploaded or sent anywhere.
 (function () {
   "use strict";
 
@@ -215,101 +215,8 @@
     return { parts: parts, list: list };
   }
 
-  function fileCard(f, terms) {
-    var hit = "";
-    if (terms.length) {
-      var inName = terms.every(function (t) { return norm(f.n).indexOf(t) >= 0; });
-      if (!inName && f.said && terms.some(function (t) { return norm(f.said).indexOf(t) >= 0; })) {
-        hit = '<div class="hit"><b>Said at ' + f.saidAt + ":</b> " + snippet(f.said, terms) + "</div>";
-      } else if (!inName && f.text) {
-        var sn = snippet(f.text, terms);
-        if (sn) hit = '<div class="hit"><b>' + (f.k === "photo" || f.k === "shot" || f.k === "image" ? "In the picture" : "In the text") + ":</b> " + sn + "</div>";
-      }
-    }
-    return '<div class="file">' + thumb(f) + '<div class="nm" title="' + esc(f.n) + '">' + esc(f.n) + '</div><div class="mt">' + size(f.mb) + " · " + when(f.d) + "</div>" + hit + "</div>";
-  }
 
-  function heroSearch() {
-    var input = $("hero-q"), readas = $("hero-readas"), results = $("hero-results"), count = $("hero-count");
-    if (!input) return;
-    var tryBtns = Array.prototype.slice.call(document.querySelectorAll("#hero-try button"));
-    var maxCards = function () {
-      var w = results.clientWidth || 600;
-      var cols = window.innerWidth < 560 ? 2 : Math.max(2, Math.floor((w + 14) / (150 + 14)));
-      return cols * 2;
-    };
-
-    function render() {
-      var q = input.value.trim();
-      tryBtns.forEach(function (b) { b.setAttribute("aria-pressed", String(b.textContent === q)); });
-      if (!q) {
-        readas.innerHTML = "<span>Type what you remember: a kind of file, when, how big, where it came from, or words inside it.</span>";
-        count.textContent = "";
-        results.innerHTML = FILES.slice().sort(function (a, b) { return a.d - b.d; }).slice(0, maxCards()).map(function (f) { return fileCard(f, []); }).join("");
-        return;
-      }
-      var r = search(q);
-      readas.innerHTML = (r.parts.length ? "<span>Haven read this as</span>" : "") + r.parts.map(function (p, i) {
-        return '<span class="chip k-' + p.type + '">' + esc(p.label) + '<button type="button" aria-label="Remove ' + esc(p.label) + '" data-i="' + i + '">×</button></span>';
-      }).join("");
-      readas.querySelectorAll("button").forEach(function (b) {
-        b.addEventListener("click", function () {
-          stopAuto();
-          var p = r.parts[+b.getAttribute("data-i")];
-          var idx = input.value.toLowerCase().indexOf(p.raw);
-          if (idx >= 0) input.value = (input.value.slice(0, idx) + input.value.slice(idx + p.raw.length)).replace(/\s+/g, " ").trim();
-          render();
-        });
-      });
-      var total = r.list.reduce(function (s, f) { return s + f.mb; }, 0);
-      count.textContent = r.list.length ? r.list.length + (r.list.length === 1 ? " item · " : " items · ") + size(total) : "";
-      var terms = r.parts.filter(function (p) { return p.type === "text"; }).map(function (p) { return p.term; });
-      results.innerHTML = r.list.length
-        ? r.list.slice(0, maxCards()).map(function (f) { return fileCard(f, terms); }).join("")
-        : '<div class="empty" style="grid-column:1/-1"><b>Nothing matches “' + esc(q) + '” in this sample library.</b><br>Try “screenshots over 5 MB” or “videos from zoom”.</div>';
-    }
-
-    var debounce;
-    input.addEventListener("input", function () { stopAuto(); clearTimeout(debounce); debounce = setTimeout(render, 140); });
-    input.addEventListener("focus", stopAuto);
-    tryBtns.forEach(function (b) {
-      b.addEventListener("click", function () { stopAuto(); input.value = b.textContent; render(); });
-    });
-    render();
-
-    // Types the example searches one after another until someone interacts.
-    var auto = !reduce, visible = false, queue = tryBtns.map(function (b) { return b.textContent; }), qi = 0, busy = false;
-    function stopAuto() { auto = false; }
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }, { threshold: 0.4 }).observe($("hero-mac"));
-    }
-    async function loop() {
-      await wait(3600);
-      while (auto) {
-        if (!visible || document.hidden || busy) { await wait(800); continue; }
-        busy = true;
-        qi = (qi + 1) % queue.length;
-        var text = queue[qi];
-        input.value = "";
-        for (var i = 1; i <= text.length && auto; i++) {
-          input.value = text.slice(0, i);
-          await wait(38 + Math.random() * 40);
-        }
-        if (!auto) break;
-        render();
-        busy = false;
-        await wait(3800);
-      }
-    }
-    if (auto) loop();
-    var lastMax = maxCards();
-    window.addEventListener("resize", function () {
-      var m = maxCards();
-      if (m !== lastMax && !busy) { lastMax = m; render(); }
-    });
-  }
-
-  // ---------------------------------------------------------------- Search lenses
+  // The meeting that the Transcribe demo listens to.
   var CUES = [
     ["00:04:01,200", "Morning, everyone. Let's start with the launch."],
     ["00:04:06,800", "Beta invites go out on Monday."],
@@ -318,84 +225,14 @@
     ["00:04:23,300", "And the onboarding video is ready for review."],
     ["00:04:28,600", "Great. Same time next week."],
   ];
-  var SOURCES = [
-    { n: "WhatsApp", c: "#25a35a", ct: 1038, files: [["Beach day.jpg", "3 days ago"], ["Dinner.jpg", "5 days ago"], ["IMG_2207.HEIC", "8 days ago"], ["Voice message 14.opus", "2 weeks ago"]] },
-    { n: "Gmail", c: "#d93025", ct: 214, files: [["Budget 2026.xlsx", "7 days ago"], ["Q3 report.pdf", "8 days ago"], ["Invoice 4821.pdf", "9 days ago"], ["Resume.docx", "2 months ago"]] },
-    { n: "Slack", c: "#7a2f7f", ct: 342, files: [["Pitch deck.key", "11 days ago"], ["Product demo.mp4", "3 weeks ago"], ["Brand assets.zip", "a month ago"], ["Roadmap.pdf", "2 months ago"]] },
-    { n: "ChatGPT", c: "#10a37f", ct: 61, files: [["ChatGPT Image.png", "7 days ago"], ["sales-by-region.csv", "2 weeks ago"], ["Itinerary.docx", "a month ago"], ["Cover letter.pdf", "3 months ago"]] },
-    { n: "AirDrop", c: "#1e88e5", ct: 127, files: [["IMG_4021.HEIC", "yesterday"], ["IMG_3988.MOV", "6 days ago"], ["Mountains.heic", "7 months ago"], ["Contacts.vcf", "8 months ago"]] },
-    { n: "Google Drive", c: "#1a73e8", ct: 89, files: [["Lease agreement.pdf", "6 weeks ago"], ["Wedding highlights.mp4", "a year ago"], ["Tax return 2025.pdf", "6 months ago"], ["Floor plan.png", "8 months ago"]] },
-    { n: "Zoom", c: "#2d8cff", ct: 23, files: [["Team call.mov", "3 days ago"], ["Client kickoff.m4a", "3 weeks ago"], ["All hands.mp4", "2 months ago"], ["Interview.mp4", "4 months ago"]] },
-    { n: "Figma", c: "#a259ff", ct: 47, files: [["Logo concepts.png", "6 days ago"], ["Onboarding flow.pdf", "4 weeks ago"], ["Icons.svg", "2 months ago"], ["Figma installer.dmg", "4 months ago"]] },
-    { n: "Any website", c: "#6b6878", ct: 2310, files: [["Figma installer.dmg", "4 months ago"], ["Podcast episode 12.m4a", "2 weeks ago"], ["Recipe.pdf", "a month ago"], ["Font pack.zip", "5 months ago"]] },
-  ];
 
-  function lenses() {
-    var tabs = Array.prototype.slice.call(document.querySelectorAll("#lens-tabs [role=tab]"));
-    if (!tabs.length) return;
-    var cueBox = $("speech-cues");
-    cueBox.innerHTML = CUES.map(function (c, i) {
-      return '<div class="cue' + (i === 2 ? " on" : "") + '"><time>' + c[0].slice(3, 8) + "</time><span>" + esc(c[1]).replace("budget", "<mark>budget</mark>") + "</span></div>";
-    }).join("");
-
-    var srcs = $("srcs"), list = $("src-list");
-    srcs.innerHTML = SOURCES.map(function (s, i) {
-      return '<button class="src" type="button" aria-pressed="' + (i === 0) + '" data-i="' + i + '"><span class="dot" style="background:' + s.c + '">' + s.n[0] + "</span>" + s.n + ' <span class="n">' + s.ct.toLocaleString("en-US") + "</span></button>";
-    }).join("");
-    var showSource = function (i) {
-      srcs.querySelectorAll(".src").forEach(function (b) { b.setAttribute("aria-pressed", String(+b.getAttribute("data-i") === i)); });
-      list.innerHTML = SOURCES[i].files.map(function (f, j) { return '<li style="animation-delay:' + j * 40 + 'ms"><span>' + esc(f[0]) + "</span><span>" + f[1] + "</span></li>"; }).join("");
-    };
-    srcs.addEventListener("click", function (e) { var b = e.target.closest(".src"); if (b) showSource(+b.getAttribute("data-i")); });
-    showSource(0);
-
-    async function typeInto(el, text) {
-      if (reduce) { el.textContent = text; return; }
-      el.textContent = "";
-      for (var i = 1; i <= text.length; i++) { el.textContent = text.slice(0, i); await wait(55); }
-    }
-    var token = 0;
-    async function play(id) {
-      var my = ++token;
-      if (id === "lens-image") {
-        var hit = $("wb-hit");
-        hit.classList.remove("hl");
-        await typeInto($("lq-image"), "launch plan");
-        if (my === token) { await wait(150); hit.classList.add("hl"); }
-      } else if (id === "lens-speech") {
-        var cues = cueBox.querySelectorAll(".cue");
-        cues.forEach(function (c) { c.classList.remove("on"); });
-        await typeInto($("lq-speech"), "budget");
-        if (my === token) { await wait(150); cues[2].classList.add("on"); }
-      }
-    }
-    tabs.forEach(function (t, i) {
-      t.addEventListener("click", function () { select(i); });
-      t.addEventListener("keydown", function (e) {
-        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-          var n = (i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length;
-          tabs[n].focus();
-          select(n);
-        }
-      });
-    });
-    function select(i) {
-      tabs.forEach(function (t, j) {
-        t.setAttribute("aria-selected", String(i === j));
-        t.tabIndex = i === j ? 0 : -1;
-        $(t.getAttribute("aria-controls")).hidden = i !== j;
-      });
-      play(tabs[i].getAttribute("aria-controls"));
-    }
-    tabs.forEach(function (t, j) { t.tabIndex = j === 0 ? 0 : -1; });
-  }
-
-  // ---------------------------------------------------------------- File Tools
+  // ---------------------------------------------------------------- Tool windows
   function shell(title, path, body) {
     return '<div class="mac"><div class="mac-main"><div class="mac-bar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><span class="mac-title">' + title + '</span></div><div class="mac-body"><div class="ctx" aria-label="Chosen from the right-click menu">' +
       path.map(function (p, i) { return (i ? "<i>›</i>" : "") + "<span>" + esc(p) + "</span>"; }).join("") + "</div>" + body + "</div></div></div>";
   }
   function made(name, detail) {
+    if (onMade) { var cb = onMade; setTimeout(function () { cb(name); }, 0); }
     return '<div class="made"><span class="fi"><svg aria-hidden="true"><use href="#i-check"/></svg></span><span><b>' + esc(name) + "</b><small>" + esc(detail) + "</small></span></div>";
   }
   function progress(bar, ms) {
@@ -657,219 +494,708 @@
     '<g filter="url(#soft)"><rect x="310" y="236" width="56" height="34" rx="3" fill="#6f8aa6"/><rect x="314" y="226" width="48" height="12" rx="2" fill="#a96f5b"/></g>' +
     '<ellipse cx="200" cy="288" rx="66" ry="6" fill="#3a2414" opacity="0.45" filter="url(#softer)"/>';
 
-  function tools() {
-    var pick = $("tool-pick"), stage = $("tool-stage");
-    if (!pick) return;
-    var btns = Array.prototype.slice.call(pick.querySelectorAll("button"));
-    function select(btn) {
-      btns.forEach(function (b) { b.setAttribute("aria-selected", String(b === btn)); b.tabIndex = b === btn ? 0 : -1; });
-      TOOLS[btn.getAttribute("data-tool")](stage);
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function ease(t) { return 1 - Math.pow(1 - t, 3); }
+  function rng(seed) {
+    return function () {
+      seed = (seed + 0x6d2b79f5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function onView(el, fn, threshold) {
+    if (!el) return;
+    if (!("IntersectionObserver" in window)) { fn(); return; }
+    var io = new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting) { io.disconnect(); fn(); }
+    }, { threshold: threshold || 0.35 });
+    io.observe(el);
+  }
+  function whereFound(f, terms) {
+    if (!terms.length) return "";
+    var inName = terms.every(function (t) { return norm(f.n).indexOf(t) >= 0; });
+    if (inName) return "";
+    if (f.said && terms.some(function (t) { return norm(f.said).indexOf(t) >= 0; })) return "Said at " + f.saidAt + ": " + snippet(f.said, terms);
+    if (f.text) {
+      var sn = snippet(f.text, terms);
+      if (sn) return (f.k === "photo" || f.k === "shot" || f.k === "image" ? "In the picture: " : "Inside: ") + sn;
     }
-    btns.forEach(function (b, i) {
-      b.addEventListener("click", function () { select(b); });
-      b.addEventListener("keydown", function (e) {
-        var k = e.key, n = null;
-        if (k === "ArrowDown" || k === "ArrowRight") n = btns[(i + 1) % btns.length];
-        if (k === "ArrowUp" || k === "ArrowLeft") n = btns[(i + btns.length - 1) % btns.length];
-        if (n) { e.preventDefault(); n.focus(); select(n); }
-      });
-    });
-    select(btns[0]);
+    return "";
   }
 
-  // ---------------------------------------------------------------- Clean Up
+  // ---------------------------------------------------------------- Hero: a pile of files, searched
+  function pile() {
+    var stage = $("pile-stage"), input = $("pile-q"), readas = $("pile-readas"), count = $("pile-count");
+    if (!stage) return;
+    var hero = stage.closest(".hero");
+    var tryBtns = Array.prototype.slice.call(document.querySelectorAll("#pile-try button"));
+    var R = rng(11);
+    var order = FILES.map(function (f, i) { return i; });
+    for (var i = order.length - 1; i > 0; i--) { var j = Math.floor(R() * (i + 1)); var t = order[i]; order[i] = order[j]; order[j] = t; }
+    var cards = order.map(function (fi) {
+      var f = FILES[fi], el = document.createElement("div");
+      el.className = "pf";
+      el.innerHTML = '<div class="pf-in">' + thumb(f, true) + '<div class="lbl">' + esc(f.n) + '</div><div class="snip"></div></div>';
+      stage.appendChild(el);
+      return { f: f, el: el, snip: el.querySelector(".snip"), rot: (R() - 0.5) * 30, sc: 0.84 + R() * 0.28, d: 3 + R() * 14, jx: R(), jy: R() };
+    });
+
+    var W = 0, H = 0, cw = 100, home = [], hits = null, terms = [];
+    function layout() {
+      W = stage.clientWidth; H = stage.clientHeight;
+      cw = W > 1000 ? 104 : W > 700 ? 88 : 64;
+      var ch = cw * 0.75 + 34, n = cards.length;
+      var cols = Math.max(4, Math.round(Math.sqrt((n * W) / H)));
+      var rows = Math.ceil(n / cols), cellW = W / cols, cellH = (H - 60) / rows;
+      home = cards.map(function (c, k) {
+        var col = k % cols, row = Math.floor(k / cols);
+        var x = col * cellW + (cellW - cw) * c.jx + (c.jy - 0.5) * cellW * 0.55;
+        var y = row * cellH + Math.max(0, cellH - ch) * c.jy + (c.jx - 0.5) * cellH * 0.45;
+        return { x: clamp(x, -cw * 0.1, W - cw * 0.9), y: clamp(y, 0, H - ch - 30), r: c.rot, s: c.sc };
+      });
+      cards.forEach(function (c) { c.el.style.setProperty("--w", cw + "px"); c.el.style.setProperty("--d", c.d.toFixed(1)); });
+    }
+    function slots(n) {
+      var big = W < 560 ? 1.22 : W < 900 ? 1.35 : 1.5, perRow = W < 560 ? 3 : 6;
+      var w = cw * big, gap = W < 560 ? 10 : 30, rowsN = Math.ceil(n / perRow), out = [];
+      for (var i = 0; i < n; i++) {
+        var row = Math.floor(i / perRow), inRow = Math.min(perRow, n - row * perRow), col = i % perRow;
+        var totalW = inRow * w + (inRow - 1) * gap;
+        out.push({ x: (W - totalW) / 2 + col * (w + gap) + (w - cw) / 2, y: H * (rowsN > 1 ? 0.1 : 0.24) + row * (cw * 0.75 + 78) * big, s: big });
+      }
+      return out;
+    }
+    function place() {
+      var found = hits ? hits.slice(0, 6) : [], sl = slots(found.length);
+      cards.forEach(function (c, k) {
+        var h = home[k], idx = found.indexOf(c.f), x, y, r, s, z;
+        if (idx >= 0) {
+          x = sl[idx].x; y = sl[idx].y; r = 0; s = sl[idx].s; z = 200 + idx;
+          c.el.classList.add("hit"); c.el.classList.remove("dim");
+          c.el.style.transitionDelay = idx * 70 + "ms";
+          c.snip.innerHTML = whereFound(c.f, terms);
+        } else {
+          x = h.x; y = h.y; r = h.r; s = h.s; z = Math.round(s * 60);
+          if (hits) {
+            var dx = x + cw / 2 - W / 2;
+            x += Math.sign(dx) * Math.min(90, Math.abs(dx) * 0.2);
+            y += y > H * 0.3 ? 26 : -12;
+            s *= 0.86;
+          }
+          c.el.classList.toggle("dim", !!hits);
+          c.el.classList.remove("hit");
+          c.el.style.transitionDelay = "0ms";
+        }
+        c.el.style.zIndex = z;
+        c.el.style.opacity = "";
+        c.el.style.transform = "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0) rotate(" + r.toFixed(1) + "deg) scale(" + s.toFixed(3) + ")";
+      });
+    }
+    function run(q) {
+      q = q.trim();
+      tryBtns.forEach(function (b) { b.setAttribute("aria-pressed", String(b.textContent === q)); });
+      if (!q) {
+        hits = null; terms = []; readas.innerHTML = ""; count.textContent = FILES.length + " files";
+        place();
+        return;
+      }
+      var r = search(q);
+      hits = r.list;
+      terms = r.parts.filter(function (p) { return p.type === "text"; }).map(function (p) { return p.term; });
+      readas.innerHTML = (r.parts.length ? "<span>Haven read this as</span>" : "") + r.parts.map(function (p, i) {
+        return '<span class="chip k-' + p.type + '">' + esc(p.label) + '<button type="button" aria-label="Remove ' + esc(p.label) + '" data-i="' + i + '">×</button></span>';
+      }).join("");
+      readas.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          stopAuto();
+          var p = r.parts[+b.getAttribute("data-i")], at = input.value.toLowerCase().indexOf(p.raw);
+          if (at >= 0) input.value = (input.value.slice(0, at) + input.value.slice(at + p.raw.length)).replace(/\s+/g, " ").trim();
+          run(input.value);
+        });
+      });
+      count.textContent = r.list.length ? r.list.length + " of " + FILES.length : "No match";
+      place();
+    }
+
+    layout();
+    // The pile spills out of the middle on load.
+    cards.forEach(function (c, k) {
+      c.el.style.transition = "none";
+      c.el.style.opacity = "0";
+      c.el.style.transform = "translate3d(" + (W / 2 - cw / 2) + "px," + H * 0.3 + "px,0) rotate(" + c.rot * 2 + "deg) scale(0.5)";
+    });
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        cards.forEach(function (c, k) { c.el.style.transition = ""; c.el.style.transitionDelay = (reduce ? 0 : k * 14) + "ms"; });
+        place();
+      });
+    });
+
+    var debounce;
+    input.addEventListener("input", function () { stopAuto(); clearTimeout(debounce); debounce = setTimeout(function () { run(input.value); }, 160); });
+    input.addEventListener("focus", stopAuto);
+    tryBtns.forEach(function (b) { b.addEventListener("click", function () { stopAuto(); input.value = b.textContent; run(b.textContent); }); });
+
+    var rt;
+    window.addEventListener("resize", function () {
+      clearTimeout(rt);
+      rt = setTimeout(function () { var w = stage.clientWidth; if (Math.abs(w - W) > 8) { layout(); place(); } }, 150);
+    });
+
+    // Depth: the pile leans a little toward the pointer.
+    if (!reduce && window.matchMedia("(pointer: fine)").matches) {
+      hero.addEventListener("pointermove", function (e) {
+        stage.style.setProperty("--px", ((e.clientX / window.innerWidth - 0.5) * 2).toFixed(3));
+        stage.style.setProperty("--py", ((e.clientY / window.innerHeight - 0.5) * 2).toFixed(3));
+      });
+    }
+
+    // Types the example searches one after another until someone takes over.
+    var auto = !reduce, visible = true, qi = -1;
+    function stopAuto() { auto = false; }
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }, { threshold: 0.3 }).observe(stage);
+    async function loop() {
+      await wait(1700);
+      while (auto) {
+        if (!visible || document.hidden) { await wait(700); continue; }
+        qi = (qi + 1) % tryBtns.length;
+        var text = tryBtns[qi].textContent;
+        input.value = "";
+        for (var i = 1; i <= text.length && auto; i++) { input.value = text.slice(0, i); await wait(34 + Math.random() * 46); }
+        if (!auto) break;
+        run(text);
+        await wait(4600);
+        if (!auto) break;
+        input.value = ""; run("");
+        await wait(1400);
+      }
+    }
+    if (auto) loop(); else run("the invoice from gmail last week");
+  }
+
+  // ---------------------------------------------------------------- Story: the clock runs late as you read
+  function storyClock() {
+    var sec = document.querySelector(".story"), h = $("clock-h"), m = $("clock-m"), box = $("clock"), note = $("clock-note");
+    if (!sec || !box) return;
+    var notes = { 58: "Two minutes to go", 59: "One minute to go", 60: "Still searching", 61: "Still searching", 62: "Still searching", 63: "Late", 64: "Late", 65: "Late", 66: "Late, with the wrong version" };
+    var last = -1, ticking = false;
+    function update() {
+      ticking = false;
+      var r = sec.getBoundingClientRect();
+      var p = clamp((window.innerHeight * 0.6 - r.top) / (r.height * 0.9), 0, 1);
+      var mins = 58 + Math.round(p * 8);
+      if (mins === last) return;
+      last = mins;
+      h.textContent = mins >= 60 ? "10" : "9";
+      m.textContent = pad(mins % 60);
+      box.classList.toggle("late", mins >= 63);
+      note.textContent = notes[mins];
+    }
+    window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    update();
+  }
+
+  // ---------------------------------------------------------------- The Recall Index: 300,000 files as dots
+  function recallField() {
+    var canvas = $("field");
+    if (!canvas) return;
+    var FW = 750, FH = 400, N = FW * FH, S = 2, W2 = FW * S;
+    canvas.width = FW * S; canvas.height = FH * S;
+    var ctx = canvas.getContext("2d");
+    var img = ctx.createImageData(FW * S, FH * S), px = img.data;
+    var kind = new Uint8Array(N), days = new Uint16Array(N), src = new Uint8Array(N), flag = new Uint8Array(N), lum = new Uint8Array(N);
+    var R = rng(42), i, x, y;
+    // Kinds cluster into soft regions, so the field reads like a map of a library rather than static.
+    for (i = 0; i < N; i++) {
+      x = i % FW; y = (i / FW) | 0;
+      var n = (Math.sin(x * 0.011 + Math.sin(y * 0.021) * 1.6) + Math.sin(y * 0.017 + x * 0.006) + Math.sin((x + y) * 0.0072)) / 3;
+      var v = clamp(n * 0.5 + 0.5 + (R() - 0.5) * 0.42, 0, 0.9999);
+      kind[i] = Math.floor(v * 7);
+      days[i] = Math.min(4000, Math.floor(-Math.log(1 - R()) * 220));
+      var u = R();
+      src[i] = u < 0.08 ? 1 : u < 0.22 ? 2 : u < 0.28 ? 3 : u < 0.5 ? 4 : 0;
+      if ((kind[i] === 0 || kind[i] === 2 || kind[i] === 4) && R() < 0.004) flag[i] |= 1;
+      if ((kind[i] === 3 || kind[i] === 5) && R() < 0.012) flag[i] |= 2;
+      var sp = R();
+      lum[i] = 95 + ((sp * sp * 160) | 0);
+    }
+    var TX = Math.floor(FW * 0.64), TY = Math.floor(FH * 0.68), T = TY * FW + TX;
+    for (i = 0; i < N; i++) if (kind[i] === 0 && days[i] >= 7 && days[i] < 14 && src[i] === 1) flag[i] &= ~1;
+    kind[T] = 0; days[T] = 9; src[T] = 1; flag[T] = 1; lum[T] = 255;
+
+    var COL = [[255, 140, 178], [178, 160, 255], [135, 185, 255], [255, 196, 130], [140, 225, 210], [150, 230, 170], [210, 204, 236]];
+    var TESTS = {
+      kind: function (i) { return kind[i] === 0; },
+      when: function (i) { return days[i] >= 7 && days[i] < 14; },
+      from: function (i) { return src[i] === 1; },
+      text: function (i) { return (flag[i] & 1) === 1; },
+      said: function (i) { return (flag[i] & 2) === 2; },
+    };
+    var WORDS = { kind: "pdf", from: "from gmail", when: "last week", text: "invoice", said: "said “budget”" };
+    var ORDER = ["kind", "from", "when", "text", "said"];
+    var on = new Uint8Array(N).fill(1), prev = new Uint8Array(N).fill(1), active = {}, shown = N;
+    var nEl = $("field-n"), labelEl = $("field-label"), qEl = $("field-q"), hit = $("field-hit");
+    var cueBtns = Array.prototype.slice.call(document.querySelectorAll("#cues button"));
+
+    function compute() {
+      var keys = ORDER.filter(function (k) { return active[k]; }), total = 0;
+      prev.set(on);
+      for (var i = 0; i < N; i++) {
+        var ok = 1;
+        for (var j = 0; j < keys.length; j++) if (!TESTS[keys[j]](i)) { ok = 0; break; }
+        on[i] = ok; total += ok;
+      }
+      return total;
+    }
+    // Each file is one dot with a gap around it. With no cue every dot is faint; with cues, matches brighten and
+    // the rest fade almost to black, and the last few get a glow so they can be seen.
+    for (i = 0; i < px.length; i += 4) px[i + 3] = 255;
+    var hadCues = false, hasCues = false;
+    function paint(t, total) {
+      var a, b, f, c, o;
+      for (var i = 0; i < N; i++) {
+        a = hadCues ? (prev[i] ? 1.35 : 0.06) : 0.95;
+        b = hasCues ? (on[i] ? 1.35 : 0.06) : 0.95;
+        f = ((a + (b - a) * t) * lum[i]) / 255;
+        c = COL[kind[i]];
+        o = (((i / FW) | 0) * S * W2 + (i % FW) * S) * 4;
+        px[o] = c[0] * f; px[o + 1] = c[1] * f; px[o + 2] = c[2] * f;
+      }
+      ctx.putImageData(img, 0, 0);
+      if (hasCues && total <= 3000 && t > 0.3) {
+        ctx.globalCompositeOperation = "lighter";
+        var alpha = Math.min(1, (t - 0.3) / 0.7), few = total < 200;
+        for (var k = 0; k < N; k++) {
+          if (!on[k]) continue;
+          var c2 = COL[kind[k]], cx = (k % FW) * S + 0.5, cy = ((k / FW) | 0) * S + 0.5;
+          ctx.fillStyle = "rgba(" + c2[0] + "," + c2[1] + "," + c2[2] + "," + (few ? 0.35 : 0.2) * alpha + ")";
+          ctx.beginPath(); ctx.arc(cx, cy, few ? 10 : 4.5, 0, 6.283); ctx.fill();
+          ctx.fillStyle = "rgba(255,255,255," + 0.95 * alpha + ")";
+          ctx.beginPath(); ctx.arc(cx, cy, few ? 2.4 : 1.3, 0, 6.283); ctx.fill();
+        }
+        ctx.globalCompositeOperation = "source-over";
+      }
+    }
+    var animId = 0;
+    function update() {
+      var keys = ORDER.filter(function (k) { return active[k]; });
+      hadCues = hasCues; hasCues = keys.length > 0;
+      var total = compute(), from = shown, my = ++animId, start = performance.now(), dur = reduce ? 1 : 700;
+      qEl.textContent = keys.length ? "Haven: “" + keys.map(function (k) { return WORDS[k]; }).join(" ") + "”" : "Every dot is a file. Turn on a cue.";
+      hit.hidden = true;
+      (function frame(now) {
+        if (my !== animId) return;
+        var t = clamp((now - start) / dur, 0, 1), e = ease(t);
+        paint(e, total);
+        nEl.textContent = Math.round(from + (total - from) * e).toLocaleString("en-US");
+        if (t < 1) { requestAnimationFrame(frame); return; }
+        shown = total;
+        labelEl.textContent = total === 1 ? "file" : total === 0 ? "files. No PDF has ever said “budget”." : "files";
+        if (total === 1 && on[T]) {
+          hit.style.setProperty("--x", ((TX + 0.5) / FW) * 100 + "%");
+          hit.style.setProperty("--y", ((TY + 0.5) / FH) * 100 + "%");
+          hit.classList.toggle("left", TX > FW * 0.55);
+          hit.hidden = false;
+        }
+      })(performance.now());
+    }
+    function set(key, val) {
+      active[key] = val;
+      cueBtns.forEach(function (b) { b.setAttribute("aria-pressed", String(!!active[b.getAttribute("data-cue")])); });
+      update();
+    }
+    var playing = 0;
+    cueBtns.forEach(function (b) {
+      b.addEventListener("click", function () { playing++; var k = b.getAttribute("data-cue"); set(k, !active[k]); });
+    });
+    async function play() {
+      var my = ++playing;
+      active = {}; set("kind", false);
+      var seq = ["kind", "when", "from", "text"];
+      for (var s = 0; s < seq.length; s++) {
+        await wait(reduce ? 0 : 1400);
+        if (my !== playing) return;
+        set(seq[s], true);
+      }
+    }
+    prev.fill(1); paint(1, N);
+    $("field-play").addEventListener("click", play);
+    onView(canvas, play, 0.45);
+  }
+
+  // ---------------------------------------------------------------- A desktop with a right-click menu
+  var onMade = null;
+  function desk() {
+    var deskEl = $("desk");
+    if (!deskEl) return;
+    var iconsEl = $("desk-icons"), menu = $("cmenu"), sub = $("cmenu-sub"), win = $("desk-win"), hint = $("desk-hint");
+    PH.product = "radial-gradient(ellipse at 50% 88%, #c2603a 0 17%, transparent 17.5%), radial-gradient(ellipse at 50% 46%, #3f8c4f 0 20%, transparent 20.5%), radial-gradient(ellipse at 40% 40%, #5aa864 0 12%, transparent 12.5%), linear-gradient(180deg, #ecdfcf, #d6c2aa)";
+    PH.cut = "radial-gradient(ellipse at 50% 88%, #c2603a 0 17%, transparent 17.5%), radial-gradient(ellipse at 50% 46%, #3f8c4f 0 20%, transparent 20.5%), radial-gradient(ellipse at 40% 40%, #5aa864 0 12%, transparent 12.5%), repeating-conic-gradient(#e6e6ea 0 25%, #fff 0 50%) 0 0 / 10px 10px";
+    var items = [
+      { id: "lease", name: "Lease agreement.pdf", f: { k: "pdf" }, tools: [["Sign PDF…", "sign"], ["Add Password…", " (locked).pdf"], ["Split PDF", " - page 01.pdf"], ["Extract Pages…", " (pages 2-3).pdf"], ["Organize Pages…", " (organized).pdf"], ["PDF to Images", " (pages)"], null, ["Summarize", " (summary).txt"], ["Translate…", " (Spanish).pdf"]] },
+      { id: "shot", name: "Product shot.heic", f: { k: "photo", ph: "product" }, tools: [["Remove Background", "cutout"], ["Convert to PNG", ".png"], ["Resize Images", " (1600 px).heic"], ["Rotate Images", " (rotated).heic"], ["Remove Private Details", " (clean).heic"], ["Images to PDF", ".pdf"]] },
+      { id: "call", name: "Team call.mov", f: { k: "video", ph: "call", dur: "32:14" }, tools: [["Compress Video", "compress"], ["Transcribe…", "transcribe"], ["Trim Video…", " (trimmed).mov"], ["Make a GIF", ".gif"], ["Extract Audio", ".m4a"], ["Mute Video", " (muted).mov"], ["Change Speed", " (2x).mov"]] },
+      { id: "img", name: "IMG_4021.HEIC", f: { k: "photo", ph: "sunset" }, tools: [["Remove Private Details", "clean"], ["Remove Background", " (cut out).png"], ["Convert to JPEG", ".jpg"], ["Resize Images", " (1600 px).HEIC"], ["Rotate Images", " (rotated).HEIC"]] },
+      { id: "pdfs", name: "Brief, Budget, Contract", stack: true, tools: [["Merge PDFs…", "merge"], ["Add Password…", " (locked)"], ["PDF to Images", " (pages)"]] },
+    ];
+    var made_n = 0;
+    function iconHTML(it, isNew) {
+      var th = it.stack ? '<div class="th pile3"><span class="sheet"></span><span class="sheet"></span><span class="sheet">PDF</span></div>' : thumb(it.f, true);
+      return '<button type="button" class="dicon' + (isNew ? " new" : "") + '" data-id="' + it.id + '" aria-haspopup="menu">' + th + '<span class="nm">' + esc(it.name) + "</span></button>";
+    }
+    iconsEl.innerHTML = items.map(function (it) { return iconHTML(it); }).join("");
+    function find(id) { return items.filter(function (it) { return it.id === id; })[0]; }
+    function select(id) { iconsEl.querySelectorAll(".dicon").forEach(function (b) { b.classList.toggle("sel", b.getAttribute("data-id") === id); }); }
+    function closeMenus() { menu.hidden = true; sub.hidden = true; }
+    function closeWin() { win.hidden = true; win.innerHTML = ""; onMade = null; }
+    function deskPoint(clientX, clientY) { var r = deskEl.getBoundingClientRect(); return [clientX - r.left, clientY - r.top]; }
+
+    var current = null;
+    function ci(label, attrs, extra) { return '<button type="button" class="ci" role="menuitem" ' + (attrs || "") + ">" + label + (extra || "") + "</button>"; }
+    function openMenu(it, x, y) {
+      current = it;
+      select(it.id);
+      hint.classList.add("gone");
+      var label = it.stack ? "3 items" : "“" + esc(it.name) + "”";
+      menu.innerHTML = ci("Open", 'data-act="other"') + ci("Open With", 'data-act="other"', '<span class="ar">›</span>') + ci("Quick Look " + label, 'data-act="other"') + "<hr>" +
+        ci('<svg aria-hidden="true"><use href="#i-tools"/></svg>Tools', 'data-act="tools" aria-haspopup="menu"', '<span class="ar">›</span>') +
+        ci("Make Shareable", 'data-act="other"', '<span class="ar">›</span>') + "<hr>" + ci("Copy", 'data-act="other"', '<span class="kb">⌘C</span>') + ci("Share…", 'data-act="other"');
+      menu.hidden = false;
+      var dw = deskEl.clientWidth, dh = deskEl.clientHeight, mw = menu.offsetWidth, mh = menu.offsetHeight;
+      menu.style.left = clamp(x, 8, dw - mw - 8) + "px";
+      menu.style.top = clamp(y, 34, dh - mh - 8) + "px";
+      sub.hidden = true;
+    }
+    function openSub(focusFirst) {
+      if (!current) return;
+      var toolsBtn = menu.querySelector('[data-act="tools"]');
+      sub.innerHTML = current.tools.map(function (t, i) {
+        if (!t) return "<hr>";
+        var feat = TOOLS[t[1]] ? " feat" : "";
+        return '<button type="button" class="ci' + feat + '" role="menuitem" data-tool="' + i + '">' + t[0] + "</button>";
+      }).join("");
+      sub.hidden = false;
+      var dw = deskEl.clientWidth, dh = deskEl.clientHeight;
+      var mx = menu.offsetLeft, mw = menu.offsetWidth, sw = sub.offsetWidth, sh = sub.offsetHeight, ty = menu.offsetTop + toolsBtn.offsetTop - 5;
+      var left = mx + mw - 4;
+      if (left + sw > dw - 8) left = mx - sw + 4;
+      if (left < 8) { left = clamp(mx + 16, 8, dw - sw - 8); ty = menu.offsetTop + toolsBtn.offsetTop + toolsBtn.offsetHeight; }
+      sub.style.left = left + "px";
+      sub.style.top = clamp(ty, 34, dh - sh - 8) + "px";
+      toolsBtn.classList.add("on");
+      if (focusFirst) { var f = sub.querySelector(".ci"); if (f) f.focus(); }
+    }
+    function addIcon(name, from) {
+      var ext = (name.split(".").pop() || "").toLowerCase();
+      var f = ext === "pdf" ? { k: "pdf" } : ext === "png" || ext === "heic" || ext === "jpg" ? { k: "photo", ph: /cut out/.test(name) ? "cut" : from.f && from.f.ph || "sunset" } : ext === "mp4" || ext === "mov" ? { k: "video", ph: "call", dur: "32:14" } : ext === "gif" ? { k: "photo", ph: "call" } : ext === "m4a" ? { k: "audio" } : ext === "txt" || ext === "srt" ? { k: "doc" } : { k: "zip" };
+      var it = { id: "n" + ++made_n, name: name, f: f, tools: from.tools, stack: false };
+      items.push(it);
+      iconsEl.insertAdjacentHTML("beforeend", iconHTML(it, true));
+      var extra = iconsEl.querySelectorAll(".dicon");
+      if (extra.length > 12) { var old = extra[5]; items = items.filter(function (x) { return x.id !== old.getAttribute("data-id"); }); old.remove(); }
+    }
+    function runTool(it, t) {
+      closeMenus();
+      win.hidden = false;
+      onMade = function (name) { if (!win.hidden) addIcon(name, it); };
+      if (TOOLS[t[1]]) TOOLS[t[1]](win);
+      else generic(it, t);
+      var lights = win.querySelector(".lights");
+      if (lights) {
+        lights.removeAttribute("aria-hidden");
+        lights.innerHTML = '<button type="button" aria-label="Close window"></button><i></i><i></i>';
+        lights.querySelector("button").addEventListener("click", closeWin);
+      }
+    }
+    function generic(it, t) {
+      var base = it.stack ? "Brief" : it.name.replace(/\.[^.]+$/, ""), out = /^\./.test(t[1]) ? base + t[1] : base + t[1];
+      win.innerHTML = shell(t[0].replace("…", ""), [it.stack ? "3 PDFs" : it.name, "Tools", t[0]], '<div class="tool-row"><div class="bar" style="flex:1;min-width:140px"><i></i></div></div><div id="gen-out" aria-live="polite"></div>');
+      progress(win.querySelector(".bar i"), reduce ? 10 : 900).then(function () {
+        var o = $("gen-out");
+        if (o) o.innerHTML = made(out, "Made next to the original. The original is untouched.");
+      });
+    }
+
+    deskEl.addEventListener("contextmenu", function (e) {
+      var b = e.target.closest(".dicon");
+      if (!b) { e.preventDefault(); closeMenus(); return; }
+      e.preventDefault();
+      autoShown = false;
+      var p = deskPoint(e.clientX, e.clientY);
+      openMenu(find(b.getAttribute("data-id")), p[0], p[1]);
+    });
+    iconsEl.addEventListener("click", function (e) {
+      var b = e.target.closest(".dicon");
+      if (!b) return;
+      autoShown = false;
+      var r = b.getBoundingClientRect(), p = deskPoint(r.left + r.width * 0.3, r.top + r.height * 0.7);
+      openMenu(find(b.getAttribute("data-id")), p[0], p[1]);
+    });
+    menu.addEventListener("click", function (e) {
+      var b = e.target.closest(".ci");
+      if (!b) return;
+      if (b.getAttribute("data-act") === "tools") { openSub(true); return; }
+      closeMenus();
+      window.havenToast("Those work just like Finder. Open <b>Tools</b> to see Haven's part.");
+    });
+    menu.addEventListener("mouseover", function (e) {
+      var b = e.target.closest(".ci");
+      if (!b) return;
+      if (b.getAttribute("data-act") === "tools") openSub(false);
+      else { sub.hidden = true; var tb = menu.querySelector('[data-act="tools"]'); if (tb) tb.classList.remove("on"); }
+    });
+    menu.addEventListener("keydown", function (e) {
+      var b = e.target.closest(".ci");
+      if (b && b.getAttribute("data-act") === "tools" && (e.key === "ArrowRight" || e.key === "Enter")) { e.preventDefault(); openSub(true); }
+    });
+    sub.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-tool]");
+      if (!b || !current) return;
+      runTool(current, current.tools[+b.getAttribute("data-tool")]);
+    });
+    sub.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { var tb = menu.querySelector('[data-act="tools"]'); sub.hidden = true; if (tb) tb.focus(); }
+    });
+    [menu, sub].forEach(function (m) {
+      m.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var list = Array.prototype.slice.call(m.querySelectorAll(".ci")), at = list.indexOf(document.activeElement);
+        var next = list[(at + (e.key === "ArrowDown" ? 1 : list.length - 1)) % list.length];
+        if (next) next.focus();
+      });
+    });
+    document.addEventListener("pointerdown", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && !sub.contains(e.target) && !e.target.closest(".dicon")) closeMenus();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (!menu.hidden) closeMenus(); else if (!win.hidden) closeWin();
+    });
+
+    // Shows the way once: the menu opens on the lease with Tools and Sign PDF highlighted.
+    var autoShown = false;
+    onView(deskEl, function () {
+      setTimeout(function () {
+        if (!menu.hidden || !win.hidden) return;
+        var b = iconsEl.querySelector(".dicon");
+        var r = b.getBoundingClientRect(), p = deskPoint(r.left + r.width * 0.35, r.top + r.height * 0.75);
+        openMenu(items[0], p[0], p[1]);
+        openSub(false);
+        var first = sub.querySelector(".ci.feat");
+        if (first) first.classList.add("on");
+        autoShown = true;
+      }, reduce ? 0 : 900);
+    }, 0.5);
+  }
+
+  // ---------------------------------------------------------------- Clean Up: a ring, a dock and a Trash
   function cleanup() {
-    var cardsEl = $("clean-cards");
-    if (!cardsEl) return;
-    var TOTAL = 494.4, USED = 431.2;
+    var groupsEl = $("cgroups");
+    if (!groupsEl) return;
+    var CLUTTER = 38.1, C = 2 * Math.PI * 80;
     var groups = [
       { id: "videos", n: "Big Old Videos", gb: 18.4, items: 6, c: "#df5a90", icon: "i-film", note: "Unopened for a year", on: false },
-      { id: "downloads", n: "Forgotten Downloads", gb: 7.9, items: 142, c: "#3b82d6", icon: "i-download", note: "Unopened, 90+ days", on: true },
-      { id: "installers", n: "Old Installers", gb: 4.6, items: 23, c: "#e39a2d", icon: "i-box", note: "Apps stay installed", on: true },
+      { id: "downloads", n: "Forgotten Downloads", gb: 7.9, items: 142, c: "#3b82d6", icon: "i-download", note: "Never opened, 90+ days", on: true },
+      { id: "installers", n: "Old Installers", gb: 4.6, items: 23, c: "#e39a2d", icon: "i-box", note: "The apps stay installed", on: true },
       { id: "dups", n: "Duplicates", gb: 3.2, items: 61, c: "#6a4df2", icon: "i-dup", note: "Best copy kept", on: false },
-      { id: "zips", n: "Already Unzipped", gb: 2.7, items: 9, c: "#2f9e6b", icon: "i-archive", note: "Already extracted", on: true },
+      { id: "zips", n: "Already Unzipped", gb: 2.7, items: 9, c: "#2f9e6b", icon: "i-archive", note: "Contents are next to them", on: true },
       { id: "shots", n: "Old Screenshots", gb: 1.3, items: 288, c: "#8b8898", icon: "i-shot", note: "Over 30 days old", on: false },
     ];
-    var trashed = [];
-    var go = $("clean-go"), sum = $("clean-sum"), bar = $("disk-bar"), legend = $("disk-legend"), free = $("disk-free");
-    var toast = $("clean-toast"), toastMsg = $("clean-toast-msg"), toastTimer;
-
+    var trashed = [], last = [];
+    var ring = $("ring"), big = $("ring-big"), small = $("ring-small"), go = $("clean-go"), sum = $("clean-sum"), trash = $("trash"), cwin = $("cwin");
+    var toast = $("ctoast"), toastMsg = $("ctoast-msg"), toastTimer;
+    ring.innerHTML = '<circle cx="100" cy="100" r="80" style="stroke:var(--win-field)"/>' + groups.map(function (g) { return '<circle data-g="' + g.id + '" cx="100" cy="100" r="80"/>'; }).join("");
+    function arcs(trashedNow) {
+      var start = 0;
+      groups.forEach(function (g) {
+        var el = ring.querySelector('[data-g="' + g.id + '"]'), len = (g.gb / CLUTTER) * C, gone = trashedNow.indexOf(g.id) >= 0;
+        el.style.strokeDasharray = Math.max(0, len - 3).toFixed(2) + " " + C.toFixed(2);
+        el.style.strokeDashoffset = (-start).toFixed(2);
+        el.style.stroke = gone ? "#16995b" : g.c;
+        el.style.opacity = gone ? "1" : g.on ? "1" : "0.28";
+        start += len;
+      });
+    }
     function draw() {
-      cardsEl.innerHTML = groups.map(function (g) {
+      groupsEl.innerHTML = groups.map(function (g) {
         var done = trashed.indexOf(g.id) >= 0;
-        return '<button type="button" class="ccard' + (done ? " done" : "") + '" style="--c:' + g.c + '" aria-pressed="' + (g.on && !done) + '" data-id="' + g.id + '"><span class="ic"><svg aria-hidden="true"><use href="#' + g.icon + '"/></svg></span><span><b>' + g.n + "</b><small>" + (done ? "In the Trash" : g.items + " items · " + g.note) + '</small></span><span><span class="sz">' + g.gb.toFixed(1) + ' GB</span><span class="ck"></span></span></button>';
+        return '<button type="button" class="cg' + (done ? " done" : "") + '" style="--c:' + g.c + '" aria-pressed="' + (g.on && !done) + '" data-id="' + g.id + '"><span class="ic"><svg aria-hidden="true"><use href="#' + g.icon + '"/></svg></span><span><b>' + g.n + "</b><small>" + (done ? "In the Trash" : g.items + " items · " + g.note) + '</small></span><span class="sz">' + g.gb.toFixed(1) + ' GB</span><span class="ck"></span></button>';
       }).join("");
       var sel = groups.filter(function (g) { return g.on && trashed.indexOf(g.id) < 0; });
       var selGB = sel.reduce(function (s, g) { return s + g.gb; }, 0);
       var inTrash = groups.filter(function (g) { return trashed.indexOf(g.id) >= 0; }).reduce(function (s, g) { return s + g.gb; }, 0);
-      var pct = function (gb) { return (gb / TOTAL * 100).toFixed(2) + "%"; };
-      bar.innerHTML = '<i style="width:' + pct(USED - selGB - inTrash) + ';background:var(--win-ink-2);opacity:.55"></i><i style="width:' + pct(selGB) + ';background:var(--accent)"></i><i style="width:' + pct(inTrash) + ';background:repeating-linear-gradient(45deg,var(--ok) 0 4px,color-mix(in srgb,var(--ok) 55%,transparent) 4px 8px)"></i>';
-      legend.innerHTML = '<span style="--c:var(--win-ink-2)">Used</span>' + (selGB ? '<span style="--c:var(--accent)">Selected ' + selGB.toFixed(1) + " GB</span>" : "") + (inTrash ? '<span style="--c:var(--ok)">In the Trash ' + inTrash.toFixed(1) + " GB</span>" : "") + '<span style="--c:var(--win-field)">Free</span>';
-      free.textContent = (TOTAL - USED).toFixed(1) + " GB free";
+      arcs(trashed);
+      if (inTrash) { big.textContent = inTrash.toFixed(1) + " GB"; small.textContent = "in the Trash, ready to empty"; }
+      else { big.textContent = selGB.toFixed(1) + " GB"; small.textContent = "selected of " + CLUTTER.toFixed(1) + " GB found"; }
       go.disabled = !sel.length;
-      go.textContent = sel.length ? "Move " + sel.length + (sel.length === 1 ? " group" : " groups") + " to Trash" : "Move to Trash";
-      sum.textContent = sel.length ? selGB.toFixed(1) + " GB selected · you'll review each file first" : (trashed.length ? inTrash.toFixed(1) + " GB is in the Trash, ready to empty" : "Pick what to clear");
+      go.textContent = sel.length ? "Move " + selGB.toFixed(1) + " GB to Trash" : "Move to Trash";
+      sum.textContent = sel.length ? sel.length + (sel.length === 1 ? " group" : " groups") + " selected · you review every file first" : "Pick what to clear";
     }
-    cardsEl.addEventListener("click", function (e) {
-      var b = e.target.closest(".ccard"); if (!b) return;
+    function fly(fromEl, toEl, color, delay) {
+      if (!fromEl || !toEl || reduce || !Element.prototype.animate) return Promise.resolve();
+      var base = cwin.getBoundingClientRect(), a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+      var x0 = a.left - base.left + a.width * (0.3 + Math.random() * 0.5), y0 = a.top - base.top + a.height / 2;
+      var x1 = b.left - base.left + b.width / 2 - 7, y1 = b.top - base.top + b.height / 2 - 7;
+      var mx = (x0 + x1) / 2 + (Math.random() - 0.5) * 80, my = Math.min(y0, y1) - 60 - Math.random() * 60;
+      var d = document.createElement("span");
+      d.className = "flyer"; d.style.setProperty("--c", color); d.style.left = "0"; d.style.top = "0";
+      cwin.appendChild(d);
+      var anim = d.animate([
+        { transform: "translate(" + x0 + "px," + y0 + "px) scale(1)", opacity: 1 },
+        { transform: "translate(" + mx + "px," + my + "px) scale(1.15) rotate(90deg)", opacity: 1, offset: 0.45 },
+        { transform: "translate(" + x1 + "px," + y1 + "px) scale(0.35) rotate(200deg)", opacity: 0.4 },
+      ], { duration: 760 + Math.random() * 200, delay: delay, easing: "cubic-bezier(.45,.05,.4,1)", fill: "forwards" });
+      return anim.finished.then(function () { d.remove(); });
+    }
+    groupsEl.addEventListener("click", function (e) {
+      var b = e.target.closest(".cg"); if (!b) return;
       var g = groups.filter(function (x) { return x.id === b.getAttribute("data-id"); })[0];
       g.on = !g.on; draw();
     });
-    var last = [];
     go.addEventListener("click", function () {
       var sel = groups.filter(function (g) { return g.on && trashed.indexOf(g.id) < 0; });
       if (!sel.length) return;
+      var flights = [];
+      sel.forEach(function (g, gi) {
+        var card = groupsEl.querySelector('[data-id="' + g.id + '"]');
+        for (var k = 0; k < 5; k++) flights.push(fly(card, trash, g.c, gi * 90 + k * 60));
+      });
       last = sel.map(function (g) { return g.id; });
       trashed = trashed.concat(last);
       var items = sel.reduce(function (s, g) { return s + g.items; }, 0);
-      draw();
+      Promise.all(flights).then(function () {
+        trash.classList.add("full"); trash.classList.remove("bump"); void trash.offsetWidth; trash.classList.add("bump");
+      });
+      setTimeout(draw, reduce ? 0 : 500);
       toastMsg.textContent = "Moved " + items + " items to the Trash";
       toast.classList.add("show");
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 6000);
+      toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 6500);
     });
-    $("clean-undo").addEventListener("click", function () {
-      trashed = trashed.filter(function (id) { return last.indexOf(id) < 0; });
+    $("ctoast-undo").addEventListener("click", function () {
+      var back = last.slice();
+      trashed = trashed.filter(function (id) { return back.indexOf(id) < 0; });
       last = [];
       toast.classList.remove("show");
       draw();
+      back.forEach(function (id, gi) {
+        var g = groups.filter(function (x) { return x.id === id; })[0], card = groupsEl.querySelector('[data-id="' + id + '"]');
+        for (var k = 0; k < 4; k++) fly(trash, card, g.c, gi * 80 + k * 50);
+      });
+      if (!trashed.length) trash.classList.remove("full");
     });
     draw();
   }
 
-  // ---------------------------------------------------------------- Smart Rename
-  function rename() {
-    var input = $("rn-input"), list = $("rn-list");
-    if (!input) return;
-    var FILESR = [
-      { name: "scan0003", ext: "pdf", title: "Invoice 4821", d: 9, src: "Gmail", kind: "PDF" },
-      { name: "scan0004", ext: "pdf", title: "Lease Agreement", d: 41, src: "Google Drive", kind: "PDF" },
-      { name: "IMG_4021", ext: "HEIC", title: null, d: 1, src: "AirDrop", kind: "Photo" },
-      { name: "Screenshot " + ymd(ago(4)) + " at 09.41.22", ext: "png", title: "Wi-Fi Password", d: 4, src: "", kind: "Screenshot" },
-      { name: "Document (2)", ext: "docx", title: "Quarterly Plan", d: 16, src: "Gmail", kind: "Document" },
+  // ---------------------------------------------------------------- Twelve apps fold into one as you scroll
+  function stack() {
+    var sec = $("stack"), tilesEl = $("tiles"), core = $("stack-core"), total = $("stack-total"), label = document.querySelector(".tot-label");
+    if (!sec || reduce) return;
+    var inner = sec.querySelector(".stack-in"), tiles = Array.prototype.slice.call(tilesEl.children), offs = [];
+    function measure() {
+      tiles.forEach(function (t) { t.style.transform = ""; });
+      var sr = tilesEl.getBoundingClientRect(), cx = sr.left + sr.width / 2, cy = sr.top + sr.height / 2;
+      offs = tiles.map(function (t) { var r = t.getBoundingClientRect(); return [cx - (r.left + r.width / 2), cy - (r.top + r.height / 2)]; });
+    }
+    var ticking = false;
+    function update() {
+      ticking = false;
+      var r = sec.getBoundingClientRect(), span = r.height - inner.offsetHeight;
+      var p = clamp(-r.top / (span || 1), 0, 1);
+      tiles.forEach(function (t, i) {
+        var e = ease(clamp((p - 0.08 - i * 0.022) / 0.42, 0, 1));
+        t.style.transform = "translate(" + (offs[i][0] * e).toFixed(1) + "px," + (offs[i][1] * e).toFixed(1) + "px) scale(" + (1 - 0.72 * e).toFixed(3) + ") rotate(" + ((i % 2 ? -1 : 1) * e * 10).toFixed(1) + "deg)";
+        t.style.opacity = (1 - e * e).toFixed(3);
+      });
+      var c = ease(clamp((p - 0.5) / 0.28, 0, 1));
+      core.style.opacity = c.toFixed(3);
+      core.style.transform = "translate(-50%,-50%) scale(" + (0.6 + 0.4 * c).toFixed(3) + ")";
+      var m = clamp((p - 0.1) / 0.62, 0, 1), v = 543.8 - (543.8 - 49) * ease(m);
+      total.textContent = "$" + v.toFixed(2);
+      total.classList.toggle("cheap", m >= 1);
+      label.textContent = m >= 1 ? "With Haven" : "Bought separately";
+    }
+    measure(); update();
+    window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    window.addEventListener("resize", function () { measure(); update(); });
+  }
+
+  // ---------------------------------------------------------------- Pull the plug
+  function plug() {
+    var wifi = $("wifi"), qEl = $("plug-q"), steps = $("plug-steps"), plugEl = $("plug");
+    if (!wifi) return;
+    var title = plugEl.querySelector(".plug-bar b");
+    var STEPS = [
+      ["i-search", "Found “Passport scan.jpg”", "Matched the word PASSPORT inside the picture"],
+      ["i-locoff", "Removed private details", "Location and camera gone · Passport scan (clean).jpg"],
+      ["i-compress", "Made a smaller copy for email", "4.2 MB → 640 KB, next to the original"],
+      ["i-sign", "Signed “Visa application.pdf”", "Visa application (signed).pdf"],
     ];
-    function apply(pattern) {
-      var seen = {};
-      return FILESR.map(function (f, i) {
-        var base = pattern.replace(/\{(\w+)(?::(\d+))?\}/g, function (m, tok, width) {
-          switch (tok) {
-            case "date": return ymd(ago(f.d));
-            case "time": return "14.05";
-            case "name": return f.name;
-            case "title": return f.title || f.name;
-            case "n": { var s = String(i + 1); while (width && s.length < +width) s = "0" + s; return s; }
-            case "source": return f.src || "";
-            case "kind": return f.kind;
-            case "folder": return "Downloads";
-            default: return m;
-          }
-        }).replace(/[\/:]/g, "-").replace(/\s+/g, " ").replace(/^[\s–-]+|[\s–-]+$/g, "").trim();
-        if (!base) base = f.name;
-        var full = base + "." + f.ext, k = full.toLowerCase(), n = 2;
-        while (seen[k]) { full = base + " " + n + "." + f.ext; k = full.toLowerCase(); n++; }
-        seen[k] = true;
-        return [f.name + "." + f.ext, full];
-      });
-    }
-    function draw() {
-      list.innerHTML = apply(input.value).map(function (r) {
-        return '<li><span class="old" title="' + esc(r[0]) + '">' + esc(r[0]) + '</span><span class="arrow" aria-hidden="true">→</span><span class="new" title="' + esc(r[1]) + '">' + esc(r[1]) + "</span></li>";
-      }).join("");
-      document.querySelectorAll("#rn-presets .opt").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-p") === input.value)); });
-    }
-    input.addEventListener("input", draw);
-    $("rn-presets").addEventListener("click", function (e) {
-      var b = e.target.closest(".opt"); if (!b) return;
-      input.value = b.getAttribute("data-p"); draw();
-    });
-    $("rn-tokens").addEventListener("click", function (e) {
-      var b = e.target.closest("button"); if (!b) return;
-      var s = input.selectionStart == null ? input.value.length : input.selectionStart, t = input.selectionEnd == null ? s : input.selectionEnd;
-      var token = b.textContent, before = input.value.slice(0, s), after = input.value.slice(t);
-      var sep = before && !/\s$/.test(before) ? " " : "";
-      input.value = before + sep + token + after;
-      var pos = (before + sep + token).length;
-      input.focus(); input.setSelectionRange(pos, pos);
-      draw();
-    });
-    draw();
-  }
-
-  // ---------------------------------------------------------------- Quick Search
-  function quickSearch() {
-    var openBtn = $("qs-open");
-    if (!openBtn) return;
-    var scrim = null, lastFocus = null;
-    function open() {
-      if (scrim) return;
-      lastFocus = document.activeElement;
-      scrim = document.createElement("div");
-      scrim.className = "qs-scrim";
-      scrim.innerHTML = '<div class="qs" role="dialog" aria-modal="true" aria-label="Quick Search"><label class="qs-field"><svg aria-hidden="true"><use href="#i-search"/></svg><span class="sr">Search</span><input id="qs-input" type="text" autocomplete="off" spellcheck="false" placeholder="Search your Mac"></label><ul class="qs-list" id="qs-list" role="listbox"></ul><div class="qs-foot"><span><kbd>↩</kbd> Open</span><span><kbd>⌘</kbd><kbd>↩</kbd> Show in Haven</span><span><kbd>⌥</kbd><kbd>↩</kbd> Show in Finder</span><span><kbd>esc</kbd> Close</span></div></div>';
-      document.body.appendChild(scrim);
-      var input = scrim.querySelector("input"), list = scrim.querySelector("#qs-list"), sel = 0, rows = [];
-      function draw() {
-        var q = input.value.trim();
-        rows = q ? search(q).list.slice(0, 7) : FILES.slice().sort(function (a, b) { return a.d - b.d; }).slice(0, 6);
-        sel = Math.min(sel, Math.max(0, rows.length - 1));
-        list.innerHTML = rows.length ? rows.map(function (f, i) {
-          return '<li role="option" aria-selected="' + (i === sel) + '" data-i="' + i + '"><span class="mini">' + thumb(f, true) + "</span><span><b>" + esc(f.n) + "</b><small>" + (f.src ? "From " + esc(f.src) + " · " : "") + when(f.d) + "</small></span><small>" + size(f.mb) + "</small></li>";
-        }).join("") : '<li aria-disabled="true"><span></span><span><b>No matches</b><small>Try “invoice” or “videos from zoom”</small></span></li>';
+    var run = 0;
+    async function play(offline) {
+      var my = ++run;
+      steps.innerHTML = "";
+      title.innerHTML = offline ? 'Haven <span class="offline-badge">Offline</span>' : "Haven";
+      var text = "passport";
+      if (reduce) qEl.textContent = text;
+      else { qEl.textContent = ""; for (var i = 1; i <= text.length; i++) { if (my !== run) return; qEl.textContent = text.slice(0, i); await wait(70); } }
+      for (var s = 0; s < STEPS.length; s++) {
+        await wait(reduce ? 0 : 520);
+        if (my !== run) return;
+        steps.insertAdjacentHTML("beforeend", '<div class="pstep"><span class="ic"><svg aria-hidden="true"><use href="#' + STEPS[s][0] + '"/></svg></span><span><b>' + STEPS[s][1] + "</b><small>" + STEPS[s][2] + '</small></span><span class="ok">Done</span></div>');
       }
-      function choose(how) {
-        var f = rows[sel]; if (!f) return;
-        var verb = how === "finder" ? "shows it in Finder" : how === "haven" ? "shows it in Haven" : "opens it";
-        window.havenToast("In Haven, this " + verb + ": “" + esc(f.n) + "”");
-        close();
+      if (offline) {
+        await wait(reduce ? 0 : 400);
+        if (my === run) steps.insertAdjacentHTML("beforeend", '<div class="pstep"><span class="ic"><svg aria-hidden="true"><use href="#i-shield"/></svg></span><span><b>Still working, with Wi-Fi off</b><small>Nothing here needed the internet</small></span><span class="ok">✓</span></div>');
       }
-      input.addEventListener("input", function () { sel = 0; draw(); });
-      input.addEventListener("keydown", function (e) {
-        if (e.key === "ArrowDown") { sel = Math.min(rows.length - 1, sel + 1); draw(); e.preventDefault(); }
-        else if (e.key === "ArrowUp") { sel = Math.max(0, sel - 1); draw(); e.preventDefault(); }
-        else if (e.key === "Enter") { choose(e.metaKey ? "haven" : e.altKey ? "finder" : "open"); e.preventDefault(); }
-        else if (e.key === "Tab") { e.preventDefault(); }
-      });
-      list.addEventListener("click", function (e) { var li = e.target.closest("li[data-i]"); if (li) { sel = +li.getAttribute("data-i"); choose("open"); } });
-      scrim.addEventListener("mousedown", function (e) { if (e.target === scrim) close(); });
-      draw();
-      input.focus();
     }
-    function close() {
-      if (!scrim) return;
-      scrim.remove(); scrim = null;
-      if (lastFocus && lastFocus.focus) lastFocus.focus();
-    }
-    openBtn.addEventListener("click", open);
-    document.addEventListener("keydown", function (e) {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.code === "Space" || e.key === " ")) { e.preventDefault(); scrim ? close() : open(); }
-      else if (e.key === "Escape" && scrim) close();
+    wifi.addEventListener("click", function () {
+      var on = wifi.getAttribute("aria-checked") !== "true";
+      wifi.setAttribute("aria-checked", String(on));
+      $("wifi-label").textContent = on ? "Wi-Fi on" : "Wi-Fi off";
+      play(!on);
     });
+    qEl.textContent = "passport";
+    steps.innerHTML = STEPS.map(function (st) { return '<div class="pstep"><span class="ic"><svg aria-hidden="true"><use href="#' + st[0] + '"/></svg></span><span><b>' + st[1] + "</b><small>" + st[2] + '</small></span><span class="ok">Done</span></div>'; }).join("");
+    onView(plugEl, function () { if (!reduce) play(false); }, 0.5);
   }
 
-  // ---------------------------------------------------------------- Looks
-  function looks() {
-    var img = $("look-img");
-    if (!img) return;
-    var state = { style: "playful", mode: "light" };
-    ["look-style", "look-mode"].forEach(function (id) {
-      var group = $(id), key = id === "look-style" ? "style" : "mode";
-      group.addEventListener("click", function (e) {
-        var b = e.target.closest("button"); if (!b) return;
-        state[key] = b.getAttribute("data-v");
-        group.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-checked", String(x === b)); });
-        img.src = "assets/img/look-" + state.style + "-" + state.mode + ".webp";
-        img.alt = "Haven's Home screen in the " + (state.style === "playful" ? "Playful" : "Minimal") + " look, " + state.mode + " appearance";
-      });
-    });
-    // Load the other three so switching is instant.
-    ["playful-dark", "minimal-light", "minimal-dark"].forEach(function (n) { var i = new Image(); i.src = "assets/img/look-" + n + ".webp"; });
+  // ---------------------------------------------------------------- Before and after
+  function flips() {
+    var box = $("flips");
+    if (!box) return;
+    var btns = Array.prototype.slice.call(document.querySelectorAll(".flip-switch button"));
+    function side(s) {
+      box.setAttribute("data-side", s);
+      btns.forEach(function (b) { b.setAttribute("aria-checked", String(b.getAttribute("data-side") === s)); });
+    }
+    btns.forEach(function (b) { b.addEventListener("click", function () { side(b.getAttribute("data-side")); }); });
+    if ("IntersectionObserver" in window && !reduce) {
+      side("before");
+      onView(box, function () { setTimeout(function () { side("after"); }, 900); }, 0.6);
+    }
   }
 
-  heroSearch();
-  lenses();
-  tools();
+  // ---------------------------------------------------------------- The receipt prints itself
+  function receipt() {
+    var r = $("receipt");
+    if (!r || reduce || !("IntersectionObserver" in window)) return;
+    var lines = r.querySelectorAll(".r-lines li");
+    lines.forEach(function (li, i) { li.style.transitionDelay = i * 90 + "ms"; });
+    r.classList.add("printing");
+    onView(r, function () { r.classList.remove("printing"); }, 0.3);
+  }
+
+  pile();
+  storyClock();
+  recallField();
+  desk();
   cleanup();
-  rename();
-  quickSearch();
-  looks();
+  stack();
+  plug();
+  flips();
+  receipt();
 })();

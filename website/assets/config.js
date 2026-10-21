@@ -2,7 +2,6 @@
 // Prices are written into the pages too (so they show without JavaScript); change both if they ever move.
 window.HAVEN = {
   version: "1.0",
-  trialDays: 14,
   refundDays: 30,
 
   // Stripe Payment Links, one per plan (Stripe Dashboard › Payment Links › New).

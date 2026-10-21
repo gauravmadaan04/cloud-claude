@@ -89,7 +89,7 @@
 
   // Phone buy bar: appears once the first call to action has scrolled away.
   var bar = document.getElementById("buybar");
-  var firstCta = document.querySelector(".cta-row, .plans, .dl");
+  var firstCta = document.querySelector(".cta-row, .plans, .dl, .page-hero");
   if (bar && firstCta && "IntersectionObserver" in window) {
     var footer = document.querySelector(".foot");
     var pastCta = false, atFooter = false;
@@ -107,6 +107,30 @@
         update();
       }).observe(footer);
     }
+  }
+
+  // The header turns dark while it sits over a night section.
+  var nights = Array.prototype.slice.call(document.querySelectorAll(".night"));
+  if (nav && nights.length) {
+    var navTicking = false;
+    var checkNight = function () {
+      navTicking = false;
+      var y = nav.getBoundingClientRect().bottom;
+      var over = nights.some(function (s) { var r = s.getBoundingClientRect(); return r.top <= y + 2 && r.bottom >= y; });
+      nav.classList.toggle("on-night", over);
+    };
+    window.addEventListener("scroll", function () { if (!navTicking) { navTicking = true; requestAnimationFrame(checkNight); } }, { passive: true });
+    checkNight();
+  }
+
+  // Marker highlights draw themselves when they come into view.
+  var marks = document.querySelectorAll(".mark");
+  if (marks.length && "IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.documentElement.classList.add("marks-ready");
+    var mio = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); mio.unobserve(e.target); } });
+    }, { threshold: 0.8 });
+    marks.forEach(function (m) { mio.observe(m); });
   }
 
   // Open the FAQ answer named in the address (faq.html#licenses).
