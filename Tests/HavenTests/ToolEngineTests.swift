@@ -121,6 +121,33 @@ final class ToolEngineTests: XCTestCase {
         do { let value = try await run(.removeImageDetails, [gif]); XCTAssertEqual(value, ["Wave (clean).png"]) }
     }
 
+    func testCleanJPEGKeepsItsTurnAndItsPicture() throws {
+        // A photo stored sideways (as phones do) that says where it was taken.
+        let p = path("Sideways.jpg")
+        let ctx = FixtureFactory.context(CGSize(width: 300, height: 200))!
+        ctx.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 300, height: 200))
+        let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: p) as CFURL, UTType.jpeg.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(dest, ctx.makeImage()!, [kCGImagePropertyOrientation: 6,
+                                                            kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 12.97, kCGImagePropertyGPSLatitudeRef: "N"],
+                                                            kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFModel: "Pixel 9"]] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(dest))
+        let original = [UInt8](try Data(contentsOf: URL(fileURLWithPath: p)))
+        let clean = try XCTUnwrap(JPEGDetails.strip(original, orientation: 6))
+        try Data(clean).write(to: URL(fileURLWithPath: path("clean.jpg")))
+        let cleanProps = props(path("clean.jpg"))
+        XCTAssertEqual(cleanProps[kCGImagePropertyOrientation] as? Int, 6, "still shown the right way up")
+        XCTAssertNil(cleanProps[kCGImagePropertyGPSDictionary])
+        XCTAssertFalse(ImageTools.privateDetails(URL(fileURLWithPath: path("clean.jpg"))).any)
+        func picture(_ b: [UInt8]) -> ArraySlice<UInt8> {
+            var i = 2
+            while i + 4 < b.count, b[i] == 0xFF, b[i + 1] != 0xDA { i += 2 + (Int(b[i + 2]) << 8 | Int(b[i + 3])) }
+            return b[i...]
+        }
+        XCTAssertEqual(picture(original), picture(clean), "the compressed picture is the very same bytes")
+        XCTAssertNil(JPEGDetails.strip([0x89, 0x50, 0x4E, 0x47], orientation: 1), "not a JPEG")
+    }
+
     func testRemovingTheBackground() async throws {
         let p = path("Red Apple.png")
         FixtureFactory.subject(to: p)

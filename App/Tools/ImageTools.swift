@@ -167,6 +167,13 @@ enum ImageTools {
     static func removeDetails(_ url: URL, dest: URL) throws {
         let (src, props) = try source(url)
         let sameFormat = ImageFormat.of(url.pathExtension) != nil && ImageFormat.of(url.pathExtension) == ImageFormat.of(dest.pathExtension)
+        // JPEG: take the detail sections out of the file itself; the picture data is copied byte for byte.
+        if sameFormat, ImageFormat.of(url.pathExtension) == .jpeg, let data = try? Data(contentsOf: url),
+           let clean = JPEGDetails.strip([UInt8](data), orientation: UInt16(props[kCGImagePropertyOrientation] as? UInt32 ?? 1)) {
+            try Data(clean).write(to: dest)
+            if !privateDetails(dest).any, (try? source(dest)) != nil { return }
+            try? FileManager.default.removeItem(at: dest)
+        }
         if sameFormat, let type = CGImageSourceGetType(src), let out = CGImageDestinationCreateWithURL(dest as CFURL, type, 1, nil) {
             // Each private tag set to null is taken out; the picture itself is copied byte for byte.
             let drop = CGImageMetadataCreateMutable()
@@ -208,5 +215,52 @@ enum ImageTools {
             throw ToolError.failed("Couldn't make the cut-out")
         }
         try write(cut, as: .png, to: dest, props: [:])
+    }
+}
+
+/// Removes the sections of a JPEG that hold details (EXIF, XMP, IPTC, comments, maker data) without decoding the
+/// picture. Colour profiles stay. The orientation is written back on its own, so the photo stays the right way up.
+enum JPEGDetails {
+    static func strip(_ bytes: [UInt8], orientation: UInt16) -> [UInt8]? {
+        guard bytes.count > 4, bytes[0] == 0xFF, bytes[1] == 0xD8 else { return nil }
+        var out: [UInt8] = [0xFF, 0xD8]
+        var wroteOrientation = orientation == 1
+        var i = 2
+        while i + 4 <= bytes.count {
+            guard bytes[i] == 0xFF else { return nil }
+            let marker = bytes[i + 1]
+            if marker == 0xFF { i += 1; continue }                     // padding
+            if marker == 0xDA {                                          // the picture: copied as is to the end
+                if !wroteOrientation { out += orientationSegment(orientation) }
+                out += bytes[i...]
+                return out
+            }
+            let length = Int(bytes[i + 2]) << 8 | Int(bytes[i + 3])
+            guard length >= 2, i + 2 + length <= bytes.count else { return nil }
+            // Keep JFIF (APP0), colour profiles (APP2), Adobe colour info (APP14) and everything that isn't metadata.
+            let isDetails = marker == 0xE1 || marker == 0xFE || (0xE3...0xEF).contains(marker) && marker != 0xEE
+            if !isDetails {
+                out += bytes[i..<(i + 2 + length)]
+                // The orientation goes right after JFIF, where readers look for it.
+                if marker == 0xE0, !wroteOrientation {
+                    out += orientationSegment(orientation)
+                    wroteOrientation = true
+                }
+            }
+            i += 2 + length
+        }
+        return nil
+    }
+
+    /// A tiny EXIF section holding only the orientation.
+    static func orientationSegment(_ orientation: UInt16) -> [UInt8] {
+        var payload: [UInt8] = Array("Exif".utf8) + [0, 0]
+        payload += [0x4D, 0x4D, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x08]          // big-endian TIFF header, IFD at 8
+        payload += [0x00, 0x01]                                              // one entry
+        payload += [0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]          // Orientation, SHORT, count 1
+        payload += [UInt8(orientation >> 8), UInt8(orientation & 0xFF), 0x00, 0x00]
+        payload += [0x00, 0x00, 0x00, 0x00]                                  // no next IFD
+        let length = payload.count + 2
+        return [0xFF, 0xE1, UInt8(length >> 8), UInt8(length & 0xFF)] + payload
     }
 }

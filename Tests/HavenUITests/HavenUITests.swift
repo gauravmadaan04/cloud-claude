@@ -819,7 +819,11 @@ final class HavenUITests: XCTestCase {
         snap("99-search-what-was-said")
         clearSearch()
 
-        // ⌘Z takes back what the last tool made.
+        // ⌘Z takes back what the last tool made (from the files, not the search box, where it undoes typing).
+        app.typeKey(.escape, modifierFlags: [])
+        el("sidebar.category.music").click()
+        waitFor(file("Voice Memo.m4a"), 10)
+        file("Voice Memo.m4a").click()
         app.typeKey("z", modifierFlags: .command)
         XCTAssertTrue(waitOnDisk("Music/Voice Memo.txt", 15, gone: true), "Undo moves the transcript to the Trash")
 
