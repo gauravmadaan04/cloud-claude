@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Haven for Mac</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Find any file on your Mac by what you remember about it, then sign, shrink, merge, convert or transcribe it with one right-click. Private, on-device, $49 once.">
+<meta name="description" content="Find any file on your Mac just by describing it, then sign, shrink, merge, convert or transcribe it with one right-click. 27 tools, private and on-device, $49 once.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Haven for Mac: you never remember the file name. Haven doesn't need it.">
+<meta property="og:title" content="Haven for Mac: find any file just by describing it">
 <meta property="og:description" content="Search by memory, 27 right-click file tools and safe clean-up in one private Mac app. $49 once, 30-day money-back guarantee.">
 <meta property="og:image" content="assets/img/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -118,8 +118,8 @@
   <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="wrap hero-copy">
     <p class="kicker"><span class="kicker-dot"></span>For everyone who has ever typed “final final v3” into Finder</p>
-    <h1 class="h1" id="hero-title">You never remember the file name. <em class="serif glowtext">Haven doesn't need it.</em></h1>
-    <p class="lead">Type what you <em>do</em> remember, like <q>the invoice from Gmail last week</q> or <q>the screenshot with the Wi-Fi password</q>, and Haven finds it in a blink. Then fix it with one right-click: sign, shrink, merge, convert or transcribe. All on your Mac. Nothing uploaded.</p>
+    <h1 class="h1" id="hero-title">Find any file on your Mac <em class="serif glowtext">just by describing it.</em></h1>
+    <p class="lead">No file name needed. Type what you remember, like <q>the invoice Sam emailed last week</q>, and Haven finds it in under a second. Then sign, shrink, merge, convert or transcribe it with one right-click. <strong>27 tools, all on your Mac. Nothing uploaded.</strong></p>
     <div class="cta-row">
       <a class="btn btn-glow btn-lg" href="#buy">Get Haven for $49</a>
       <a class="btn-ghost btn-lg" href="#pile">See it find a file<svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
@@ -184,7 +184,7 @@
   <div class="wrap">
     <div class="sec-head center">
       <p class="eyebrow">It isn't you</p>
-      <h2 class="h2" id="trap-title">It's the <span class="mark">Filename Trap.</span></h2>
+      <h2 class="h2" id="trap-title">You never chose the file name. <span class="mark">It's the Filename Trap.</span></h2>
       <p class="lead">Your Mac files everything by name. But the names were written by your camera, your scanner and a download button. You never chose them, so you can't remember them. <strong>You remember moments.</strong> Finder asks for the one thing you never knew.</p>
     </div>
     <div class="gap" aria-label="What your Mac stores, next to what you remember">
@@ -300,14 +300,15 @@
         </ul>
       </div>
     </div>
-    <div class="alltools" aria-label="Every tool in Haven">
-      <div class="at-row"><h3><svg aria-hidden="true"><use href="#i-photo"/></svg>Images</h3><ul class="pills"><li>Convert</li><li>Resize</li><li>Rotate</li><li>Remove Private Details</li><li>Remove Background</li></ul></div>
-      <div class="at-row"><h3><svg aria-hidden="true"><use href="#i-doc"/></svg>PDF</h3><ul class="pills"><li>Merge</li><li>Split</li><li>Organize Pages</li><li>Extract Pages</li><li>Images to PDF</li><li>PDF to Images</li><li>Add Password</li><li>Remove Password</li><li>Sign</li></ul></div>
-      <div class="at-row"><h3><svg aria-hidden="true"><use href="#i-film"/></svg>Video</h3><ul class="pills"><li>Compress</li><li>Convert</li><li>Trim</li><li>Make a GIF</li><li>Extract Audio</li><li>Mute</li><li>Merge</li><li>Change Speed</li></ul></div>
-      <div class="at-row"><h3><svg aria-hidden="true"><use href="#i-wave"/></svg>Audio</h3><ul class="pills"><li>Convert</li><li>Trim</li></ul></div>
-      <div class="at-row"><h3><svg aria-hidden="true"><use href="#i-sparkle"/></svg>On-device AI</h3><ul class="pills"><li>Transcribe</li><li>Translate</li><li>Summarize</li></ul></div>
+    <div class="studio" id="studio">
+      <div class="studio-head">
+        <h3 class="h3">All 27 tools. <em class="serif">Try any of them.</em></h3>
+        <p class="copy">Pick a kind of file, then a tool. Each one works right here on a sample file, the same way it works in Haven.</p>
+      </div>
+      <div class="cats" id="studio-cats" role="tablist" aria-label="Kinds of file"></div>
+      <div class="tchips" id="studio-chips" aria-label="Tools"></div>
+      <div class="studio-stage" id="studio-stage" aria-live="polite"></div>
     </div>
-    <p class="fine center-text">Transcribe downloads a Whisper speech model once (190 MB, or 574 MB for best quality). Translate needs macOS 15. Summarize needs Apple Intelligence on macOS 26.</p>
   </div>
 </section>
 
@@ -344,7 +345,7 @@
 </section>
 
 <!-- ============ 12 INTO 1 ============ -->
-<section class="night stack" id="stack" aria-labelledby="stack-title">
+<section class="night stack" id="stack" data-nobar aria-labelledby="stack-title">
   <div class="stack-in">
     <div class="wrap stack-head">
       <p class="eyebrow">Value</p>

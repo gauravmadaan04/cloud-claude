@@ -92,8 +92,16 @@
   var firstCta = document.querySelector(".cta-row, .plans, .dl, .page-hero");
   if (bar && firstCta && "IntersectionObserver" in window) {
     var footer = document.querySelector(".foot");
-    var pastCta = false, atFooter = false;
-    var update = function () { bar.classList.toggle("show", pastCta && !atFooter); };
+    var pastCta = false, atFooter = false, quiet = 0;
+    var update = function () { bar.classList.toggle("show", pastCta && !atFooter && !quiet); };
+    // Sections marked data-nobar keep the bar out of the way (the twelve-apps total sits at the bottom).
+    document.querySelectorAll("[data-nobar]").forEach(function (zone) {
+      var inZone = false;
+      new IntersectionObserver(function (entries) {
+        var now = entries[0].isIntersecting;
+        if (now !== inZone) { quiet += now ? 1 : -1; inZone = now; update(); }
+      }).observe(zone);
+    });
     new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         if (en.target === firstCta) pastCta = !en.isIntersecting && en.boundingClientRect.top < 0;

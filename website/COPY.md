@@ -42,10 +42,12 @@ Haven · How it works · Tools · Clean Up · Compare · Pricing · FAQ · **Buy
 
 ### Hero [identification, big promise, demo above the fold]
 - Kicker: *For everyone who has ever typed "final final v3" into Finder*
-- Headline: **You never remember the file name. Haven doesn't need it.**
-- Sub: Type what you *do* remember, like "the invoice from Gmail last week" or "the screenshot with the Wi-Fi
-  password", and Haven finds it in a blink. Then fix it with one right-click: sign, shrink, merge, convert or
-  transcribe. All on your Mac. Nothing uploaded.
+- Headline: **Find any file on your Mac *just by describing it.***
+  (Big promise + mechanism in one line. The earlier "You never remember the file name" line now opens the
+  Filename Trap section, where it names the problem instead of the promise.)
+- Sub: No file name needed. Type what you remember, like "the invoice Sam emailed last week", and Haven finds it
+  in under a second. Then sign, shrink, merge, convert or transcribe it with one right-click. 27 tools, all on
+  your Mac. Nothing uploaded.
 - CTA: **Get Haven for $49** · secondary: See it work
 - Under CTA: One-time payment · 30-day money-back guarantee · macOS 14 or later
 - Demo: a messy pile of files; the search types itself; the right files fly out of the pile.
@@ -88,6 +90,12 @@ Forget about: uploading private files to converter sites · file-size limits and
 every job · paying extra to do many files at once.
 
 Demo: a Mac desktop. Right-click a file, open Tools, pick one, watch it work.
+
+**All 27 tools. Try any of them.** A studio with five tabs (Images, PDF, Video, Audio, On-device AI) and a
+working demo for every tool: convert and resize with live sizes, rotate sideways photos, split, organize and
+extract pages, receipts into one PDF, lock a PDF and try to open it, unlock with the password, trim with
+handles, a GIF that loops, mute, merge clips in order, change speed, convert and trim audio, translate a letter
+into five languages, summarize a report.
 
 ### Clean Up [third promise, demo]
 **Then get gigabytes back. Without the fear.**

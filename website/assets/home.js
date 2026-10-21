@@ -834,11 +834,11 @@
     PH.product = "radial-gradient(ellipse at 50% 88%, #c2603a 0 17%, transparent 17.5%), radial-gradient(ellipse at 50% 46%, #3f8c4f 0 20%, transparent 20.5%), radial-gradient(ellipse at 40% 40%, #5aa864 0 12%, transparent 12.5%), linear-gradient(180deg, #ecdfcf, #d6c2aa)";
     PH.cut = "radial-gradient(ellipse at 50% 88%, #c2603a 0 17%, transparent 17.5%), radial-gradient(ellipse at 50% 46%, #3f8c4f 0 20%, transparent 20.5%), radial-gradient(ellipse at 40% 40%, #5aa864 0 12%, transparent 12.5%), repeating-conic-gradient(#e6e6ea 0 25%, #fff 0 50%) 0 0 / 10px 10px";
     var items = [
-      { id: "lease", name: "Lease agreement.pdf", f: { k: "pdf" }, tools: [["Sign PDF…", "sign"], ["Add Password…", " (locked).pdf"], ["Split PDF", " - page 01.pdf"], ["Extract Pages…", " (pages 2-3).pdf"], ["Organize Pages…", " (organized).pdf"], ["PDF to Images", " (pages)"], null, ["Summarize", " (summary).txt"], ["Translate…", " (Spanish).pdf"]] },
+      { id: "lease", name: "Lease agreement.pdf", f: { k: "pdf" }, tools: [["Sign PDF…", "sign"], ["Add Password…", " (locked).pdf"], ["Split PDF", " (pages)"], ["Extract Pages…", " (pages 2-3).pdf"], ["Organize Pages…", " (edited).pdf"], ["PDF to Images", " (images)"], null, ["Summarize", " (summary).txt"], ["Translate…", " (Spanish).txt"]] },
       { id: "shot", name: "Product shot.heic", f: { k: "photo", ph: "product" }, tools: [["Remove Background", "cutout"], ["Convert to PNG", ".png"], ["Resize Images", " (1600 px).heic"], ["Rotate Images", " (rotated).heic"], ["Remove Private Details", " (clean).heic"], ["Images to PDF", ".pdf"]] },
       { id: "call", name: "Team call.mov", f: { k: "video", ph: "call", dur: "32:14" }, tools: [["Compress Video", "compress"], ["Transcribe…", "transcribe"], ["Trim Video…", " (trimmed).mov"], ["Make a GIF", ".gif"], ["Extract Audio", ".m4a"], ["Mute Video", " (muted).mov"], ["Change Speed", " (2x).mov"]] },
       { id: "img", name: "IMG_4021.HEIC", f: { k: "photo", ph: "sunset" }, tools: [["Remove Private Details", "clean"], ["Remove Background", " (cut out).png"], ["Convert to JPEG", ".jpg"], ["Resize Images", " (1600 px).HEIC"], ["Rotate Images", " (rotated).HEIC"]] },
-      { id: "pdfs", name: "Brief, Budget, Contract", stack: true, tools: [["Merge PDFs…", "merge"], ["Add Password…", " (locked)"], ["PDF to Images", " (pages)"]] },
+      { id: "pdfs", name: "Brief, Budget, Contract", stack: true, tools: [["Merge PDFs…", "merge"], ["Add Password…", " (locked)"], ["PDF to Images", " (images)"]] },
     ];
     var made_n = 0;
     function iconHTML(it, isNew) {
@@ -850,6 +850,7 @@
     function select(id) { iconsEl.querySelectorAll(".dicon").forEach(function (b) { b.classList.toggle("sel", b.getAttribute("data-id") === id); }); }
     function closeMenus() { menu.hidden = true; sub.hidden = true; }
     function closeWin() { win.hidden = true; win.innerHTML = ""; onMade = null; }
+    closeDeskWindow = closeWin;
     function deskPoint(clientX, clientY) { var r = deskEl.getBoundingClientRect(); return [clientX - r.left, clientY - r.top]; }
 
     var current = null;
@@ -1189,6 +1190,581 @@
     onView(r, function () { r.classList.remove("printing"); }, 0.3);
   }
 
+  // ---------------------------------------------------------------- Tool studio: every one of the 27 tools, working
+  var closeDeskWindow = null;
+  function studio() {
+    var root = $("studio");
+    if (!root) return;
+    var catsEl = $("studio-cats"), chipsEl = $("studio-chips"), stage = $("studio-stage");
+    var CATS = [
+      { id: "images", name: "Images", icon: "i-photo", tools: [["Convert Images", "convertImg"], ["Resize Images", "resizeImg"], ["Rotate Images", "rotateImg"], ["Remove Private Details", "clean"], ["Remove Background", "cutout"]] },
+      { id: "pdf", name: "PDF", icon: "i-doc", tools: [["Merge PDFs", "merge"], ["Split PDF", "split"], ["Organize Pages", "organize"], ["Extract Pages", "extract"], ["Images to PDF", "img2pdf"], ["PDF to Images", "pdf2img"], ["Add Password", "lock"], ["Remove Password", "unlock"], ["Sign PDF", "sign"]] },
+      { id: "video", name: "Video", icon: "i-film", tools: [["Compress Video", "compress"], ["Convert Video", "convertVid"], ["Trim Video", "trimVid"], ["Make a GIF", "gif"], ["Extract Audio", "extractAudio"], ["Mute Video", "mute"], ["Merge Videos", "mergeVid"], ["Change Speed", "speed"]] },
+      { id: "audio", name: "Audio", icon: "i-wave", tools: [["Convert Audio", "convertAud"], ["Trim Audio", "trimAud"]] },
+      { id: "ai", name: "On-device AI", icon: "i-sparkle", tools: [["Transcribe", "transcribe"], ["Translate", "translate"], ["Summarize", "summarize"]] },
+    ];
+    var timers = [];
+    function later(fn, ms) { var t = setInterval(fn, ms); timers.push(t); return t; }
+    function cleanup() { timers.forEach(clearInterval); timers = []; }
+
+    // ---- small builders
+    function chipMade(name, detail) {
+      return '<div class="made"><span class="fi"><svg aria-hidden="true"><use href="#i-check"/></svg></span><span><b>' + esc(name) + "</b><small>" + esc(detail) + "</small></span></div>";
+    }
+    function goRow(label, extra) {
+      return '<div class="tool-row"><button class="wbtn" type="button" data-go>' + label + "</button>" + (extra || "") + '<div class="bar sbar" hidden style="flex:1;min-width:120px"><i></i></div></div>';
+    }
+    function seg(name, opts, pick) {
+      return '<div class="optrow" data-seg="' + name + '">' + opts.map(function (o) {
+        var v = Array.isArray(o) ? o[0] : o, label = Array.isArray(o) ? o[1] : o;
+        return '<button class="opt" type="button" data-v="' + esc(v) + '" aria-pressed="' + (v === pick) + '">' + label + "</button>";
+      }).join("") + "</div>";
+    }
+    function body(title, path, vis, ctl, note) {
+      return shell(title, path, '<div class="sv">' + vis + '</div><div class="sctl">' + ctl + "</div>" + (note ? '<p class="snote">' + note + "</p>" : "") + '<div class="sout" aria-live="polite"></div>');
+    }
+    function wireSeg(st, name, fn) {
+      var box = st.querySelector('[data-seg="' + name + '"]');
+      box.addEventListener("click", function (e) {
+        var b = e.target.closest(".opt");
+        if (!b || b.disabled) return;
+        box.querySelectorAll(".opt").forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+        fn(b.getAttribute("data-v"));
+      });
+    }
+    function go(st, fn) {
+      var b = st.querySelector("[data-go]");
+      b.addEventListener("click", async function () {
+        if (b.disabled) return;
+        b.disabled = true;
+        try { await fn(b); } finally { b.disabled = false; }
+      });
+      return b;
+    }
+    function bar(st, ms) {
+      var el = st.querySelector(".sbar");
+      el.hidden = false;
+      el.firstElementChild.style.width = "0";
+      return progress(el.firstElementChild, reduce ? 10 : ms).then(function () { el.hidden = true; });
+    }
+    function out(st, html) { st.querySelector(".sout").innerHTML = html; }
+    function photo(ph, extra) { return '<div class="th th-photo" style="--ph:' + PH[ph] + '">' + (extra || "") + "</div>"; }
+    function card(th, name, meta, cls) { return '<div class="fcard ' + (cls || "") + '">' + th + "<b>" + esc(name) + "</b><small>" + meta + "</small></div>"; }
+    function fmt(label, color) { return '<span class="fmt" style="--c:' + color + '">' + label + "</span>"; }
+    var ARROW = '<svg class="toarrow" aria-hidden="true"><use href="#i-chev"/></svg>';
+    var HUES = [262, 340, 205, 28, 150, 300, 190, 45];
+    function pageHTML(n, opts) {
+      opts = opts || {};
+      var hue = HUES[(n - 1) % HUES.length];
+      return '<div class="spage' + (opts.cls ? " " + opts.cls : "") + '" style="--hue:' + hue + (opts.rot ? ";--r:" + opts.rot + "deg" : "") + '"><b></b><i></i><i></i><i></i><i></i><span>' + n + "</span></div>";
+    }
+    function docStack(n, name, meta, cls) {
+      var pages = "";
+      for (var i = Math.min(n, 3); i >= 1; i--) pages += pageHTML(i, { cls: "st" + i });
+      return '<div class="fcard ' + (cls || "") + '"><div class="dstack">' + pages + "</div><b>" + esc(name) + "</b><small>" + meta + "</small></div>";
+    }
+    function waveHTML(n, seed, cls) {
+      var R = rng(seed || 3), s = "";
+      for (var i = 0; i < n; i++) {
+        var h = 18 + Math.abs(Math.sin(i * 0.37) * 50 + Math.sin(i * 0.11) * 20) + R() * 18;
+        s += '<i style="--h:' + Math.min(100, h).toFixed(0) + '%;--d:' + (R() * 0.6).toFixed(2) + 's"></i>';
+      }
+      return '<div class="wv ' + (cls || "") + '">' + s + "</div>";
+    }
+    var FRAMES = ["demo", "call", "wedding", "holiday", "beach", "sunset", "park", "grad", "mount", "market"];
+    function stripHTML(n, list) {
+      var s = "";
+      for (var i = 0; i < n; i++) s += '<span class="fr" style="--ph:' + PH[(list || FRAMES)[i % (list || FRAMES).length]] + '"></span>';
+      return s;
+    }
+    function mmss(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ":" + pad(sec % 60); }
+
+    // A range picker with two handles over a strip (frames or a waveform).
+    function rangePicker(track, a, b, onChange) {
+      var hA = track.querySelector(".hdl.a"), hB = track.querySelector(".hdl.b"), sel = track.querySelector(".rsel");
+      function draw() {
+        hA.style.left = a * 100 + "%"; hB.style.left = b * 100 + "%";
+        track.style.setProperty("--a", a); track.style.setProperty("--b", b);
+        sel.style.left = a * 100 + "%"; sel.style.width = (b - a) * 100 + "%";
+        hA.setAttribute("aria-valuenow", Math.round(a * 100)); hB.setAttribute("aria-valuenow", Math.round(b * 100));
+        onChange(a, b);
+      }
+      [hA, hB].forEach(function (h) {
+        var isA = h === hA, dragging = false;
+        h.addEventListener("pointerdown", function (e) { dragging = true; h.setPointerCapture(e.pointerId); e.preventDefault(); });
+        h.addEventListener("pointermove", function (e) {
+          if (!dragging) return;
+          var r = track.getBoundingClientRect(), v = clamp((e.clientX - r.left) / r.width, 0, 1);
+          if (isA) a = Math.min(v, b - 0.05); else b = Math.max(v, a + 0.05);
+          draw();
+        });
+        h.addEventListener("pointerup", function () { dragging = false; });
+        h.addEventListener("keydown", function (e) {
+          var d = e.key === "ArrowLeft" ? -0.02 : e.key === "ArrowRight" ? 0.02 : 0;
+          if (!d) return;
+          e.preventDefault();
+          if (isA) a = clamp(a + d, 0, b - 0.05); else b = clamp(b + d, a + 0.05, 1);
+          draw();
+        });
+      });
+      draw();
+      return function () { return [a, b]; };
+    }
+    function rangeTrack(inner, label) {
+      return '<div class="rtrack">' + inner + '<span class="rsel"></span><button class="hdl a" type="button" role="slider" aria-label="' + label + ' start" aria-valuemin="0" aria-valuemax="100"></button><button class="hdl b" type="button" role="slider" aria-label="' + label + ' end" aria-valuemin="0" aria-valuemax="100"></button></div>';
+    }
+
+    var DEMOS = {
+      // ---------------- Images
+      convertImg: function (st) {
+        var F = { JPEG: [2.2, "#e2453c", "jpg", "Opens everywhere, small enough to email"], PNG: [9.8, "#2f80ed", "png", "Lossless, every pixel kept"], WebP: [1.4, "#2f9e6b", "webp", "The smallest, made for the web"], TIFF: [24.1, "#8a63e8", "tiff", "For print and archives"] }, pick = "JPEG";
+        st.innerHTML = body("Convert Images", ["IMG_4021.HEIC", "Tools", "Convert Images"],
+          card(photo("sunset", fmt("HEIC", "#6c6a75")), "IMG_4021.HEIC", "3.1 MB · from your iPhone", "src") + ARROW + '<div class="fcard ghost" id="s-out"><div class="th"></div><b>Pick a format</b><small>&nbsp;</small></div>',
+          seg("f", ["JPEG", "PNG", "TIFF"], pick) + goRow("Convert"), "Works on one photo or a thousand at once.");
+        var outEl = st.querySelector("#s-out");
+        wireSeg(st, "f", function (v) { pick = v; outEl.className = "fcard ghost"; outEl.innerHTML = '<div class="th"></div><b>IMG_4021.' + F[v][2] + "</b><small>Press Convert</small>"; out(st, ""); });
+        go(st, async function () {
+          await bar(st, 900);
+          var f = F[pick];
+          outEl.className = "fcard pop";
+          outEl.innerHTML = photo("sunset", fmt(pick.toUpperCase(), f[1])) + "<b>IMG_4021." + f[2] + "</b><small>" + f[0] + " MB · " + f[3] + "</small>";
+          out(st, chipMade("IMG_4021." + f[2], "Made next to the original"));
+        });
+      },
+      resizeImg: function (st) {
+        var v = 1600;
+        st.innerHTML = body("Resize Images", ["IMG_4021.HEIC", "Tools", "Resize Images"],
+          '<div class="rs-wrap"><div class="rs-full"><span>4032 × 3024</span></div><div class="rs-frame" id="s-frame">' + photo("sunset") + '</div></div><div class="rs-read"><b id="s-dim"></b><small id="s-size"></small></div>',
+          '<div class="tool-row"><label class="srange"><span>Long edge</span><input id="s-r" type="range" min="400" max="4032" step="16" value="1600"></label>' + seg("p", [["800", "800"], ["1280", "1280"], ["1600", "1600"], ["2048", "2048"]], "1600") + "</div>" + goRow("Resize"), "The shape stays the same. Big photos become email-friendly in a click.");
+        var frame = st.querySelector("#s-frame"), dim = st.querySelector("#s-dim"), size = st.querySelector("#s-size"), range = st.querySelector("#s-r");
+        function draw() {
+          frame.style.width = (24 + 76 * (v / 4032)).toFixed(1) + "%";
+          dim.textContent = v + " × " + Math.round(v * 0.75) + " px";
+          var mb = Math.max(0.08, 3.1 * Math.pow(v / 4032, 2));
+          size.textContent = "3.1 MB → " + (mb < 1 ? Math.round(mb * 1000) + " KB" : mb.toFixed(1) + " MB");
+          st.querySelectorAll('[data-seg="p"] .opt').forEach(function (o) { o.setAttribute("aria-pressed", String(+o.getAttribute("data-v") === v)); });
+        }
+        range.addEventListener("input", function () { v = +range.value; draw(); out(st, ""); });
+        wireSeg(st, "p", function (x) { v = +x; range.value = v; draw(); out(st, ""); });
+        draw();
+        go(st, async function () { await bar(st, 700); out(st, chipMade("IMG_4021 (" + v + "px).HEIC", size.textContent + " · next to the original")); });
+      },
+      rotateImg: function (st) {
+        var pics = [["beach", 90], ["mount", 0], ["park", 270], ["cake", 180]];
+        st.innerHTML = body("Rotate Images", ["4 photos", "Tools", "Rotate Images"],
+          '<div class="rot-row">' + pics.map(function (p, i) { return '<button type="button" class="rot" data-i="' + i + '" aria-pressed="' + (p[1] !== 0) + '" style="--r:' + p[1] + 'deg">' + photo(p[0]) + "</button>"; }).join("") + "</div>",
+          '<div class="tool-row"><button class="wbtn ghost" type="button" data-turn="-90">⟲ Turn left</button><button class="wbtn ghost" type="button" data-turn="90">⟳ Turn right</button><span class="mac-sub" id="s-st"></span></div>', "Click photos to pick them, then turn them. Every pick turns together.");
+        var stat = st.querySelector("#s-st");
+        function status() {
+          var off = pics.filter(function (p) { return ((p[1] % 360) + 360) % 360 !== 0; }).length;
+          stat.textContent = off ? off + (off === 1 ? " photo is" : " photos are") + " sideways" : "All upright";
+          if (!off) out(st, chipMade("3 photos rotated", "Saved as new copies, originals untouched"));
+        }
+        st.querySelector(".rot-row").addEventListener("click", function (e) {
+          var b = e.target.closest(".rot"); if (!b) return;
+          b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+        });
+        st.querySelectorAll("[data-turn]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var d = +btn.getAttribute("data-turn");
+            st.querySelectorAll(".rot").forEach(function (b) {
+              if (b.getAttribute("aria-pressed") !== "true") return;
+              var p = pics[+b.getAttribute("data-i")];
+              p[1] -= d;
+              b.style.setProperty("--r", p[1] + "deg");
+              if (((p[1] % 360) + 360) % 360 === 0) b.setAttribute("aria-pressed", "false");
+            });
+            status();
+          });
+        });
+        status();
+      },
+
+      // ---------------- PDF
+      split: function (st) {
+        st.innerHTML = body("Split PDF", ["Report.pdf", "Tools", "Split PDF"],
+          '<div class="split-stage" id="s-split">' + docStack(5, "Report.pdf", "5 pages") + "</div>", goRow("Split into 5 files"), "One file per page, numbered so they sort in order.");
+        var box = st.querySelector("#s-split");
+        go(st, async function () {
+          await bar(st, 700);
+          var s = "";
+          for (var i = 1; i <= 5; i++) s += '<div class="fcard pop" style="animation-delay:' + i * 70 + 'ms"><div class="dstack one">' + pageHTML(i) + "</div><b>Report - page 0" + i + ".pdf</b><small>1 page</small></div>";
+          box.innerHTML = s;
+          out(st, chipMade("Report (pages)", "A folder with 5 PDFs: Report - page 01.pdf to page 05.pdf"));
+        });
+      },
+      organize: function (st) {
+        var pages = [1, 2, 3, 4, 5, 6].map(function (n) { return { n: n, r: n === 4 ? 90 : 0 }; });
+        st.innerHTML = body("Organize Pages", ["Report.pdf", "Tools", "Organize Pages…"],
+          '<div class="og-grid" id="s-og"></div>', goRow("Save"), "Move pages with the arrows, turn the sideways one, delete the ones you don't need.");
+        var grid = st.querySelector("#s-og");
+        function draw() {
+          grid.innerHTML = pages.map(function (p, i) {
+            return '<div class="og">' + pageHTML(p.n, { rot: p.r }) + '<div class="og-tools"><button type="button" aria-label="Move page ' + p.n + ' earlier" data-a="l" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + '>‹</button><button type="button" aria-label="Turn page ' + p.n + '" data-a="r" data-i="' + i + '">⟳</button><button type="button" aria-label="Delete page ' + p.n + '" data-a="x" data-i="' + i + '">✕</button><button type="button" aria-label="Move page ' + p.n + ' later" data-a="n" data-i="' + i + '"' + (i === pages.length - 1 ? " disabled" : "") + ">›</button></div></div>";
+          }).join("");
+        }
+        grid.addEventListener("click", function (e) {
+          var b = e.target.closest("button"); if (!b) return;
+          var i = +b.getAttribute("data-i"), a = b.getAttribute("data-a"), t;
+          if (a === "l") { t = pages[i - 1]; pages[i - 1] = pages[i]; pages[i] = t; }
+          if (a === "n") { t = pages[i + 1]; pages[i + 1] = pages[i]; pages[i] = t; }
+          if (a === "r") pages[i].r = (pages[i].r + 90) % 360;
+          if (a === "x" && pages.length > 1) pages.splice(i, 1);
+          draw(); out(st, "");
+        });
+        draw();
+        go(st, async function () { await bar(st, 600); out(st, chipMade("Report (edited).pdf", pages.length + " pages, in your order: " + pages.map(function (p) { return p.n; }).join(", "))); });
+      },
+      extract: function (st) {
+        var picked = { 2: 1, 3: 1, 6: 1 };
+        st.innerHTML = body("Extract Pages", ["Report.pdf", "Tools", "Extract Pages…"],
+          '<div class="ex-grid" id="s-ex"></div>',
+          '<div class="tool-row"><label class="sfield"><span>Pages</span><input id="s-pages" type="text" value="2-3, 6" autocomplete="off" spellcheck="false"></label></div>' + goRow("Extract"), "Type pages and ranges, or click the pages themselves.");
+        var grid = st.querySelector("#s-ex"), input = st.querySelector("#s-pages"), btn = st.querySelector("[data-go]");
+        function toText() {
+          var ns = Object.keys(picked).map(Number).sort(function (a, b) { return a - b; }), parts = [], i = 0;
+          while (i < ns.length) { var j = i; while (j + 1 < ns.length && ns[j + 1] === ns[j] + 1) j++; parts.push(i === j ? "" + ns[i] : ns[i] + "-" + ns[j]); i = j + 1; }
+          return parts.join(", ");
+        }
+        function fromText(t) {
+          picked = {};
+          t.split(",").forEach(function (part) {
+            var m = part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+            if (!m) return;
+            for (var k = +m[1]; k <= +(m[2] || m[1]) && k <= 8; k++) if (k >= 1) picked[k] = 1;
+          });
+        }
+        function draw() {
+          var n = Object.keys(picked).length;
+          grid.innerHTML = [1, 2, 3, 4, 5, 6, 7, 8].map(function (k) { return '<button type="button" class="ex' + (picked[k] ? " on" : "") + '" data-k="' + k + '" aria-pressed="' + !!picked[k] + '">' + pageHTML(k) + "</button>"; }).join("");
+          btn.textContent = "Extract " + n + (n === 1 ? " page" : " pages");
+          btn.disabled = !n;
+        }
+        grid.addEventListener("click", function (e) {
+          var b = e.target.closest(".ex"); if (!b) return;
+          var k = +b.getAttribute("data-k");
+          if (picked[k]) delete picked[k]; else picked[k] = 1;
+          input.value = toText(); draw(); out(st, "");
+        });
+        input.addEventListener("input", function () { fromText(input.value); draw(); out(st, ""); });
+        draw();
+        go(st, async function () { var n = Object.keys(picked).length; await bar(st, 600); out(st, chipMade("Report (" + (n === 1 ? "page " : "pages ") + toText() + ").pdf", "Pages " + toText() + " · the original keeps all 8")); });
+      },
+      img2pdf: function (st) {
+        st.innerHTML = body("Images to PDF", ["4 photos", "Tools", "Images to PDF"],
+          '<div class="i2p" id="s-i2p">' + [1, 2, 3, 4].map(function (k) { return '<div class="rcpt" style="--t:' + (k * 7 - 18) + 'deg"><b>RECEIPT</b><i></i><i></i><i></i><i></i><em>$' + [12.4, 38, 7.95, 64.2][k - 1].toFixed(2) + "</em></div>"; }).join("") + "</div>",
+          goRow("Make one PDF"), "Photos of receipts, whiteboards or homework become a single document, in order.");
+        var box = st.querySelector("#s-i2p");
+        go(st, async function () {
+          box.classList.add("gather");
+          await bar(st, 800);
+          box.classList.remove("gather");
+          box.innerHTML = docStack(4, "Receipt 1 (4 pages).pdf", "4 pages · one file to send", "pop");
+          out(st, chipMade("Receipt 1 (4 pages).pdf", "Made next to the photos"));
+        });
+      },
+      pdf2img: function (st) {
+        var pick = "PNG";
+        st.innerHTML = body("PDF to Images", ["Slides.pdf", "Tools", "PDF to Images"],
+          '<div class="split-stage" id="s-p2i">' + docStack(3, "Slides.pdf", "3 pages") + "</div>", seg("f", ["PNG", "JPEG"], pick) + goRow("Convert"), "Every page as a picture, ready for a chat, a slide or a post.");
+        var box = st.querySelector("#s-p2i");
+        wireSeg(st, "f", function (v) { pick = v; });
+        go(st, async function () {
+          await bar(st, 700);
+          var ext = pick === "PNG" ? "png" : "jpg", s = "";
+          for (var i = 1; i <= 3; i++) s += '<div class="fcard pop" style="animation-delay:' + i * 80 + 'ms"><div class="th th-photo slide' + i + '">' + fmt(pick, pick === "PNG" ? "#2f80ed" : "#e2453c") + "</div><b>Slides - page " + i + "." + ext + "</b><small>1920 × 1080</small></div>";
+          box.innerHTML = s;
+          out(st, chipMade("Slides (images)", "A folder with 3 " + pick + " images"));
+        });
+      },
+      lock: function (st) {
+        st.innerHTML = body("Add Password", ["Contract.pdf", "Tools", "Add Password…"],
+          '<div class="lk-stage">' + docStack(1, "Contract.pdf", "Anyone can open it", "lk-doc") + '<div class="pw-prompt" hidden id="s-prompt"><b>“Contract (locked).pdf” is protected</b><small>Enter the password to open it.</small><input type="password" id="s-try" placeholder="Password" autocomplete="off"><div class="tool-row"><button class="wbtn ghost" type="button" id="s-cancel">Cancel</button><button class="wbtn" type="button" id="s-open">Open</button></div></div></div>',
+          '<div class="tool-row"><label class="sfield"><span>Password</span><input id="s-pw" type="password" placeholder="Choose a password" autocomplete="new-password"></label><span class="pw-meter"><i id="s-meter"></i></span></div>' + goRow("Add Password", '<button class="wbtn ghost" type="button" id="s-test" hidden>Try opening it</button>'), "The copy only opens with the password. Your original stays as it was.");
+        var pw = st.querySelector("#s-pw"), meter = st.querySelector("#s-meter"), btn = st.querySelector("[data-go]"), prompt = st.querySelector("#s-prompt"), doc = st.querySelector(".lk-doc"), test = st.querySelector("#s-test"), secret = "";
+        function strength() {
+          var v = pw.value, s = Math.min(4, (v.length >= 6) + (v.length >= 10) + (/\d/.test(v)) + (/[^a-z0-9]/i.test(v)));
+          meter.style.width = (v ? 15 + s * 21 : 0) + "%";
+          meter.style.background = s < 2 ? "var(--bad)" : s < 3 ? "#e39a2d" : "var(--ok)";
+          btn.disabled = v.length < 4;
+        }
+        pw.addEventListener("input", strength); strength();
+        go(st, async function () {
+          secret = pw.value;
+          await bar(st, 700);
+          doc.classList.add("locked");
+          doc.querySelector(":scope > b").textContent = "Contract (locked).pdf";
+          doc.querySelector(":scope > small").textContent = "Needs the password";
+          test.hidden = false;
+          out(st, chipMade("Contract (locked).pdf", "Only people with the password can open it"));
+        });
+        test.addEventListener("click", function () { prompt.hidden = false; st.querySelector("#s-try").value = ""; st.querySelector("#s-try").focus(); });
+        st.querySelector("#s-cancel").addEventListener("click", function () { prompt.hidden = true; });
+        st.querySelector("#s-open").addEventListener("click", function () {
+          var tryEl = st.querySelector("#s-try");
+          if (tryEl.value === secret) { prompt.hidden = true; doc.classList.remove("locked"); doc.classList.add("opened"); doc.querySelector(":scope > small").textContent = "Opened with the right password"; }
+          else { prompt.classList.remove("shake"); void prompt.offsetWidth; prompt.classList.add("shake"); }
+        });
+      },
+      unlock: function (st) {
+        st.innerHTML = body("Remove Password", ["Bank statement.pdf", "Tools", "Remove Password…"],
+          '<div class="lk-stage">' + docStack(1, "Bank statement.pdf", "Asks for a password every time", "lk-doc locked") + "</div>",
+          '<div class="tool-row"><label class="sfield"><span>Password</span><input id="s-pw" type="password" placeholder="The password you were given" autocomplete="off"></label><span class="mac-sub">For this example it\'s <b>haven</b></span></div>' + goRow("Remove Password"), "You need the password once. The copy opens without it from then on.");
+        var pw = st.querySelector("#s-pw"), doc = st.querySelector(".lk-doc"), sv = st.querySelector(".sv");
+        go(st, async function () {
+          if (pw.value.trim().toLowerCase() !== "haven") { sv.classList.remove("shake"); void sv.offsetWidth; sv.classList.add("shake"); out(st, '<p class="mac-sub">That isn\'t the password. Try <b>haven</b>.</p>'); return; }
+          await bar(st, 700);
+          doc.classList.remove("locked"); doc.classList.add("opened");
+          doc.querySelector(":scope > b").textContent = "Bank statement (unlocked).pdf";
+          doc.querySelector(":scope > small").textContent = "Opens without a password";
+          out(st, chipMade("Bank statement (unlocked).pdf", "A copy that opens without the password"));
+        });
+      },
+
+      // ---------------- Video
+      convertVid: function (st) {
+        var pick = "MP4";
+        st.innerHTML = body("Convert Video", ["Screen recording.mov", "Tools", "Convert Video"],
+          card('<div class="th th-video" style="--ph:' + PH.screen + '"><span class="play"></span><span class="dur">14:02</span>' + fmt("MOV", "#6c6a75") + "</div>", "Screen recording.mov", "860 MB · QuickTime", "src") + ARROW + '<div class="fcard ghost" id="s-out"><div class="th"></div><b>Screen recording.mp4</b><small>Press Convert</small></div>',
+          seg("f", [["MP4", "MP4, plays everywhere"], ["MOV", "MOV, for Apple apps"]], pick) + goRow("Convert"), "MP4 plays on Windows, Android and every website. No extra software to install.");
+        var outEl = st.querySelector("#s-out");
+        wireSeg(st, "f", function (v) { pick = v; outEl.className = "fcard ghost"; outEl.innerHTML = '<div class="th"></div><b>Screen recording' + (v === "MOV" ? " (converted).mov" : ".mp4") + "</b><small>Press Convert</small>"; out(st, ""); });
+        go(st, async function () {
+          await bar(st, 1100);
+          var name = pick === "MP4" ? "Screen recording.mp4" : "Screen recording (converted).mov";
+          outEl.className = "fcard pop";
+          outEl.innerHTML = '<div class="th th-video" style="--ph:' + PH.screen + '"><span class="play"></span><span class="dur">14:02</span>' + fmt(pick, pick === "MP4" ? "#2f9e6b" : "#6a4df2") + "</div><b>" + name + "</b><small>Same length, plays everywhere</small>";
+          out(st, chipMade(name, "Made next to the original"));
+        });
+      },
+      trimVid: function (st) {
+        var TOTAL = 32 * 60 + 14, cur = [0.18, 0.52];
+        st.innerHTML = body("Trim Video", ["Team call.mov", "Tools", "Trim Video…"],
+          '<div class="tv"><div class="tv-screen" style="--ph:' + PH.call + '"><span class="tv-time" id="s-time"></span></div>' + rangeTrack(stripHTML(12, ["call", "call", "demo", "call", "screen", "call", "call", "demo", "call", "screen", "call", "call"]), "Trim") + "</div>",
+          '<div class="tool-row"><span class="mac-sub" id="s-sel"></span></div>' + goRow("Trim"), "Drag the yellow handles to keep just the part you want.");
+        var time = st.querySelector("#s-time"), selEl = st.querySelector("#s-sel");
+        rangePicker(st.querySelector(".rtrack"), cur[0], cur[1], function (a, b) {
+          cur = [a, b];
+          time.textContent = mmss(a * TOTAL) + " – " + mmss(b * TOTAL);
+          selEl.textContent = "Keeping " + mmss((b - a) * TOTAL) + " of 32:14";
+          out(st, "");
+        });
+        go(st, async function () { await bar(st, 700); out(st, chipMade("Team call (trimmed).mov", mmss((cur[1] - cur[0]) * TOTAL) + " long · next to the original")); });
+      },
+      gif: function (st) {
+        var pick = "480", seq = ["demo", "holiday", "beach", "sunset", "wedding", "park"], fi = 0, playing = 0;
+        st.innerHTML = body("Make a GIF", ["Product demo.mp4", "Tools", "Make a GIF"],
+          '<div class="gif-stage"><div class="gif-view" id="s-gif" style="--ph:' + PH.demo + '"><span class="gif-badge">GIF</span></div><div class="gif-strip">' + stripHTML(6, seq) + "</div></div>",
+          seg("s", [["320", "Small · 320 px"], ["480", "Medium · 480 px"], ["640", "Large · 640 px"]], pick) + goRow("Make GIF"), "A looping GIF to drop into Slack, a README or an email.");
+        var view = st.querySelector("#s-gif");
+        wireSeg(st, "s", function (v) { pick = v; view.style.width = v * 0.62 + "px"; });
+        view.style.width = 480 * 0.62 + "px";
+        go(st, async function () {
+          await bar(st, 900);
+          if (!playing) playing = later(function () { fi = (fi + 1) % seq.length; view.style.setProperty("--ph", PH[seq[fi]]); }, reduce ? 1000 : 260);
+          view.classList.add("live");
+          out(st, chipMade("Product demo.gif", { 320: "1.2 MB", 480: "2.6 MB", 640: "4.8 MB" }[pick] + " · loops forever"));
+        });
+      },
+      extractAudio: function (st) {
+        st.innerHTML = body("Extract Audio", ["Team call.mov", "Tools", "Extract Audio"],
+          card('<div class="th th-video" style="--ph:' + PH.call + '"><span class="play"></span><span class="dur">32:14</span></div>', "Team call.mov", "412 MB · video and sound", "src") + ARROW + '<div class="fcard ghost" id="s-out"><div class="th"></div><b>Team call.m4a</b><small>Press Extract</small></div>',
+          goRow("Extract"), "Keep just the soundtrack: a meeting for your commute, a song from a clip.");
+        var outEl = st.querySelector("#s-out");
+        go(st, async function () {
+          await bar(st, 800);
+          outEl.className = "fcard pop";
+          outEl.innerHTML = '<div class="th th-audio-big">' + waveHTML(28, 7, "mini") + "</div><b>Team call.m4a</b><small>31 MB · just the sound</small>";
+          out(st, chipMade("Team call.m4a", "The video is untouched"));
+        });
+      },
+      mute: function (st) {
+        st.innerHTML = body("Mute Video", ["Kids at the beach.mov", "Tools", "Mute Video"],
+          '<div class="mute-stage"><div class="th th-video big" style="--ph:' + PH.beach + '"><span class="play"></span><span class="spk" id="s-spk"><svg aria-hidden="true"><use href="#i-wave"/></svg></span></div>' + waveHTML(48, 11, "live") + "</div>",
+          goRow("Mute"), "Take out wind noise, background chatter or music you can't post.");
+        var wv = st.querySelector(".wv"), spk = st.querySelector("#s-spk");
+        go(st, async function () {
+          await bar(st, 700);
+          wv.classList.add("flat"); spk.classList.add("off");
+          out(st, chipMade("Kids at the beach (muted).mov", "Same picture, no sound"));
+        });
+      },
+      mergeVid: function (st) {
+        var clips = [["Intro.mov", 24, "demo"], ["Interview.mov", 138, "call"], ["Outro.mov", 30, "wedding"]];
+        st.innerHTML = body("Merge Videos", ["3 clips", "Tools", "Merge Videos…"],
+          '<div class="mv-stage"><div class="mv-clips" id="s-clips"></div><div class="mv-line" id="s-line"></div></div>', goRow("Merge 3 clips"), "Clips are joined in the order you set.");
+        var box = st.querySelector("#s-clips"), line = st.querySelector("#s-line");
+        function draw() {
+          box.innerHTML = clips.map(function (c, i) {
+            return '<div class="mv"><span class="order">' + (i + 1) + '</span><div class="th th-video" style="--ph:' + PH[c[2]] + '"><span class="dur">' + mmss(c[1]) + "</span></div><b>" + c[0] + '</b><span class="tool-row" style="gap:4px;justify-content:center"><button class="wbtn ghost mini" type="button" data-mv="' + i + ':-1"' + (i ? "" : " disabled") + ' aria-label="Earlier">‹</button><button class="wbtn ghost mini" type="button" data-mv="' + i + ':1"' + (i < clips.length - 1 ? "" : " disabled") + ' aria-label="Later">›</button></span></div>';
+          }).join("");
+          var total = clips.reduce(function (s, c) { return s + c[1]; }, 0);
+          line.className = "mv-line";
+          line.innerHTML = clips.map(function (c) { return '<span style="flex:' + c[1] + ";--ph:" + PH[c[2]] + '"></span>'; }).join("");
+          line.setAttribute("data-total", mmss(total));
+        }
+        box.addEventListener("click", function (e) {
+          var b = e.target.closest("[data-mv]"); if (!b) return;
+          var p = b.getAttribute("data-mv").split(":"), i = +p[0], j = i + +p[1], t = clips[i];
+          clips[i] = clips[j]; clips[j] = t; draw(); out(st, "");
+        });
+        draw();
+        go(st, async function () {
+          await bar(st, 900);
+          line.classList.add("joined");
+          var total = clips.reduce(function (s, c) { return s + c[1]; }, 0);
+          out(st, chipMade(clips[0][0].replace(".mov", "") + " (merged).mov", mmss(total) + " · " + clips.map(function (c) { return c[0].replace(".mov", ""); }).join(" → ")));
+        });
+      },
+      speed: function (st) {
+        var pick = "2";
+        st.innerHTML = body("Change Speed", ["Lecture.mov", "Tools", "Change Speed"],
+          '<div class="spd"><div class="spd-track"><span class="spd-dot" id="s-dot"></span></div><div class="spd-read"><b id="s-len">48:00 → 24:00</b><small>The voice keeps its pitch, so nobody sounds like a chipmunk.</small></div></div>',
+          seg("x", [["0.5", "0.5×"], ["1.5", "1.5×"], ["2", "2×"], ["4", "4×"]], pick) + goRow("Make it"), "Watch a lecture in half the time, or slow down a tutorial.");
+        var dot = st.querySelector("#s-dot"), len = st.querySelector("#s-len");
+        function draw() { var x = +pick; dot.style.animationDuration = (2.4 / x).toFixed(2) + "s"; len.textContent = "48:00 → " + mmss((48 * 60) / x); }
+        wireSeg(st, "x", function (v) { pick = v; draw(); out(st, ""); });
+        draw();
+        go(st, async function () { await bar(st, 900); out(st, chipMade("Lecture (" + pick + "×).mov", mmss((48 * 60) / +pick) + " long · same pitch")); });
+      },
+
+      // ---------------- Audio
+      convertAud: function (st) {
+        var F = { WAV: [465, "#2f80ed", "wav", "Uncompressed, for editing"], AIFF: [465, "#8a63e8", "aiff", "Uncompressed, the Mac way"], FLAC: [255, "#2f9e6b", "flac", "Lossless and about half the size"], M4A: [54, "#e39a2d", "m4a", "Small, for listening"] }, pick = "WAV";
+        st.innerHTML = body("Convert Audio", ["Interview.m4a", "Tools", "Convert Audio"],
+          card('<div class="th th-audio-big">' + waveHTML(26, 5, "mini") + fmt("M4A", "#6c6a75") + "</div>", "Interview.m4a", "54 MB · 46 minutes", "src") + ARROW + '<div class="fcard ghost" id="s-out"><div class="th"></div><b>Interview.wav</b><small>Press Convert</small></div>',
+          seg("f", ["WAV", "AIFF", "FLAC"], pick) + goRow("Convert"), "Hand a file to an editor in the format they ask for.");
+        var outEl = st.querySelector("#s-out");
+        wireSeg(st, "f", function (v) { pick = v; outEl.className = "fcard ghost"; outEl.innerHTML = '<div class="th"></div><b>Interview.' + F[v][2] + "</b><small>Press Convert</small>"; out(st, ""); });
+        go(st, async function () {
+          await bar(st, 900);
+          var f = F[pick];
+          outEl.className = "fcard pop";
+          outEl.innerHTML = '<div class="th th-audio-big">' + waveHTML(26, 5, "mini") + fmt(pick, f[1]) + "</div><b>Interview." + f[2] + "</b><small>" + f[0] + " MB · " + f[3] + "</small>";
+          out(st, chipMade("Interview." + f[2], "Made next to the original"));
+        });
+      },
+      trimAud: function (st) {
+        var TOTAL = 46 * 60, cur = [0.3, 0.62], playT = 0;
+        st.innerHTML = body("Trim Audio", ["Interview.m4a", "Tools", "Trim Audio…"],
+          '<div class="ta">' + rangeTrack(waveHTML(90, 9, "track") + '<span class="playhead" id="s-ph"></span>', "Trim") + "</div>",
+          '<div class="tool-row"><button class="wbtn ghost" type="button" id="s-play">▶ Play selection</button><span class="mac-sub" id="s-sel"></span></div>' + goRow("Trim"), "Cut a podcast down to the quote you need.");
+        var selEl = st.querySelector("#s-sel"), ph = st.querySelector("#s-ph");
+        rangePicker(st.querySelector(".rtrack"), cur[0], cur[1], function (a, b) { cur = [a, b]; selEl.textContent = mmss(a * TOTAL) + " – " + mmss(b * TOTAL) + " · " + mmss((b - a) * TOTAL); ph.style.left = a * 100 + "%"; out(st, ""); });
+        st.querySelector("#s-play").addEventListener("click", function () {
+          if (playT) { clearInterval(playT); playT = 0; }
+          var t0 = performance.now();
+          playT = later(function () {
+            var p = (performance.now() - t0) / 3000;
+            if (p >= 1) { clearInterval(playT); playT = 0; p = 1; }
+            ph.style.left = (cur[0] + (cur[1] - cur[0]) * p) * 100 + "%";
+          }, 30);
+        });
+        go(st, async function () { await bar(st, 600); out(st, chipMade("Interview (trimmed).m4a", mmss((cur[1] - cur[0]) * TOTAL) + " long")); });
+      },
+
+      // ---------------- On-device AI
+      translate: function (st) {
+        var EN = ["Welcome to the team!", "Your first day is Monday at 9 a.m.", "Please bring your ID and a signed copy of the contract."];
+        var L = {
+          Spanish: ["¡Bienvenido al equipo!", "Tu primer día es el lunes a las 9 a. m.", "Por favor, trae tu identificación y una copia firmada del contrato."],
+          French: ["Bienvenue dans l'équipe !", "Votre premier jour est lundi à 9 h.", "Veuillez apporter votre pièce d'identité et un exemplaire signé du contrat."],
+          German: ["Willkommen im Team!", "Dein erster Tag ist Montag um 9 Uhr.", "Bitte bring deinen Ausweis und eine unterschriebene Kopie des Vertrags mit."],
+          Hindi: ["टीम में आपका स्वागत है!", "आपका पहला दिन सोमवार सुबह 9 बजे है।", "कृपया अपना पहचान पत्र और अनुबंध की हस्ताक्षरित प्रति साथ लाएँ।"],
+          Japanese: ["チームへようこそ！", "初日は月曜日の午前9時です。", "身分証明書と署名済みの契約書を1部お持ちください。"],
+        };
+        var pick = "Spanish";
+        st.innerHTML = body("Translate", ["Welcome letter.pdf", "Tools", "Translate…"],
+          '<div class="tl"><div class="tl-doc"><small>English</small>' + EN.map(function (l) { return "<p>" + l + "</p>"; }).join("") + '</div>' + ARROW + '<div class="tl-doc out" id="s-tl"><small id="s-lang">Spanish</small>' + EN.map(function () { return '<p class="tl-blank"></p>'; }).join("") + "</div></div>",
+          seg("l", ["Spanish", "French", "German", "Hindi", "Japanese"], pick) + goRow("Translate"), "Uses Apple's translation on your Mac, so the letter never leaves it. Needs macOS 15.");
+        var outDoc = st.querySelector("#s-tl"), lang = st.querySelector("#s-lang");
+        function blank() { lang.textContent = pick; outDoc.querySelectorAll("p").forEach(function (p) { p.className = "tl-blank"; p.textContent = ""; }); }
+        wireSeg(st, "l", function (v) { pick = v; blank(); out(st, ""); });
+        go(st, async function () {
+          blank();
+          var ps = outDoc.querySelectorAll("p");
+          for (var i = 0; i < ps.length; i++) {
+            await wait(reduce ? 0 : 380);
+            ps[i].className = "tl-in"; ps[i].textContent = L[pick][i];
+          }
+          out(st, chipMade("Welcome letter (" + pick + ").txt", "Translated on your Mac, next to the PDF"));
+        });
+      },
+      summarize: function (st) {
+        var PARAS = [
+          "Revenue for the third quarter reached $4.2 million, up 18% from the second quarter. Most of the growth came from the Pro plan, which now makes up 61% of new sign-ups.",
+          "Costs rose 6%, mainly from two new support hires and higher hosting bills during the September launch. Gross margin held steady at 78%.",
+          "Customer churn fell from 3.1% to 2.4% a month after the onboarding redesign. Average response time for support tickets dropped to under four hours.",
+          "For the fourth quarter, the team plans to launch the Windows beta in November, raise the Pro price for new customers in January, and hire a second designer.",
+          "Risks include a slower holiday season and a dependency on one payments provider. The board asked for a review of both by the end of December.",
+        ];
+        var SUM = ["Revenue up 18% to $4.2M, driven by the Pro plan.", "Churn fell to 2.4% a month after the onboarding redesign.", "Q4: Windows beta in November, Pro price rise in January."];
+        st.innerHTML = body("Summarize", ["Q3 report.pdf", "Tools", "Summarize"],
+          '<div class="sm"><div class="sm-doc">' + PARAS.map(function (p) { return "<p>" + p + "</p>"; }).join("") + '</div><div class="sm-out" id="s-sum"><small>Summary</small><ul></ul></div></div>',
+          goRow("Summarize"), "Apple Intelligence reads the document on your Mac and gives you the gist. Needs a Mac with Apple Intelligence on macOS 26.");
+        var ul = st.querySelector("#s-sum ul");
+        go(st, async function () {
+          ul.innerHTML = "";
+          st.querySelector(".sm-doc").classList.add("reading");
+          await bar(st, 1100);
+          st.querySelector(".sm-doc").classList.remove("reading");
+          for (var i = 0; i < SUM.length; i++) {
+            var li = document.createElement("li");
+            ul.appendChild(li);
+            var t = SUM[i];
+            if (reduce) li.textContent = t;
+            else for (var k = 1; k <= t.length; k += 2) { li.textContent = t.slice(0, k); await wait(12); }
+            li.textContent = t;
+          }
+          out(st, chipMade("Q3 report (summary).txt", "Next to the PDF"));
+        });
+      },
+    };
+
+    // The six tools that also live on the desktop above reuse those demos.
+    ["clean", "cutout", "merge", "sign", "compress", "transcribe"].forEach(function (k) { DEMOS[k] = function (st) { if (closeDeskWindow) closeDeskWindow(); TOOLS[k](st); }; });
+
+    var cat = CATS[0], toolId = cat.tools[0][1], touched = false;
+    function drawCats() {
+      catsEl.innerHTML = CATS.map(function (c) {
+        return '<button type="button" class="cat" role="tab" aria-selected="' + (c === cat) + '" data-c="' + c.id + '"><svg aria-hidden="true"><use href="#' + c.icon + '"/></svg>' + c.name + '<span class="n">' + c.tools.length + "</span></button>";
+      }).join("");
+      chipsEl.innerHTML = cat.tools.map(function (t) {
+        return '<button type="button" class="tchip" aria-pressed="' + (t[1] === toolId) + '" data-t="' + t[1] + '">' + t[0] + "</button>";
+      }).join("");
+    }
+    function show(id) {
+      cleanup();
+      toolId = id;
+      chipsEl.querySelectorAll(".tchip").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-t") === id)); });
+      stage.classList.remove("swap"); void stage.offsetWidth; stage.classList.add("swap");
+      DEMOS[id](stage);
+    }
+    catsEl.addEventListener("click", function (e) {
+      var b = e.target.closest(".cat"); if (!b) return;
+      touched = true;
+      cat = CATS.filter(function (c) { return c.id === b.getAttribute("data-c"); })[0];
+      toolId = cat.tools[0][1];
+      drawCats(); show(toolId);
+    });
+    chipsEl.addEventListener("click", function (e) {
+      var b = e.target.closest(".tchip"); if (!b) return;
+      touched = true;
+      show(b.getAttribute("data-t"));
+    });
+    stage.addEventListener("pointerdown", function () { touched = true; });
+    drawCats();
+    show(toolId);
+    // When it first comes into view, the first tool runs on its own so it's obvious these are live.
+    onView(stage, function () {
+      setTimeout(function () {
+        if (touched || toolId !== "convertImg") return;
+        var b = stage.querySelector("[data-go]");
+        if (b) b.click();
+      }, reduce ? 0 : 700);
+    }, 0.5);
+  }
+
   pile();
   storyClock();
   recallField();
@@ -1198,4 +1774,5 @@
   plug();
   flips();
   receipt();
+  studio();
 })();
