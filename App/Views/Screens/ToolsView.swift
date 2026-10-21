@@ -85,7 +85,8 @@ struct ToolCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .frame(width: 214, height: 64, alignment: .topLeading)
+            // 196 + the card's padding: three a row in a normal window, more in a big one.
+            .frame(width: 196, height: 64, alignment: .topLeading)
             .cardStyle(theme, padding: 12)
             .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous).strokeBorder(theme.accent, lineWidth: targeted ? 2.5 : 0))
             .interactiveCard()
