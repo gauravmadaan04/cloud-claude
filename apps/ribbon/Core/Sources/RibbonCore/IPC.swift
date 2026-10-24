@@ -5,7 +5,7 @@ public enum IPC {
     public static let portName = "in.thegent.ribbon.ipc"
     public static let urlScheme = "ribbon"
     public static let bundleID = "in.thegent.ribbon"
-    public static let version = "1.0.0"
+    public static let version = "2.0.0"
 
     public struct Request: Codable, Equatable {
         public var cmd: String
@@ -25,10 +25,9 @@ public enum IPC {
 
     /// Requests that aren't window commands.
     public static let queries: [(name: String, help: String)] = [
-        ("state", "Print displays, strips, columns and window frames as JSON"),
+        ("state", "Print displays, screens, tiles and window frames as JSON"),
         ("ping", "Check that Ribbon is running"),
         ("version", "Print the app version"),
-        ("doctor", "Run the Mac Setup checks and print the results"),
         ("config", "config get <key> | config set <key> <value> | config list"),
         ("focus-window", "focus-window <window-number>: focus a window by its number"),
         ("pause", "Pause tiling"),
@@ -36,8 +35,8 @@ public enum IPC {
         ("quit", "Quit Ribbon"),
     ]
 
-    /// Turns a ribbon:// URL into a request: ribbon://focus-left, ribbon://command/focus-left,
-    /// ribbon://run?cmd=focus-left, ribbon://focus-window/1234.
+    /// Turns a ribbon:// URL into a request: ribbon://swap-left, ribbon://command/swap-left,
+    /// ribbon://run?cmd=swap-left, ribbon://focus-window/1234.
     public static func request(from url: URL) -> Request? {
         guard url.scheme?.lowercased() == urlScheme else { return nil }
         var parts: [String] = []
@@ -71,7 +70,7 @@ public enum RaycastScripts {
             # @raycast.packageName Ribbon
 
             # Optional parameters:
-            # @raycast.icon 🎞️
+            # @raycast.icon 🪟
             # @raycast.description Ribbon window manager: \(c.title.lowercased())
 
             open -g "ribbon://\(c.rawValue)"

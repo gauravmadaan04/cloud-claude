@@ -7,10 +7,14 @@ import RibbonCore
 final class UIHub {
     static let shared = UIHub()
 
-    let statusMenu = StatusMenuController()
-    let overlays = FocusOverlays()
-    let indicator = StripIndicatorController()
-    let tabBars = TabBarController()
+    let menuBar = MenuBarController()
+    let highlights = HighlightOverlays()
+    let noPeek = NoPeekOverlays()
+    let backdrops = CleanSpaceBackdrops()
+    let grips = GripController()
+    let dropHint = DropHint()
+    let notices = NoticeHUD()
+    let tabView = TabViewController()
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var cheatSheet: NSPanel?
@@ -19,24 +23,14 @@ final class UIHub {
 
     func setup() {
         let wm = WindowManager.shared
-        statusMenu.install()
+        menuBar.install()
         wm.layoutListeners.append { [weak self] in self?.scheduleRefresh() }
-        wm.frameListeners.append { [weak self] wid, f in
-            self?.overlays.windowMoved(wid, frame: f)
-            self?.tabBars.windowMoved(wid, frame: f)
-        }
-        wm.runningListeners.append { [weak self] _ in
-            self?.statusMenu.refresh()
-            self?.scheduleRefresh()
-        }
-        SettingsStore.shared.onChange { [weak self] _, _ in
-            self?.statusMenu.refresh()
-            self?.scheduleRefresh()
-        }
-        InputMonitors.shared.onHoldChanged = { [weak self] holding in
-            guard SettingsStore.shared.config.showIndicatorOnHold else { return }
-            if holding { self?.indicator.show(for: wm.commandKey(), sticky: true) } else { self?.indicator.endSticky() }
-        }
+        wm.frameListeners.append { [weak self] wid, f in self?.highlights.windowMoved(wid, frame: f) }
+        wm.runningListeners.append { [weak self] _ in self?.scheduleRefresh() }
+        SettingsStore.shared.onChange { [weak self] _, _ in self?.scheduleRefresh() }
+        // Focus changes reorder the shading and borders as soon as macOS reports them.
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil,
+                                                          queue: .main) { [weak self] _ in self?.scheduleRefresh() }
     }
 
     private func scheduleRefresh() {
@@ -45,19 +39,25 @@ final class UIHub {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.refreshPending = false
-            self.overlays.refresh()
-            self.tabBars.refresh()
-            self.indicator.refresh()
-            self.statusMenu.refresh()
+            self.backdrops.refresh()
+            self.noPeek.refresh()
+            self.highlights.refresh()
+            self.grips.refresh()
+            self.menuBar.refresh()
         }
+    }
+
+    func notice(_ text: String, symbol: String, on d: Display?) {
+        notices.show(text, symbol: symbol, on: d)
     }
 
     // MARK: Windows
 
     func openSettings(tab: String? = nil) {
         if let t = tab, let pane = SettingsPane(rawValue: t) { settingsNav.pane = pane }
+        menuBar.close()
         if settingsWindow == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 660),
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 620),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                              backing: .buffered, defer: false)
             w.title = "Ribbon Settings"
@@ -65,11 +65,11 @@ final class UIHub {
             w.toolbar = NSToolbar(identifier: "RibbonSettings")
             w.toolbarStyle = .unified
             w.contentViewController = NSHostingController(rootView: SettingsView(nav: settingsNav))
-            w.setContentSize(NSSize(width: 900, height: 660))
-            w.minSize = NSSize(width: 820, height: 560)
+            w.setContentSize(NSSize(width: 860, height: 620))
+            w.minSize = NSSize(width: 780, height: 540)
             w.isReleasedWhenClosed = false
             w.center()
-            w.setFrameAutosaveName("RibbonSettings")
+            w.setFrameAutosaveName("RibbonSettings2")
             settingsWindow = w
         }
         NSApp.activate(ignoringOtherApps: true)
@@ -77,16 +77,17 @@ final class UIHub {
     }
 
     func showOnboarding(step: Int? = nil) {
-        if let step { OnboardingModel.shared.step = max(0, min(6, step)) }
+        if let step { OnboardingModel.shared.go(max(0, min(OnboardingModel.stepCount - 1, step)), animated: false) }
+        menuBar.close()
         if onboardingWindow == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 880, height: 620),
                              styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
             w.titlebarAppearsTransparent = true
             w.titleVisibility = .hidden
             w.isMovableByWindowBackground = true
             w.title = "Welcome to Ribbon"
             w.contentViewController = NSHostingController(rootView: OnboardingView { [weak self] in self?.finishOnboarding() })
-            w.setContentSize(NSSize(width: 900, height: 640))
+            w.setContentSize(NSSize(width: 880, height: 620))
             w.isReleasedWhenClosed = false
             w.center()
             onboardingWindow = w
@@ -95,18 +96,33 @@ final class UIHub {
         onboardingWindow?.makeKeyAndOrderFront(nil)
     }
 
+    /// "Tidy My Workspace": the tour closes into the menu bar and the windows fall into place.
     func finishOnboarding() {
         SettingsStore.shared.config.hasCompletedOnboarding = true
-        onboardingWindow?.close()
-        onboardingWindow = nil
-        WindowManager.shared.start()
+        if let w = onboardingWindow, let button = menuBar.statusButtonFrame {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.45
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                w.animator().setFrame(button, display: true)
+                w.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                self?.onboardingWindow?.close()
+                self?.onboardingWindow = nil
+            })
+        } else {
+            onboardingWindow?.close()
+            onboardingWindow = nil
+        }
+        let wm = WindowManager.shared
+        if wm.isRunning { wm.retile() } else { wm.start(); wm.haptic() }
     }
 
     func showCheatSheet() {
         if let c = cheatSheet, c.isVisible { c.orderOut(nil); return }
+        menuBar.close()
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         let vf = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let size = NSSize(width: min(1080, vf.width - 60), height: min(680, vf.height - 60))
+        let size = NSSize(width: min(1000, vf.width - 60), height: min(640, vf.height - 60))
         // Rebuilt each time so it reflects the current shortcuts and fits the current screen.
         let panel = makeCheatSheet(size: size)
         cheatSheet?.orderOut(nil)
@@ -144,250 +160,34 @@ final class UIHub {
         settingsWindow?.close()
         onboardingWindow?.close()
         cheatSheet?.orderOut(nil)
-    }
-
-    // MARK: Strip map
-
-    func showIndicator(for key: StripKey?, duration: Double) {
-        indicator.show(for: key, sticky: false, duration: duration, interactive: true)
-    }
-
-    func flashIndicator(for key: StripKey?) {
-        guard SettingsStore.shared.config.showIndicatorOnScroll else { return }
-        indicator.show(for: key, sticky: false, duration: 1.1, interactive: false)
+        menuBar.close()
+        tabView.close()
     }
 }
 
-/// A panel that can become key (so it can take Escape) without activating Ribbon.
+/// A panel that can become key (so it can take Escape and arrows) without activating Ribbon.
 final class KeyPanel: NSPanel {
     var onEscape: (() -> Void)?
+    /// Return true to swallow the key.
+    var onKey: ((UInt16, NSEvent.ModifierFlags) -> Bool)?
     override var canBecomeKey: Bool { true }
     override func cancelOperation(_ sender: Any?) { onEscape?() }
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { onEscape?() } else { super.keyDown(with: event) }
+        if event.keyCode == 53 { onEscape?(); return }
+        if let onKey, onKey(event.keyCode, event.modifierFlags) { return }
+        super.keyDown(with: event)
     }
 }
-
-/// A borderless, click-through window used for borders, dimming and other decoration.
-func makeOverlayWindow(level: NSWindow.Level) -> NSWindow {
-    let w = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: true)
-    w.isOpaque = false
-    w.backgroundColor = .clear
-    w.hasShadow = false
-    w.ignoresMouseEvents = true
-    w.isReleasedWhenClosed = false
-    w.level = level
-    w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary, .transient]
-    w.animationBehavior = .none
-    return w
-}
-
-// MARK: - Focus border and dimming
-
-final class FocusOverlays {
-    private let border = makeOverlayWindow(level: .floating)
-    private let borderLayer = CAShapeLayer()
-    private var dims: [WindowID: NSWindow] = [:]
-    private var focused: WindowID?
-
-    init() {
-        let v = NSView()
-        v.wantsLayer = true
-        v.layer?.addSublayer(borderLayer)
-        borderLayer.fillColor = nil
-        border.contentView = v
-    }
-
-    func refresh() {
-        let wm = WindowManager.shared
-        let c = SettingsStore.shared.config
-        focused = wm.focusedWindowID
-        // Border
-        if c.focusBorder, wm.isRunning, let f = focused, let w = wm.windows[f], w.key != nil, let frame = w.lastFrame,
-           isOnScreen(f) {
-            borderLayer.strokeColor = (NSColor(hex: c.borderColor) ?? .systemBlue).cgColor
-            borderLayer.lineWidth = c.borderWidth
-            place(frame)
-            border.orderFrontRegardless()
-        } else {
-            border.orderOut(nil)
-        }
-        // Dimming
-        var keep = Set<WindowID>()
-        if c.dimUnfocused, wm.isRunning {
-            for (key, r) in wm.layouts where wm.isActive(key) {
-                for pl in r.placements where pl.window != focused && pl.visibility.isOnScreen {
-                    guard let w = wm.windows[pl.window], let frame = w.lastFrame else { continue }
-                    keep.insert(pl.window)
-                    let d = dims[pl.window] ?? makeDim()
-                    dims[pl.window] = d
-                    d.backgroundColor = NSColor.black.withAlphaComponent(c.dimAmount)
-                    d.setFrame(Displays.toNS(frame), display: false)
-                    d.order(.above, relativeTo: Int(pl.window))
-                }
-            }
-        }
-        for (wid, d) in dims where !keep.contains(wid) {
-            d.orderOut(nil)
-            dims[wid] = nil
-        }
-    }
-
-    private func isOnScreen(_ wid: WindowID) -> Bool {
-        let wm = WindowManager.shared
-        for (key, r) in wm.layouts where wm.isActive(key) {
-            if let pl = r.placement(for: wid) { return pl.visibility.isOnScreen }
-        }
-        return false
-    }
-
-    private func makeDim() -> NSWindow {
-        let w = makeOverlayWindow(level: .normal)
-        w.contentView = NSView()
-        return w
-    }
-
-    private func place(_ frame: Rect) {
-        let c = SettingsStore.shared.config
-        let inset = c.borderWidth / 2
-        let ns = Displays.toNS(frame).insetBy(dx: -c.borderWidth, dy: -c.borderWidth)
-        border.setFrame(ns, display: false)
-        let bounds = CGRect(origin: .zero, size: ns.size).insetBy(dx: inset, dy: inset)
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        borderLayer.frame = CGRect(origin: .zero, size: ns.size)
-        borderLayer.path = CGPath(roundedRect: bounds, cornerWidth: c.borderRadius + inset, cornerHeight: c.borderRadius + inset, transform: nil)
-        CATransaction.commit()
-    }
-
-    func windowMoved(_ wid: WindowID, frame: Rect) {
-        if wid == focused, border.isVisible { place(frame) }
-        if let d = dims[wid] { d.setFrame(Displays.toNS(frame), display: false) }
-    }
-}
-
-// MARK: - Tab bars for tabbed columns
-
-final class TabBarController {
-    private final class Bar {
-        let panel: NSPanel
-        let model = TabBarModel()
-        var windows: [WindowID] = []
-        init() {
-            panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.level = .floating
-            panel.hidesOnDeactivate = false
-            panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-            panel.contentViewController = NSHostingController(rootView: TabBarView(model: model))
-        }
-    }
-
-    private var bars: [UUID: Bar] = [:]
-    private var byWindow: [WindowID: UUID] = [:]
-
-    func refresh() {
-        let wm = WindowManager.shared
-        var keep = Set<UUID>()
-        byWindow.removeAll()
-        if wm.isRunning {
-            for (key, r) in wm.layouts where wm.isActive(key) {
-                guard let s = wm.strips[key] else { continue }
-                for tb in r.tabBars where s.columns.indices.contains(tb.column) {
-                    let col = s.columns[tb.column]
-                    guard r.columnVisibility.indices.contains(tb.column), r.columnVisibility[tb.column].isOnScreen else { continue }
-                    keep.insert(col.id)
-                    let bar = bars[col.id] ?? Bar()
-                    bars[col.id] = bar
-                    bar.windows = tb.windows
-                    bar.model.tabs = tb.windows.map { wid in
-                        let w = wm.windows[wid]
-                        return TabBarModel.Tab(id: wid, title: (w?.title.isEmpty ?? true) ? (w?.appName ?? "Window") : w!.title,
-                                               icon: w.flatMap { NSRunningApplication(processIdentifier: $0.pid)?.icon })
-                    }
-                    bar.model.active = tb.active
-                    bar.model.focused = tb.windows.contains(wm.focusedWindowID ?? 0)
-                    for wid in tb.windows { byWindow[wid] = col.id }
-                    let x = wm.windows[tb.windows[tb.active]]?.lastFrame?.x ?? tb.frame.x
-                    bar.panel.setFrame(Displays.toNS(Rect(x: x, y: tb.frame.y, w: tb.frame.w, h: tb.frame.h - 2)), display: true)
-                    bar.panel.orderFrontRegardless()
-                }
-            }
-        }
-        for (id, bar) in bars where !keep.contains(id) {
-            bar.panel.orderOut(nil)
-            bars[id] = nil
-        }
-    }
-
-    func windowMoved(_ wid: WindowID, frame: Rect) {
-        guard let id = byWindow[wid], let bar = bars[id], bar.windows.firstIndex(of: wid) == bar.model.active else { return }
-        var f = bar.panel.frame
-        f.origin.x = frame.x
-        bar.panel.setFrame(f, display: false)
-    }
-}
-
-final class TabBarModel: ObservableObject {
-    struct Tab: Identifiable {
-        let id: WindowID
-        let title: String
-        let icon: NSImage?
-    }
-    @Published var tabs: [Tab] = []
-    @Published var active = 0
-    @Published var focused = false
-}
-
-struct TabBarView: View {
-    @ObservedObject var model: TabBarModel
-
-    var body: some View {
-        HStack(spacing: 3) {
-            ForEach(Array(model.tabs.enumerated()), id: \.element.id) { i, tab in
-                tabButton(i, tab)
-            }
-        }
-        .padding(3)
-        .glassSurface(RoundedRectangle(cornerRadius: 11, style: .continuous))
-    }
-
-    private func tabButton(_ i: Int, _ tab: TabBarModel.Tab) -> some View {
-        let active = i == model.active
-        return Button {
-            WindowManager.shared.focus(window: tab.id)
-        } label: {
-            HStack(spacing: 6) {
-                if let icon = tab.icon { Image(nsImage: icon).resizable().frame(width: 15, height: 15) }
-                Text(tab.title).lineLimit(1).truncationMode(.middle)
-                    .font(.system(size: 12, weight: active ? Font.Weight.semibold : Font.Weight.regular))
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(active ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(0.05)))
-                    .opacity(active && !model.focused ? 0.6 : 1)
-            )
-            .foregroundStyle(active ? Color.white : Color.primary)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Cheat sheet
 
 extension Command.Category {
     var badge: (symbol: String, colors: [Color]) {
         switch self {
-        case .focus: return ("scope", BadgeColors.blue)
         case .move: return ("arrow.left.arrow.right", BadgeColors.indigo)
-        case .size: return ("arrow.left.and.right.square", BadgeColors.teal)
-        case .stacks: return ("square.stack.fill", BadgeColors.pink)
-        case .other: return ("slider.horizontal.3", BadgeColors.gray)
+        case .activate: return ("cursorarrow.click.2", BadgeColors.blue)
+        case .size: return ("arrow.up.left.and.arrow.down.right", BadgeColors.teal)
+        case .modes: return ("sparkles", BadgeColors.pink)
+        case .layout: return ("square.grid.2x2.fill", BadgeColors.violet)
+        case .app: return ("slider.horizontal.3", BadgeColors.gray)
         }
     }
 }
@@ -407,6 +207,7 @@ struct CheatSheetView: View {
                     ForEach(columns().indices, id: \.self) { ci in
                         VStack(spacing: 14) {
                             ForEach(columns()[ci], id: \.self) { cat in categoryCard(cat) }
+                            if ci == mouseColumn() && showMouse { mouseCard }
                         }
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
@@ -448,7 +249,7 @@ struct CheatSheetView: View {
 
     private var footer: some View {
         HStack(spacing: 16) {
-            hint(["⌃", "⌥"], "Hold to see the strip map")
+            hint(["⌥", "⇥"], "Switch windows")
             hint(["esc"], "Close")
             Spacer()
             Button("Customise in Settings…") {
@@ -478,7 +279,7 @@ struct CheatSheetView: View {
             .padding(.bottom, 2)
             ForEach(cmds, id: \.self) { (cmd: Command) in
                 HStack(spacing: 8) {
-                    Text(cmd == .focus1 ? "Jump to window 1–9" : cmd.title).font(.system(size: 12.5))
+                    Text(cmd.title).font(.system(size: 12.5))
                         .lineLimit(2).fixedSize(horizontal: false, vertical: true).layoutPriority(1)
                     Spacer(minLength: 6)
                     if let combo = store.config.combos(for: cmd).first {
@@ -492,6 +293,45 @@ struct CheatSheetView: View {
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.7)))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
         .opacity(cmds.isEmpty ? 0 : 1)
+    }
+
+    private static let mouseActions: [(String, String)] = [
+        ("⌘ + drag a title bar onto a window", "Swap the two"),
+        ("⌥⌘ + drag onto a window", "Add to its stack"),
+        ("Drag the edge between windows", "Resize; neighbours make room"),
+        ("Drag onto another screen", "Move it there"),
+        ("Rest on the grip above a window", "Quick actions"),
+    ]
+
+    private var showMouse: Bool {
+        query.isEmpty || CheatSheetView.mouseActions.contains { "\($0.0) \($0.1)".localizedCaseInsensitiveContains(query) }
+    }
+
+    private var mouseCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                IconBadge(symbol: "computermouse.fill", colors: BadgeColors.orange, size: 22)
+                Text("Mouse").font(.system(size: 13, weight: .bold))
+            }
+            .padding(.bottom, 2)
+            ForEach(CheatSheetView.mouseActions, id: \.0) { (pair: (String, String)) in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(pair.0).font(.system(size: 12.5, weight: .medium))
+                    Text(pair.1).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
+    }
+
+    /// The column with the most room left gets the mouse card.
+    private func mouseColumn() -> Int {
+        let cols = columns()
+        let heights = cols.map { $0.reduce(0) { $0 + commands(in: $1).count + 2 } }
+        return heights.indices.min { heights[$0] < heights[$1] } ?? 0
     }
 
     /// Splits categories into balanced columns by number of rows.
@@ -509,7 +349,7 @@ struct CheatSheetView: View {
 
     private func commands(in cat: Command.Category) -> [Command] {
         Command.allCases.filter { c in
-            c.category == cat && !store.config.combos(for: c).isEmpty && (c.focusIndex == nil || c == .focus1)
+            c.category == cat && !store.config.combos(for: c).isEmpty
                 && (query.isEmpty || c.title.localizedCaseInsensitiveContains(query))
         }
     }

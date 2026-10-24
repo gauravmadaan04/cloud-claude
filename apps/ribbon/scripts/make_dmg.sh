@@ -2,7 +2,7 @@
 # Packages dist/Ribbon.app into dist/Ribbon-<version>.dmg with an install guide, plus a zip.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-2.0.0}"
 
 swift scripts/make_dmg_background.swift dist
 tiffutil -cathidpicheck dist/dmg-background.png dist/dmg-background@2x.png -out dist/dmg-background.tiff

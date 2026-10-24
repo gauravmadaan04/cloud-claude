@@ -118,6 +118,20 @@ enum WindowServer {
         let onScreen: Bool
     }
 
+    /// The frontmost ordinary window under a point that isn't one of Ribbon's own.
+    static func topWindow(at p: Point) -> CGWindowID? {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
+        let me = getpid()
+        for d in list {
+            guard (d[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (d[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != me,
+                  let id = (d[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
+                  let b = d[kCGWindowBounds as String], let r = CGRect(dictionaryRepresentation: b as! CFDictionary) else { continue }
+            if Rect(x: r.origin.x, y: r.origin.y, w: r.width, h: r.height).contains(p) { return id }
+        }
+        return nil
+    }
+
     static func all(onScreenOnly: Bool = false) -> [CGWindowID: Info] {
         let opts: CGWindowListOption = onScreenOnly ? [.optionOnScreenOnly, .excludeDesktopElements] : [.optionAll]
         guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [:] }

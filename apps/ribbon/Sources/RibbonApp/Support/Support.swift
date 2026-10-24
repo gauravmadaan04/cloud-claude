@@ -53,7 +53,7 @@ enum Log {
 /// The user's settings, saved to UserDefaults on every change.
 final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
-    private let key = "config.v1"
+    private let key = "config.v2"
 
     @Published var config: Config {
         didSet {

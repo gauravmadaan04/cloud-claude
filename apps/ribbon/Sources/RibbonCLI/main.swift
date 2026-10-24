@@ -6,7 +6,7 @@ import CoreFoundation
 
 func usage() -> String {
     var s = """
-    ribbon — control the Ribbon window manager
+    ribbon — control Ribbon, the automatic window tiler
 
     Usage: ribbon <command> [arguments]
 
@@ -21,7 +21,7 @@ func usage() -> String {
     s += "\nOther commands:\n"
     for q in IPC.queries { s += "    \(q.name.padding(toLength: 26, withPad: " ", startingAt: 0))\(q.help)\n" }
     s += "    \("raycast <folder>".padding(toLength: 26, withPad: " ", startingAt: 0))Write Raycast script commands into a folder\n"
-    s += "\nEvery command is also a URL: open -g \"ribbon://focus-right\"\n"
+    s += "\nEvery command is also a URL: open -g \"ribbon://swap-right\"\n"
     return s
 }
 
@@ -59,7 +59,8 @@ default:
 }
 
 if Command.parse(cmd) == nil && !IPC.queries.contains(where: { $0.name == cmd }) &&
-    !["show-onboarding", "show-settings", "close-windows", "show-menu", "hide-menu"].contains(cmd) {
+    !["show-onboarding", "show-settings", "close-windows", "show-menu", "hide-menu", "show-shortcuts-sheet", "tab-view-open",
+      "tab-view-next", "tab-view-commit", "tab-view-close", "tab-view-state", "debug-drag"].contains(cmd) {
     FileHandle.standardError.write(Data("Unknown command '\(cmd)'. Run `ribbon help`.\n".utf8))
     exit(2)
 }

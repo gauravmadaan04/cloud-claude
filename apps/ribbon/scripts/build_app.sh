@@ -2,7 +2,7 @@
 # Builds a universal (Apple silicon + Intel) Ribbon.app into dist/, signed ad-hoc.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-2.0.0}"
 BUILD="${BUILD:-$(date +%Y%m%d.%H%M)}"
 
 # One native build per architecture, merged with lipo (more reliable than the multi-arch Xcode build).

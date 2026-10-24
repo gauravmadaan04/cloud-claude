@@ -37,10 +37,6 @@ final class IPCServer {
         case "ping": return .init(ok: true, message: "pong")
         case "version": return .init(ok: true, message: "Ribbon \(AppInfo.version) (\(AppInfo.build))")
         case "state": return .init(ok: true, json: wm.stateJSON())
-        case "doctor":
-            let checks = MacSetup.run()
-            let lines = checks.map { "\($0.status.symbol) \($0.title): \($0.detail)" }
-            return .init(ok: true, message: lines.joined(separator: "\n"), json: MacSetup.json(checks))
         case "pause":
             wm.setTiling(false); return .init(ok: true, message: "Paused")
         case "resume":
@@ -83,9 +79,34 @@ final class IPCServer {
         case "close-windows":
             UIHub.shared.closeAppWindows(); return .init(ok: true)
         case "show-menu":
-            UIHub.shared.statusMenu.open(); return .init(ok: true)
+            UIHub.shared.menuBar.open(); return .init(ok: true)
         case "hide-menu":
-            UIHub.shared.statusMenu.close(); return .init(ok: true)
+            UIHub.shared.menuBar.close(); return .init(ok: true)
+        case "show-shortcuts-sheet":
+            UIHub.shared.showCheatSheet(); return .init(ok: true)
+        case "tab-view-open":
+            UIHub.shared.tabView.open(forward: true, sticky: true); return .init(ok: true)
+        case "tab-view-next":
+            UIHub.shared.tabView.model.step(1); return .init(ok: true)
+        case "tab-view-commit":
+            UIHub.shared.tabView.commit(nil); return .init(ok: true)
+        case "tab-view-close":
+            UIHub.shared.tabView.close(); return .init(ok: true)
+        case "tab-view-state":
+            let tv = UIHub.shared.tabView
+            let info: [String: Any] = ["open": tv.isOpen, "selected": tv.model.selected.map { Int($0) } ?? -1,
+                                       "count": tv.model.allItems.count]
+            let data = (try? JSONSerialization.data(withJSONObject: info)) ?? Data()
+            return .init(ok: true, json: String(decoding: data, as: UTF8.self))
+        case "debug-drag":
+            // debug-drag x1 y1 x2 y2 [cmd|optcmd|none]: a synthetic mouse drag, for the end-to-end tests.
+            let n = req.args.prefix(4).compactMap { Double($0) }
+            guard n.count == 4 else { return .init(ok: false, message: "Usage: debug-drag x1 y1 x2 y2 [cmd|optcmd]") }
+            var flags: CGEventFlags = []
+            if req.args.count > 4, req.args[4].contains("cmd") { flags.insert(.maskCommand) }
+            if req.args.count > 4, req.args[4].contains("opt") { flags.insert(.maskAlternate) }
+            SyntheticDrag.run(from: CGPoint(x: n[0], y: n[1]), to: CGPoint(x: n[2], y: n[3]), flags: flags)
+            return .init(ok: true)
         default:
             guard let cmd = Command.parse(req.cmd) else {
                 return .init(ok: false, message: "Unknown command '\(req.cmd)'. Try `ribbon help`.")

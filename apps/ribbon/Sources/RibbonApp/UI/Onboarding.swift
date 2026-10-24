@@ -3,20 +3,19 @@ import AppKit
 import SwiftUI
 import RibbonCore
 
-/// Broadcasts commands so the practice step can react to the real shortcuts.
-final class PracticeCenter: ObservableObject {
-    static let shared = PracticeCenter()
-    @Published var last: (command: Command, serial: Int)?
-    private var serial = 0
-    func received(_ c: Command) {
-        serial += 1
-        last = (c, serial)
-    }
-}
-
 final class OnboardingModel: ObservableObject {
     static let shared = OnboardingModel()
+    static let stepCount = 6
+
+    enum InputMode: String, CaseIterable { case keyboard = "Keyboard", mouse = "Mouse" }
+
     @Published var step = 0
+    @Published var input: InputMode = .keyboard
+
+    func go(_ s: Int, animated: Bool = true) {
+        let target = max(0, min(OnboardingModel.stepCount - 1, s))
+        if animated { withAnimation(Brand.spring) { step = target } } else { step = target }
+    }
 }
 
 private struct TourStep {
@@ -26,11 +25,10 @@ private struct TourStep {
 
 private let tourSteps: [TourStep] = [
     TourStep(title: "Welcome", symbol: "sparkles"),
-    TourStep(title: "How it works", symbol: "rectangle.split.3x1"),
     TourStep(title: "Permission", symbol: "lock.shield"),
-    TourStep(title: "Mac check", symbol: "checkmark.seal"),
-    TourStep(title: "Practice", symbol: "keyboard"),
-    TourStep(title: "Trackpad", symbol: "hand.draw"),
+    TourStep(title: "The basics", symbol: "square.grid.2x2"),
+    TourStep(title: "Power tools", symbol: "wand.and.stars"),
+    TourStep(title: "Make it yours", symbol: "paintbrush"),
     TourStep(title: "Ready", symbol: "flag.checkered"),
 ]
 
@@ -53,13 +51,13 @@ struct OnboardingView: View {
                                                 removal: .move(edge: .leading).combined(with: .opacity)))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 40)
-                .padding(.top, 38)
+                .padding(.horizontal, 36)
+                .padding(.top, 36)
                 .clipped()
                 footer
             }
         }
-        .frame(width: 900, height: 640)
+        .frame(width: 880, height: 620)
         .background(
             ZStack {
                 Color(nsColor: .windowBackgroundColor)
@@ -75,12 +73,11 @@ struct OnboardingView: View {
     private var stepView: some View {
         switch model.step {
         case 0: WelcomeStep()
-        case 1: ConceptStep()
-        case 2: PermissionStep()
-        case 3: SetupStep()
-        case 4: PracticeStep()
-        case 5: TrackpadStep()
-        default: ReadyStep()
+        case 1: PermissionStep()
+        case 2: BasicsStep()
+        case 3: PowerToolsStep()
+        case 4: MakeItYoursStep()
+        default: ReadyStep(finish: finish)
         }
     }
 
@@ -91,7 +88,7 @@ struct OnboardingView: View {
                     .shadow(color: Brand.violet.opacity(0.35), radius: 8, y: 3)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Ribbon").font(.system(size: 18, weight: .bold))
-                    Text("Setup").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    Text("Welcome tour").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                 }
             }
             .padding(.top, 48)
@@ -107,7 +104,7 @@ struct OnboardingView: View {
                 .padding(.bottom, 20)
         }
         .padding(.horizontal, 18)
-        .frame(width: 214)
+        .frame(width: 210)
         .frame(maxHeight: .infinity)
         .background(
             Rectangle().fill(.ultraThinMaterial)
@@ -120,7 +117,7 @@ struct OnboardingView: View {
         let current = i == model.step
         let done = i < model.step
         return Button {
-            go(i)
+            model.go(i)
         } label: {
             HStack(spacing: 11) {
                 ZStack {
@@ -154,26 +151,22 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             if model.step > 0 {
-                Button("Back") { go(model.step - 1) }
+                Button("Back") { model.go(model.step - 1) }
                     .buttonStyle(QuietButtonStyle())
                     .keyboardShortcut(.cancelAction)
             }
             if model.step < tourSteps.count - 1 {
-                Button(model.step == 2 && !trusted ? "Skip for Now" : "Continue") { go(model.step + 1) }
+                Button(model.step == 0 ? "Get Started" : (model.step == 1 && !trusted ? "Skip for Now" : "Continue")) { model.go(model.step + 1) }
                     .buttonStyle(BrandButtonStyle())
                     .keyboardShortcut(.defaultAction)
             } else {
-                Button("Start Using Ribbon") { finish() }
+                Button { finish() } label: { Label("Tidy My Workspace", systemImage: "sparkles") }
                     .buttonStyle(BrandButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(.horizontal, 28)
         .padding(.vertical, 16)
-    }
-
-    private func go(_ s: Int) {
-        withAnimation(Brand.spring) { model.step = max(0, min(tourSteps.count - 1, s)) }
     }
 }
 
@@ -193,7 +186,7 @@ private struct StepTitle: View {
                     .foregroundStyle(Brand.gradient)
             }
             Text(title).font(.system(size: 30, weight: .bold)).fixedSize(horizontal: false, vertical: true)
-            Text(subtitle).font(.system(size: 15)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(subtitle).font(.system(size: 14.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -214,115 +207,126 @@ private struct FeatureChip: View {
     }
 }
 
-/// Plays a looping script of strip commands for illustrations.
-struct ScriptedStrip: View {
-    let start: Strip
-    let script: [(inout Strip) -> Void]
-    var every: Double = 1.4
-    var params: LayoutParams = previewParams()
-    var showDock = true
-    @State private var strip: Strip?
-    @State private var tick = 0
+/// How to do something: keycaps for the keyboard, a short phrase for the mouse.
+private struct HowTo: View {
+    let keys: [String]
+    let mouse: String
+    @ObservedObject private var model = OnboardingModel.shared
 
     var body: some View {
-        StripPreview(strip: strip ?? start, params: params, showDock: showDock)
-            .onReceive(Timer.publish(every: every, on: .main, in: .common).autoconnect()) { _ in
-                var s = strip ?? start
-                let phase = tick % (script.count + 1)
-                if phase == script.count {
-                    s = start
-                } else {
-                    script[phase](&s)
-                    s.scroll = Layout.scrollToReveal(s, params)
+        Group {
+            if model.input == .keyboard && !keys.isEmpty {
+                HStack(spacing: 3) {
+                    ForEach(Array(keys.enumerated()), id: \.offset) { (pair: (offset: Int, element: String)) in
+                        KeyCap(label: pair.element, size: .small)
+                    }
                 }
-                tick += 1
-                strip = s
+            } else {
+                Label(mouse, systemImage: "computermouse").font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary)
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
+        }
+        .frame(minHeight: 24, alignment: .leading)
     }
+}
+
+/// One feature with a little looping demo.
+private struct FeatureCard<Demo: View>: View {
+    let title: String
+    let keys: [String]
+    let mouse: String
+    @ViewBuilder var demo: Demo
+    @State private var hover = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            demo.frame(maxWidth: .infinity)
+                .scaleEffect(hover ? 1.03 : 1)
+            Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+            HowTo(keys: keys, mouse: mouse)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(hover ? 0.16 : 0.07)))
+        .animation(Brand.snappy, value: hover)
+        .onHover { hover = $0 }
+    }
+}
+
+private struct InputSwitch: View {
+    @ObservedObject private var model = OnboardingModel.shared
+    var body: some View {
+        Picker("", selection: $model.input) {
+            Label("Keyboard", systemImage: "keyboard").tag(OnboardingModel.InputMode.keyboard)
+            Label("Mouse", systemImage: "computermouse").tag(OnboardingModel.InputMode.mouse)
+        }
+        .pickerStyle(.segmented).labelsHidden().frame(width: 210)
+    }
+}
+
+/// A mini preview without the Dock, sized for cards.
+private func mini(_ start: Board, every: Double = 1.4, style: PreviewStyle = PreviewStyle(grip: false, showDock: false),
+                  _ script: [(inout Board) -> Void]) -> some View {
+    ScriptedBoard(start: start, script: script, every: every, style: style)
 }
 
 // MARK: - 1 Welcome
 
 struct WelcomeStep: View {
+    @State private var settled = false
+    private let pile: [WindowID: Rect] = [
+        1: Rect(x: 160, y: 150, w: 760, h: 540), 2: Rect(x: 340, y: 210, w: 760, h: 540),
+        3: Rect(x: 520, y: 270, w: 760, h: 540),
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            StepTitle(eyebrow: "Welcome to Ribbon", title: "Your windows, side by side.",
-                      subtitle: "Every window becomes a column on one long strip that runs past the edges of the screen. Open as many as you like; nothing gets squeezed.")
-            ScriptedStrip(start: demoStrip(count: 6, focus: 0), script: [
-                { $0.focusRight() }, { $0.focusRight() }, { $0.cycleWidth(presets: [1.0 / 3, 0.5, 2.0 / 3]) },
-                { $0.focusRight() }, { $0.focusRight() }, { $0.focusFirst() },
-            ])
-            .frame(maxWidth: 560)
+            StepTitle(eyebrow: "Welcome to Ribbon", title: "Windows that arrange themselves.",
+                      subtitle: "Open a window and it takes its place. Close one and the others fill the space. No dragging, no resizing.")
+            ZStack(alignment: .bottomTrailing) {
+                BoardPreview(board: demoBoard(3), loose: settled ? [:] : pile)
+                    .frame(maxWidth: 520)
+                Button {
+                    settled = false
+                    settle()
+                } label: {
+                    Label("Again", systemImage: "arrow.counterclockwise").font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(QuietButtonStyle())
+                .padding(12)
+                .opacity(settled ? 1 : 0)
+            }
             .frame(maxWidth: .infinity)
             HStack(spacing: 8) {
-                FeatureChip(symbol: "keyboard", text: "Keyboard first")
-                FeatureChip(symbol: "hand.draw", text: "Trackpad swipes")
-                FeatureChip(symbol: "square.stack", text: "Stacks & tabs")
-                FeatureChip(symbol: "bolt.fill", text: "Native & fast")
+                FeatureChip(symbol: "square.grid.2x2", text: "Grid or columns")
+                FeatureChip(symbol: "rectangle.split.2x2", text: "1–4 windows a screen")
+                FeatureChip(symbol: "square.stack.3d.up", text: "Stacks when full")
+                FeatureChip(symbol: "computermouse", text: "Mouse or keyboard")
             }
-            .frame(maxWidth: .infinity)
+        }
+        .onAppear { settle() }
+    }
+
+    private func settle() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.78)) { settled = true }
         }
     }
 }
 
-// MARK: - 2 How it works
-
-struct ConceptStep: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            StepTitle(eyebrow: "The idea", title: "Three things to know.",
-                      subtitle: "That's really all there is to Ribbon.")
-            HStack(alignment: .top, spacing: 14) {
-                concept(symbol: "rectangle.split.3x1", colors: BadgeColors.indigo, title: "Columns, not a grid",
-                        text: "A new window opens next to the one you're using. The others keep their widths.",
-                        preview: ScriptedStrip(start: demoStrip(count: 2, focus: 0), script: [
-                            { $0.insert(3, width: 0.5, focus: true) }, { $0.insert(4, width: 1.0 / 3, focus: true) },
-                        ], every: 1.6, showDock: false))
-                concept(symbol: "arrow.left.and.right", colors: BadgeColors.violet, title: "The strip scrolls",
-                        text: "Focus a window with ⌃⌥ and an arrow, a swipe or a click, and the strip glides to show it.",
-                        preview: ScriptedStrip(start: demoStrip(count: 5, focus: 0), script: [
-                            { $0.focusRight() }, { $0.focusRight() }, { $0.focusRight() }, { $0.focusLeft() },
-                        ], every: 1.2, showDock: false))
-                concept(symbol: "square.stack.3d.up", colors: BadgeColors.pink, title: "Stack, tab and pin",
-                        text: "Put windows in one column, flip a stack into tabs, or pin one to the edge of the screen.",
-                        preview: ScriptedStrip(start: demoStrip(count: 3, focus: 1), script: [
-                            { $0.consume(into: .left) }, { $0.toggleTabbed() }, { $0.toggleTabbed() }, { $0.expel(to: .right) },
-                        ], every: 1.5, showDock: false))
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
-                ShortcutKeys(combo: KeyCombo(keyCode: KeyCode.leftArrow, modifiers: [.control, .option]), size: .regular)
-                Text("Nearly every shortcut is **⌃ Control + ⌥ Option** plus one key. Add **⇧ Shift** to move a window instead of the focus.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-            }
-            .card(padding: 14, radius: 16)
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func concept<P: View>(symbol: String, colors: [Color], title: String, text: String, preview: P) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
-            preview.frame(maxWidth: .infinity)
-            IconBadge(symbol: symbol, colors: colors, size: 30)
-            Text(title).font(.system(size: 15, weight: .semibold))
-            Text(text).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
-        .card(padding: 14, radius: 18)
-    }
-}
-
-// MARK: - 3 Permission
+// MARK: - 2 Permission
 
 struct PermissionStep: View {
     @State private var trusted = AXPermission.isTrusted
     @State private var showHelp = false
     @State private var pulse = false
+    @State private var loginOn = LoginItem.isEnabled
+    @State private var taken = HotkeyCenter.shared.failedCommands
     private let timer = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             StepTitle(eyebrow: "One permission", title: "Let Ribbon arrange your windows.",
                       subtitle: "macOS asks once. Switch Ribbon on in Accessibility and the tour comes right back.")
             mockSettings
@@ -341,20 +345,34 @@ struct PermissionStep: View {
                 }
                 Spacer()
             }
-            HStack(spacing: 10) {
-                promise("hand.raised.fill", BadgeColors.blue, "Moves and resizes only", "It never reads what's inside a window.")
-                promise("wifi.slash", BadgeColors.green, "Nothing leaves your Mac", "No account, no analytics, no network.")
-                promise("arrow.uturn.backward", BadgeColors.orange, "Easy to undo", "Turn the switch off any time to stop it.")
+            VStack(spacing: 0) {
+                checkRow(symbol: "power", colors: BadgeColors.green, title: "Open at login", detail: "Ribbon starts with your Mac.") {
+                    Toggle("", isOn: Binding<Bool>(get: { loginOn }, set: { (on: Bool) in
+                        LoginItem.set(on)
+                        loginOn = LoginItem.isEnabled
+                    })).toggleStyle(.switch).labelsHidden().controlSize(.small)
+                }
+                Divider().padding(.leading, 48)
+                checkRow(symbol: "keyboard", colors: taken.isEmpty ? BadgeColors.blue : BadgeColors.orange,
+                         title: taken.isEmpty ? "Shortcuts are free" : "\(taken.count) shortcut\(taken.count == 1 ? " is" : "s are") taken",
+                         detail: taken.isEmpty ? "No other app is using Ribbon's keys." : "Another app uses: \(taken.prefix(3).map(\.title).joined(separator: ", "))") {
+                    if taken.isEmpty {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.green)
+                    } else {
+                        Button("Change") { UIHub.shared.openSettings(tab: SettingsPane.shortcuts.rawValue) }.buttonStyle(QuietButtonStyle())
+                    }
+                }
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: 720)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.6)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
+            .frame(maxWidth: 520)
             if !trusted {
                 DisclosureGroup(isExpanded: $showHelp) {
                     Text("In Privacy & Security → Accessibility, click **+**, open **Applications** and choose **Ribbon**. After installing a newer version, select Ribbon, click **–**, then add it again.")
-                        .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 6)
                 } label: {
-                    Text("Ribbon isn't in the list?").font(.system(size: 13, weight: .medium))
+                    Text("Ribbon isn't in the list?").font(.system(size: 12.5, weight: .medium))
                 }
                 .frame(maxWidth: 520)
             }
@@ -362,31 +380,41 @@ struct PermissionStep: View {
         }
         .onReceive(timer) { _ in
             let now = AXPermission.isTrusted
+            taken = HotkeyCenter.shared.failedCommands
             if now != trusted {
                 withAnimation(Brand.spring) { trusted = now }
                 if now {
-                    WindowManager.shared.start()
+                    NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                     NSApp.activate(ignoringOtherApps: true)   // back from System Settings to the tour
                 }
             }
         }
-        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
-    }
-
-    private func promise(_ symbol: String, _ colors: [Color], _ title: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            IconBadge(symbol: symbol, colors: colors, size: 26)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 12.5, weight: .semibold))
-                Text(text).font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
+            // Open at login is on unless you turn it off.
+            if !SettingsStore.shared.config.hasCompletedOnboarding, !LoginItem.isEnabled, !LoginItem.needsApproval {
+                LoginItem.set(true)
+                loginOn = LoginItem.isEnabled
             }
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .card(padding: 12, radius: 14)
     }
 
-    /// A tiny replica of the System Settings row the user needs to switch on.
+    private func checkRow<Trailing: View>(symbol: String, colors: [Color], title: String, detail: String,
+                                          @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack(spacing: 12) {
+            IconBadge(symbol: symbol, colors: colors, size: 26)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer()
+            trailing()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    /// A tiny replica of the System Settings row to switch on.
     private var mockSettings: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
@@ -397,7 +425,7 @@ struct PermissionStep: View {
                 IconBadge(symbol: "hand.raised.fill", colors: BadgeColors.blue, size: 20)
                 Text("Privacy & Security").font(.system(size: 12)).foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 16).padding(.vertical, 12)
+            .padding(.horizontal, 16).padding(.vertical, 11)
             Divider()
             HStack(spacing: 12) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 30, height: 30)
@@ -410,16 +438,7 @@ struct PermissionStep: View {
                             .strokeBorder(Brand.violet.opacity(trusted ? 0 : (pulse ? 0.9 : 0.25)), lineWidth: 2)
                     )
             }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            Divider().padding(.leading, 58)
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(0.08)).frame(width: 30, height: 30)
-                RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.1)).frame(width: 110, height: 9)
-                Spacer()
-                Toggle("", isOn: .constant(false)).toggleStyle(.switch).labelsHidden().allowsHitTesting(false).opacity(0.5)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .opacity(0.6)
+            .padding(.horizontal, 16).padding(.vertical, 10)
         }
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
@@ -428,359 +447,188 @@ struct PermissionStep: View {
     }
 }
 
-// MARK: - 4 Mac check
+// MARK: - 3 The basics
 
-func checkBadge(_ id: String) -> (String, [Color]) {
-    switch id {
-    case "ax": return ("hand.raised.fill", BadgeColors.blue)
-    case "rivals": return ("rectangle.on.rectangle", BadgeColors.orange)
-    case "stage": return ("rectangle.3.group", BadgeColors.violet)
-    case "tiling": return ("rectangle.split.2x1", BadgeColors.indigo)
-    case "spaces": return ("display.2", BadgeColors.teal)
-    case "mru": return ("square.stack.3d.down.right", BadgeColors.gray)
-    case "swipe": return ("hand.draw", BadgeColors.pink)
-    case "login": return ("power", BadgeColors.green)
-    default: return ("gearshape", BadgeColors.gray)
-    }
-}
-
-struct SetupCheckCard: View {
-    let check: SetupCheck
-    var onFix: () -> Void
-
+struct BasicsStep: View {
     var body: some View {
-        let badge = checkBadge(check.id)
-        HStack(alignment: .top, spacing: 12) {
-            IconBadge(symbol: badge.0, colors: badge.1, size: 28)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 7) {
-                    Text(check.title).font(.system(size: 13, weight: .semibold))
-                    statusIcon
-                }
-                Text(check.detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if !check.fixes.isEmpty && check.status != .ok {
-                    HStack(spacing: 8) {
-                        ForEach(Array(check.fixes.enumerated()), id: \.offset) { i, fix in
-                            if i == 0 {
-                                Button(fix.title) { run(fix) }.buttonStyle(BrandButtonStyle())
-                            } else {
-                                Button(fix.title) { run(fix) }.buttonStyle(QuietButtonStyle())
-                            }
-                        }
-                    }
-                    .padding(.top, 4)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .card(padding: 12, radius: 14)
-    }
-
-    @ViewBuilder
-    private var statusIcon: some View {
-        switch check.status {
-        case .ok: Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.green)
-        case .warn: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.orange)
-        case .info: Image(systemName: "info.circle.fill").foregroundStyle(Color.blue)
-        }
-    }
-
-    private func run(_ fix: SetupCheck.Fix) {
-        fix.action()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { onFix() }
-    }
-}
-
-struct SetupStep: View {
-    @State private var checks: [SetupCheck] = MacSetup.run()
-    private let timer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        let good = checks.filter { $0.status == .ok }.count
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 18) {
-                StepTitle(eyebrow: "Mac check", title: "A quick look at your setup.",
-                          subtitle: "A few macOS settings and apps can get in Ribbon's way. Fix what you like; only Accessibility is required.")
-                ProgressRing(value: Double(good), total: Double(max(1, checks.count)), label: "\(good)/\(checks.count)", caption: "look good")
-                    .frame(width: 80, height: 80)
+            HStack(alignment: .bottom) {
+                StepTitle(eyebrow: "The basics", title: "Everything happens on its own.",
+                          subtitle: "When you do want to rearrange, it takes one key or one drag.")
+                InputSwitch()
             }
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(checks) { c in SetupCheckCard(check: c) { checks = MacSetup.run() } }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                FeatureCard(title: "Automatic tiling", keys: [], mouse: "Just open and close windows") {
+                    mini(demoBoard(1), [
+                        { _ = $0.add(2, capacity: 3, stackWhenFull: true) }, { _ = $0.add(3, capacity: 3, stackWhenFull: true) },
+                        { _ = $0.remove(2) },
+                    ])
                 }
-                .padding(.bottom, 8)
+                FeatureCard(title: "Swap windows", keys: ["⌃", "⌥", "←", "→"], mouse: "⌘-drag a title bar onto another window") {
+                    mini(demoBoard(3, active: 1), [{ _ = $0.swap(0, 1) }, { _ = $0.swap(1, 2) }, { _ = $0.swap(2, 0) }])
+                }
+                FeatureCard(title: "Make it the main one", keys: ["⌃", "⌥", "↩"], mouse: "Quick actions: the crown") {
+                    mini(demoBoard(3, active: 3), [{ _ = $0.makePrimary(2) }])
+                }
+                FeatureCard(title: "Focus", keys: ["⌃", "⌥", "Z"], mouse: "Quick actions: the target") {
+                    mini(demoBoard(3, active: 2), every: 1.6, [{ $0.zoomed = 2 }])
+                }
+                FeatureCard(title: "Stacks when full", keys: ["⌃", "⌥", "`"], mouse: "Click the grip's segments") {
+                    mini(demoBoard(3, active: 1), every: 1.3, [
+                        { _ = $0.add(4, capacity: 3, stackWhenFull: true) }, { _ = $0.cycle(tile: 0, 1) }, { _ = $0.cycle(tile: 0, 1) },
+                    ])
+                }
+                FeatureCard(title: "Resize", keys: ["⌃", "⌥", "=", "−"], mouse: "Drag the edge between windows") {
+                    mini(demoBoard(2, active: 1), [{ $0.splits.x = 0.66 }, { $0.splits.x = 0.36 }])
+                }
             }
         }
-        .onReceive(timer) { _ in checks = MacSetup.run() }
     }
 }
 
-struct ProgressRing: View {
-    let value: Double
-    let total: Double
-    let label: String
-    let caption: String
+// MARK: - 4 Power tools
 
+struct PowerToolsStep: View {
     var body: some View {
-        ZStack {
-            Circle().stroke(Color.primary.opacity(0.08), lineWidth: 7)
-            Circle().trim(from: 0, to: CGFloat(value / total))
-                .stroke(Brand.gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            VStack(spacing: 0) {
-                Text(label).font(.system(size: 17, weight: .bold, design: .rounded))
-                Text(caption).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary)
-            }
-        }
-        .animation(Brand.spring, value: value)
-    }
-}
-
-// MARK: - 5 Practice
-
-struct PracticeStep: View {
-    @ObservedObject private var practice = PracticeCenter.shared
-    @ObservedObject private var store = SettingsStore.shared
-    @State private var lesson = 0
-    @State private var done = Set<Int>()
-    @State private var strip = demoStrip(count: 5, focus: 1)
-    @State private var handled = 0
-    @State private var pressed = false
-    @State private var celebrate = false
-
-    var body: some View {
-        let lessons = Essentials.lessons
-        let current = lessons[min(lesson, lessons.count - 1)]
         VStack(alignment: .leading, spacing: 16) {
-            StepTitle(eyebrow: "Practice", title: "Learn the five essentials.",
-                      subtitle: "Press each shortcut. The preview follows along, and so do your real windows.")
-            HStack(alignment: .top, spacing: 18) {
-                VStack(spacing: 14) {
-                    StripPreview(strip: strip, showDock: false)
-                    VStack(spacing: 10) {
-                        if done.count == lessons.count {
-                            HStack(spacing: 14) {
-                                SuccessMark(size: 38)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("You've got it.").font(.system(size: 17, weight: .bold))
-                                    Text("⌃⌥/ shows every other shortcut whenever you need it.").font(.system(size: 12)).foregroundStyle(.secondary)
-                                }
-                            }
-                        } else {
-                            Text(current.headline).font(.system(size: 16, weight: .bold))
-                            CommandKeys(command: current.command, size: .large, pressed: pressed, highlighted: celebrate)
-                            Text(current.detail).font(.system(size: 12)).foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .card(padding: 14, radius: 16)
+            HStack(alignment: .bottom) {
+                StepTitle(eyebrow: "Power tools", title: "For when you want more.",
+                          subtitle: "All optional. Each one is a single shortcut or a click in the menu bar.")
+                InputSwitch()
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                FeatureCard(title: "Quick actions", keys: [], mouse: "Rest the pointer on the grip above a window") {
+                    mini(demoBoard(3, active: 1), style: PreviewStyle(grip: true, showDock: false), [{ $0.setActive(2) }, { $0.setActive(3) }])
                 }
-                .frame(width: 370)
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(lessons.indices, id: \.self) { i in lessonRow(i) }
-                    Spacer(minLength: 0)
-                    if done.count < lessons.count {
-                        Button("Skip this one") { advance() }.buttonStyle(.link).font(.system(size: 12))
-                    }
+                FeatureCard(title: "No peek", keys: ["⌃", "⌥", "D"], mouse: "Menu bar: No peek") {
+                    mini(demoBoard(3, active: 2), style: PreviewStyle(dim: 0.55, showDock: false), [{ $0.setActive(1) }, { $0.setActive(3) }])
+                }
+                FeatureCard(title: "Window switcher", keys: ["⌥", "⇥"], mouse: "Hold ⌥, tap ⇥, let go") {
+                    mini(demoBoard(3, active: 1), every: 0.9, [{ $0.setActive(2) }, { $0.setActive(3) }])
+                }
+                FeatureCard(title: "Clean Space", keys: ["⌃", "⌥", "P"], mouse: "Menu bar: Clean Space") {
+                    mini(demoBoard(3, active: 2), style: PreviewStyle(cleanSpace: true, grip: false, showDock: false), [{ $0.setActive(1) }])
+                }
+                FeatureCard(title: "Windows per screen", keys: ["⌃", "⌥", "⌘", "1–4"], mouse: "Menu bar: pick 1 to 4") {
+                    mini(demoBoard(4, capacity: 4), every: 1.5, [{ _ = $0.fit(capacity: 2) }, { _ = $0.fit(capacity: 3) }])
+                }
+                FeatureCard(title: "Float a window", keys: ["⌃", "⌥", "F"], mouse: "Quick actions: float") {
+                    mini(demoBoard(3, active: 3), [{ _ = $0.remove(3) }])
                 }
             }
-        }
-        .onReceive(practice.$last) { ev in
-            guard let ev, ev.serial != handled else { return }
-            handled = ev.serial
-            react(to: ev.command)
-        }
-    }
-
-    private func lessonRow(_ i: Int) -> some View {
-        let isDone = done.contains(i)
-        let isCurrent = i == lesson && !isDone
-        return Button {
-            withAnimation(Brand.snappy) { lesson = i }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: isDone ? "checkmark.circle.fill" : (isCurrent ? "circle.circle.fill" : "circle"))
-                    .font(.system(size: 15))
-                    .foregroundStyle(isDone ? Color.green : (isCurrent ? Brand.violet : Color.secondary))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(Essentials.lessons[i].headline).font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
-                    CommandKeys(command: Essentials.lessons[i].command, size: .small)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(10)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isCurrent ? Brand.violet.opacity(0.1) : Color.clear))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(isCurrent ? Brand.violet.opacity(0.35) : Color.clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func react(to c: Command) {
-        var s = strip
-        switch c {
-        case .focusLeft: s.focusLeft()
-        case .focusRight: s.focusRight()
-        case .moveLeft: s.moveColumn(-1)
-        case .moveRight: s.moveColumn(1)
-        case .cycleWidth: s.cycleWidth(presets: store.config.widthPresets)
-        case .cycleWidthBack: s.cycleWidth(presets: store.config.widthPresets, forward: false)
-        case .fullWidth: s.toggleFullWidth()
-        case .stackLeft: s.consume(into: .left)
-        case .stackRight: s.consume(into: .right)
-        case .popLeft: s.expel(to: .left)
-        case .popRight: s.expel(to: .right)
-        case .toggleTabbed: s.toggleTabbed()
-        case .focusUp: s.focusVertical(-1)
-        case .focusDown: s.focusVertical(1)
-        case .focusFirst: s.focusFirst()
-        case .focusLast: s.focusLast()
-        default: break
-        }
-        s.scroll = Layout.scrollToReveal(s, previewParams())
-        strip = s
-        withAnimation(Brand.snappy) { pressed = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { withAnimation(Brand.snappy) { pressed = false } }
-
-        let target = Essentials.lessons[lesson].command
-        let accepted: Set<Command>
-        switch target {
-        case .focusRight: accepted = [.focusRight, .focusLeft]
-        case .moveLeft: accepted = [.moveLeft, .moveRight]
-        case .stackLeft: accepted = [.stackLeft, .stackRight]
-        default: accepted = [target]
-        }
-        if accepted.contains(c) && !done.contains(lesson) {
-            withAnimation(Brand.spring) {
-                celebrate = true
-                done.insert(lesson)
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                withAnimation(Brand.spring) { celebrate = false }
-                advance()
-            }
-        }
-    }
-
-    private func advance() {
-        let n = Essentials.lessons.count
-        if let next = (0..<n).first(where: { $0 > lesson && !done.contains($0) }) ?? (0..<n).first(where: { !done.contains($0) }) {
-            withAnimation(Brand.spring) { lesson = next }
         }
     }
 }
 
-// MARK: - 6 Trackpad
+// MARK: - 5 Make it yours
 
-/// A trackpad with fingers sliding left and right.
-struct TrackpadIllustration: View {
-    let fingers: Int
-    @State private var swipe = false
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(LinearGradient(colors: [Color(white: 0.88), Color(white: 0.77)], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.6), lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
-            HStack(spacing: 14) {
-                ForEach(0..<fingers, id: \.self) { _ in
-                    Circle()
-                        .fill(RadialGradient(colors: [Brand.violet.opacity(0.95), Brand.indigo.opacity(0.7)], center: .center, startRadius: 1, endRadius: 16))
-                        .frame(width: 26, height: 26)
-                        .shadow(color: Brand.violet.opacity(0.5), radius: 6)
-                }
-            }
-            .offset(x: swipe ? 46 : -46)
-            Image(systemName: "arrow.left.and.right").font(.system(size: 16, weight: .bold)).foregroundStyle(Color.black.opacity(0.25))
-                .offset(y: 52)
-        }
-        .frame(width: 250, height: 160)
-        .onAppear { withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { swipe = true } }
-    }
-}
-
-struct TrackpadStep: View {
+struct MakeItYoursStep: View {
     @ObservedObject private var store = SettingsStore.shared
-    @State private var checks: [SetupCheck] = MacSetup.run()
 
     var body: some View {
+        let c = store.config
         VStack(alignment: .leading, spacing: 18) {
-            StepTitle(eyebrow: "Trackpad & mouse", title: "Swipe through your windows.",
-                      subtitle: "Slide your fingers left or right; the strip follows them, then settles on the nearest window.")
-            HStack(alignment: .center, spacing: 24) {
-                TrackpadIllustration(fingers: store.config.swipeFingers)
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Swipe to scroll the strip", isOn: setting(\.swipeEnabled))
-                    Picker("Fingers", selection: setting(\.swipeFingers)) { Text("Three").tag(3); Text("Four").tag(4) }
-                        .pickerStyle(.segmented).frame(width: 220)
-                    Toggle("Natural direction", isOn: setting(\.swipeNatural))
-                    Toggle("Hold ⌃⌥ and scroll a mouse to move the strip", isOn: setting(\.scrollWheelWithModifiers))
+            StepTitle(eyebrow: "Make it yours", title: "Pick how it looks.",
+                      subtitle: "You can change any of this later from the menu bar or Settings.")
+            HStack(alignment: .top, spacing: 22) {
+                BoardPreview(board: demoBoard(min(c.windowsPerScreen, 4), capacity: min(c.windowsPerScreen, 4)), style: PreviewStyle(config: c))
+                    .frame(width: 300)
+                VStack(alignment: .leading, spacing: 14) {
+                    option("Layout") {
+                        segmented([("Grid", "square.grid.2x2", c.layout == .grid, { store.config.layout = .grid }),
+                                   ("Columns", "rectangle.split.3x1", c.layout == .columns, { store.config.layout = .columns })])
+                    }
+                    option("Windows per screen") {
+                        segmented((1...4).map { (n: Int) -> (String, String?, Bool, () -> Void) in
+                            ("\(n)", nil, c.windowsPerScreen == n, { store.config.windowsPerScreen = n })
+                        })
+                    }
+                    option("Highlight the window in use") {
+                        segmented(Highlight.allCases.map { (h: Highlight) -> (String, String?, Bool, () -> Void) in
+                            (h.title, nil, c.highlight == h, { store.config.highlight = h })
+                        })
+                    }
+                    option("When a screen is full") {
+                        segmented([("Stack", "square.stack.3d.up", c.whenFull == .stack, { store.config.whenFull = .stack }),
+                                   ("Float", "macwindow.on.rectangle", c.whenFull == .float, { store.config.whenFull = .float })])
+                    }
                 }
-                .toggleStyle(.switch)
-                .card(padding: 16, radius: 16)
             }
-            if let c = checks.first(where: { $0.id == "swipe" }) {
-                SetupCheckCard(check: c) { checks = MacSetup.run() }
-            }
-            Spacer(minLength: 0)
         }
-        .onChange(of: store.config.swipeFingers) { _ in checks = MacSetup.run() }
+    }
+
+    private func option<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            content()
+        }
+    }
+
+    private func segmented(_ items: [(String, String?, Bool, () -> Void)]) -> some View {
+        HStack(spacing: 6) {
+            ForEach(Array(items.enumerated()), id: \.offset) { (pair: (offset: Int, element: (String, String?, Bool, () -> Void))) in
+                let item = pair.element
+                Button(action: item.3) {
+                    HStack(spacing: 5) {
+                        if let s = item.1 { Image(systemName: s).font(.system(size: 11, weight: .semibold)) }
+                        Text(item.0).font(.system(size: 12, weight: .semibold))
+                    }
+                    .padding(.horizontal, 11).padding(.vertical, 7)
+                    .background(Capsule().fill(item.2 ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(0.07))))
+                    .foregroundStyle(item.2 ? Color.white : Color.primary)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .animation(Brand.snappy, value: items.map { $0.2 })
     }
 }
 
-// MARK: - 7 Ready
+// MARK: - 6 Ready
 
 struct ReadyStep: View {
-    @State private var login = LoginItem.isEnabled
+    let finish: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 18) {
-                SuccessMark(size: 52)
-                StepTitle(title: "Ribbon is ready.", subtitle: "It lives in the menu bar. Everything else is a shortcut away.")
+            HStack(alignment: .center, spacing: 18) {
+                SuccessMark(size: 54)
+                StepTitle(eyebrow: "Ready", title: "You're all set.",
+                          subtitle: "Press Tidy My Workspace and watch your windows fall into place. Ribbon then lives in the menu bar.")
             }
-            VStack(alignment: .trailing, spacing: 6) {
-                MenuBarStrip(scale: 0.62)
-                    .frame(height: 22)
-                    .background(Brand.softGradient)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                Label("Ribbon's menu is up here", systemImage: "arrow.turn.right.up")
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Brand.violet)
-                    .padding(.trailing, 70)
+            VStack(spacing: 0) {
+                tip(.swapRight, "Swap with a neighbour", "⌃⌥ and any arrow")
+                tip(.makePrimary, "Make the window you're in the main one", nil)
+                tip(.focusMode, "Focus: fill the screen, press again to go back", nil)
+                tip(.tabView, "See every window and switch", "Hold ⌥ and tap ⇥")
+                tip(.tile2, "Choose how many windows share a screen", "⌃⌥⌘ and 1 to 4")
+                tip(.showShortcuts, "Every shortcut, any time", nil, divider: false)
             }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                tip(.showShortcuts, "Every shortcut", "A cheat sheet, any time.")
-                tip(.showStrip, "Strip map", "Or hold ⌃⌥. Click a tile to jump.")
-                tip(.toggleFloat, "Float a window", "Takes it off the strip, and back.")
-                tip(.toggleTiling, "Pause Ribbon", "Puts every window back on screen.")
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.6)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
+            HStack {
+                Spacer()
+                Button { finish() } label: { Label("Tidy My Workspace", systemImage: "sparkles") }
+                    .buttonStyle(BrandButtonStyle(large: true))
+                Spacer()
             }
-            Toggle(isOn: Binding<Bool>(get: { login }, set: { (on: Bool) in
-                LoginItem.set(on)
-                login = LoginItem.isEnabled
-            })) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Open Ribbon when I log in").font(.system(size: 13, weight: .semibold))
-                    Text("Recommended, so your strips are always there.").font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-            }
-            .toggleStyle(.switch)
-            .card(padding: 14, radius: 14)
             Spacer(minLength: 0)
         }
     }
 
-    private func tip(_ c: Command, _ title: String, _ text: String) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 13, weight: .semibold))
-                Text(text).font(.system(size: 11)).foregroundStyle(.secondary)
+    private func tip(_ c: Command, _ title: String, _ note: String?, divider: Bool = true) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Text(title).font(.system(size: 13))
+                if let note { Text(note).font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                Spacer(minLength: 4)
+                CommandKeys(command: c, size: .small)
             }
-            Spacer(minLength: 4)
-            CommandKeys(command: c, size: .small)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            if divider { Divider().padding(.leading, 14) }
         }
-        .card(padding: 12, radius: 14)
     }
 }
 #endif

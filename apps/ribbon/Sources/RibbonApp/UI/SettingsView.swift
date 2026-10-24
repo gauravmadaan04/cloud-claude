@@ -4,35 +4,29 @@ import SwiftUI
 import RibbonCore
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, layout, appearance, shortcuts, trackpad, apps, displays, setup, automation, about
+    case general, layout, highlight, shortcuts, apps, advanced, about
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .general: return "General"
         case .layout: return "Layout"
-        case .appearance: return "Appearance"
+        case .highlight: return "Highlight"
         case .shortcuts: return "Shortcuts"
-        case .trackpad: return "Trackpad & Mouse"
-        case .apps: return "App Rules"
-        case .displays: return "Displays"
-        case .setup: return "Mac Setup"
-        case .automation: return "Automation"
+        case .apps: return "Apps"
+        case .advanced: return "Advanced"
         case .about: return "About Ribbon"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .general: return "The main switch, startup and motion."
-        case .layout: return "Gaps, widths and how the strip scrolls."
-        case .appearance: return "Focus border, dimming and the strip map."
-        case .shortcuts: return "Every command, rebindable. Keys work on any keyboard layout."
-        case .trackpad: return "Swipe through the strip, or scroll it with a mouse."
-        case .apps: return "Choose how particular apps are handled."
-        case .displays: return "Each display has its own strip."
-        case .setup: return "macOS settings and apps that can get in the way."
-        case .automation: return "URL scheme, command-line tool, Raycast and diagnostics."
+        case .general: return "The main switch, startup and the little things."
+        case .layout: return "Grid or columns, how many windows per screen, and spacing."
+        case .highlight: return "How the window you're using stands out, and No peek."
+        case .shortcuts: return "Every shortcut, rebindable. Keys work on any keyboard layout."
+        case .apps: return "Apps whose windows Ribbon leaves where you put them."
+        case .advanced: return "Links, the command-line tool, Raycast and diagnostics."
         case .about: return "Version, privacy and credits."
         }
     }
@@ -40,14 +34,11 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general: return "gearshape.fill"
-        case .layout: return "rectangle.split.3x1.fill"
-        case .appearance: return "paintbrush.fill"
+        case .layout: return "square.grid.2x2.fill"
+        case .highlight: return "paintbrush.fill"
         case .shortcuts: return "keyboard.fill"
-        case .trackpad: return "hand.draw.fill"
         case .apps: return "square.stack.3d.up.fill"
-        case .displays: return "display.2"
-        case .setup: return "checkmark.seal.fill"
-        case .automation: return "terminal.fill"
+        case .advanced: return "terminal.fill"
         case .about: return "info.circle.fill"
         }
     }
@@ -56,42 +47,29 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .general: return BadgeColors.gray
         case .layout: return BadgeColors.indigo
-        case .appearance: return BadgeColors.pink
+        case .highlight: return BadgeColors.pink
         case .shortcuts: return BadgeColors.orange
-        case .trackpad: return BadgeColors.teal
         case .apps: return BadgeColors.violet
-        case .displays: return BadgeColors.blue
-        case .setup: return BadgeColors.green
-        case .automation: return BadgeColors.gray
+        case .advanced: return BadgeColors.gray
         case .about: return BadgeColors.brand
         }
     }
 
-    /// Shorter names for the sidebar.
-    var sidebarTitle: String {
-        switch self {
-        case .trackpad: return "Trackpad"
-        case .about: return "About"
-        default: return title
-        }
-    }
+    var sidebarTitle: String { self == .about ? "About" : title }
 
     var keywords: String {
         switch self {
-        case .general: return "pause login startup restore animation speed reset tour"
-        case .layout: return "gaps width centre center scroll new windows preset tabs height"
-        case .appearance: return "border colour color dim strip map indicator"
+        case .general: return "pause login startup restore animation speed reset tour hover focus stage manager clean space background haptics"
+        case .layout: return "grid columns windows per screen spacing gap full stack float quick actions grip"
+        case .highlight: return "border glow colour color no peek dim blur corner"
         case .shortcuts: return "keys hotkeys keyboard bindings"
-        case .trackpad: return "swipe fingers mouse scroll focus follows"
-        case .apps: return "rules float ignore tile apps"
-        case .displays: return "monitor screen exclude"
-        case .setup: return "check stage manager rectangle magnet conflicts gestures spaces"
-        case .automation: return "url cli command line raycast diagnostics log"
+        case .apps: return "exclude float ignore tile apps rules"
+        case .advanced: return "url cli command line raycast diagnostics log"
         case .about: return "version privacy"
         }
     }
 
-    static let groups: [[SettingsPane]] = [[.general, .layout, .appearance], [.shortcuts, .trackpad, .apps, .displays], [.setup, .automation, .about]]
+    static let groups: [[SettingsPane]] = [[.general, .layout, .highlight], [.shortcuts, .apps], [.advanced, .about]]
 }
 
 final class SettingsNavigation: ObservableObject {
@@ -117,24 +95,22 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            VStack(spacing: 0) {
-                List(selection: paneSelection) {
-                    ForEach(SettingsPane.groups.indices, id: \.self) { gi in
-                        Section {
-                            ForEach(SettingsPane.groups[gi].filter(matches)) { (pane: SettingsPane) in
-                                HStack(spacing: 10) {
-                                    IconBadge(symbol: pane.symbol, colors: pane.colors, size: 22)
-                                    Text(pane.sidebarTitle).font(.system(size: 13)).lineLimit(1)
-                                }
-                                .padding(.vertical, 1)
-                                .tag(Optional(pane))
+            List(selection: paneSelection) {
+                ForEach(SettingsPane.groups.indices, id: \.self) { gi in
+                    Section {
+                        ForEach(SettingsPane.groups[gi].filter(matches)) { (pane: SettingsPane) in
+                            HStack(spacing: 10) {
+                                IconBadge(symbol: pane.symbol, colors: pane.colors, size: 22)
+                                Text(pane.sidebarTitle).font(.system(size: 13)).lineLimit(1)
                             }
+                            .padding(.vertical, 1)
+                            .tag(Optional(pane))
                         }
                     }
                 }
-                .listStyle(.sidebar)
             }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 214, max: 260)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 204, max: 250)
             .searchable(text: $search, placement: .sidebar, prompt: "Search")
         } detail: {
             ScrollView {
@@ -144,14 +120,14 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 28)
                 .padding(.vertical, 22)
-                .frame(maxWidth: 720, alignment: .leading)
+                .frame(maxWidth: 700, alignment: .leading)
                 .frame(maxWidth: .infinity)
             }
             .id(nav.pane)
             .navigationTitle(nav.pane.title)
         }
         .tint(Brand.violet)
-        .frame(minWidth: 820, minHeight: 560)
+        .frame(minWidth: 780, minHeight: 540)
     }
 
     private func matches(_ p: SettingsPane) -> Bool {
@@ -163,13 +139,10 @@ struct SettingsView: View {
         switch nav.pane {
         case .general: GeneralPane()
         case .layout: LayoutPane()
-        case .appearance: AppearancePane()
+        case .highlight: HighlightPane()
         case .shortcuts: ShortcutsPane()
-        case .trackpad: TrackpadPane()
         case .apps: AppsPane()
-        case .displays: DisplaysPane()
-        case .setup: MacSetupPane()
-        case .automation: AutomationPane()
+        case .advanced: AdvancedPane()
         case .about: AboutPane()
         }
     }
@@ -258,25 +231,6 @@ struct SliderRow: View {
     }
 }
 
-/// A capsule that toggles; used for preset widths.
-private struct ChipToggle: View {
-    let title: String
-    let on: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Capsule().fill(on ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(0.07))))
-                .foregroundStyle(on ? Color.white : Color.primary)
-        }
-        .buttonStyle(.plain)
-        .animation(Brand.snappy, value: on)
-    }
-}
-
 // MARK: - General
 
 struct GeneralPane: View {
@@ -292,7 +246,7 @@ struct GeneralPane: View {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 58, height: 58)
                     .shadow(color: Brand.violet.opacity(0.35), radius: 10, y: 4)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(store.config.tilingEnabled ? "Ribbon is arranging your windows" : "Ribbon is paused")
+                    Text(store.config.tilingEnabled ? "Ribbon is arranging your windows" : "Ribbon is off")
                         .font(.system(size: 16, weight: .bold))
                     HStack(spacing: 8) {
                         if trusted {
@@ -302,9 +256,8 @@ struct GeneralPane: View {
                             Button("Grant Access…") { AXPermission.prompt(); AXPermission.openSettings() }
                                 .buttonStyle(BrandButtonStyle())
                         }
-                        HStack(spacing: 4) {
-                            Text("Pause anywhere with").font(.system(size: 11)).foregroundStyle(.secondary)
-                            CommandKeys(command: .toggleTiling, size: .small)
+                        if WindowManager.shared.pausedForStageManager {
+                            StatusPill(kind: .info, text: "Paused for Stage Manager")
                         }
                     }
                 }
@@ -321,8 +274,15 @@ struct GeneralPane: View {
                     })).toggleStyle(.switch).labelsHidden().controlSize(.small)
                 }
                 ToggleRow(title: "Bring back my layout after a restart",
-                          subtitle: "Column order, widths and stacks are saved for every display and Space.",
+                          subtitle: "Window order, stacks, sizes and window counts are remembered for every screen.",
                           divider: false, isOn: setting(\.restoreSession))
+            }
+
+            SettingsGroup(title: "Behaviour") {
+                ToggleRow(title: "Activate windows on hover", subtitle: "Rest the pointer on a window to switch to it.", isOn: setting(\.hoverFocus))
+                ToggleRow(title: "Pause while Stage Manager is on", subtitle: "Stage Manager arranges windows itself; Ribbon steps aside.",
+                          isOn: setting(\.pauseForStageManager))
+                ToggleRow(title: "Trackpad taps", subtitle: "A gentle tap when windows fall into place.", divider: false, isOn: setting(\.haptics))
             }
 
             SettingsGroup(title: "Motion") {
@@ -337,17 +297,37 @@ struct GeneralPane: View {
                 }
             }
 
-            SettingsGroup(title: "Help") {
-                SettingRow(title: "Welcome tour", subtitle: "Permission, Mac check and the five essential shortcuts.") {
-                    Button("Show Tour") { UIHub.shared.showOnboarding(step: 0) }.buttonStyle(QuietButtonStyle())
+            SettingsGroup(title: "Clean Space", footer: "Clean Space (⌃⌥P) shows just the window you're using on a plain background: handy for screen sharing.") {
+                SettingRow(title: "Background", divider: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Backdrop.allCases, id: \.self) { (b: Backdrop) in
+                            Button { store.config.backdrop = b } label: {
+                                VStack(spacing: 4) {
+                                    BackdropView(style: b).frame(width: 54, height: 34)
+                                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                            .strokeBorder(store.config.backdrop == b ? Brand.violet : Color.primary.opacity(0.15),
+                                                          lineWidth: store.config.backdrop == b ? 2.5 : 1))
+                                    Text(b.title).font(.system(size: 10.5)).foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
-                SettingRow(title: "Shortcut cheat sheet") {
+            }
+
+            SettingsGroup(title: "Help") {
+                SettingRow(title: "Welcome tour", subtitle: "Two minutes: permission, the basics and a few power tools.") {
+                    Button("Open Tour") { UIHub.shared.showOnboarding(step: 0) }.buttonStyle(QuietButtonStyle())
+                }
+                SettingRow(title: "All shortcuts") {
                     HStack(spacing: 8) {
                         CommandKeys(command: .showShortcuts, size: .small)
                         Button("Show") { UIHub.shared.showCheatSheet() }.buttonStyle(QuietButtonStyle())
                     }
                 }
-                SettingRow(title: "Reset all settings", subtitle: "Shortcuts, gaps, widths and app rules go back to their defaults.", divider: false) {
+                SettingRow(title: "Reset all settings", subtitle: "Shortcuts, layout, highlight and app choices go back to their defaults.", divider: false) {
                     Button("Reset…") { confirmReset() }.buttonStyle(QuietButtonStyle())
                 }
             }
@@ -358,7 +338,7 @@ struct GeneralPane: View {
     private func confirmReset() {
         let a = NSAlert()
         a.messageText = "Reset every Ribbon setting?"
-        a.informativeText = "Your shortcuts, gaps, widths and app rules go back to how they were when you installed Ribbon."
+        a.informativeText = "Your shortcuts, layout, highlight and app choices go back to how they were when you installed Ribbon."
         a.addButton(withTitle: "Reset")
         a.addButton(withTitle: "Cancel")
         if a.runModal() == .alertFirstButtonReturn { store.resetToDefaults() }
@@ -367,178 +347,131 @@ struct GeneralPane: View {
 
 // MARK: - Layout
 
-/// The preview on the Layout and Appearance panes: the user's own settings on a demo strip.
+/// The preview on the Layout and Highlight panes: the user's own settings on demo windows.
 struct LivePreview: View {
     @ObservedObject private var store = SettingsStore.shared
-    var appearance = false
-    @State private var strip = demoStrip(count: 5, focus: 1)
-    @State private var tick = 0
-    private let timer = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
+    var highlight = false
+    @State private var step = 0
+    private let timer = Timer.publish(every: 2.2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         let c = store.config
-        let params = previewParams(c)
-        var s = strip
-        s.scroll = Layout.scrollToReveal(s, params)
-        let border: (color: Color, width: Double, radius: Double)? = appearance && c.focusBorder
-            ? (Color(nsColor: NSColor(hex: c.borderColor) ?? .systemBlue), c.borderWidth, c.borderRadius) : nil
+        let n = min(c.windowsPerScreen, 4)
+        var b = demoBoard(n, capacity: n)
+        b.setActive(WindowID(step % n + 1))
+        var style = PreviewStyle(config: c)
+        style.dim = highlight && WindowManager.shared.noPeek ? c.noPeekDim : 0
+        if !highlight { style.highlight = .activeBorder }
         return VStack(spacing: 10) {
-            StripPreview(strip: s, params: params, border: border, dim: appearance && c.dimUnfocused ? c.dimAmount : 0, showDock: true)
-                .frame(maxWidth: 560)
+            BoardPreview(board: b, style: style)
+                .frame(maxWidth: 540)
             Label("Live preview. Changes apply to your windows straight away.", systemImage: "eye")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .onReceive(timer) { _ in
-            tick += 1
-            var n = strip
-            if tick % 6 < 3 { n.focusRight() } else { n.focusLeft() }
-            strip = n
-        }
+        .onReceive(timer) { _ in withAnimation(Brand.spring) { step += 1 } }
     }
 }
 
 struct LayoutPane: View {
     @ObservedObject private var store = SettingsStore.shared
-    private let candidates: [Double] = [0.25, 1.0 / 3, 0.4, 0.5, 0.6, 2.0 / 3, 0.75, 0.9]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             LivePreview()
 
-            SettingsGroup(title: "Gaps", footer: "Set both to 0 for edge-to-edge windows. The menu bar and Dock always stay clear.") {
-                SliderRow(title: "Between windows", value: setting(\.innerGap), range: 0...40, step: 1) { "\(Int($0)) pt" }
-                SliderRow(title: "At the screen edges", value: setting(\.outerGap), range: 0...40, step: 1, divider: false) { "\(Int($0)) pt" }
-            }
-
-            SettingsGroup(title: "New windows") {
-                SettingRow(title: "Open new windows") {
-                    Picker("", selection: setting(\.newWindowPlacement)) {
-                        Text("Next to focused").tag(NewWindowPlacement.afterFocused)
-                        Text("At the end").tag(NewWindowPlacement.end)
+            SettingsGroup(title: "Every screen", footer: "Each screen can choose its own from the menu bar, or with ⌃⌥⌘1–4.") {
+                SettingRow(title: "Layout") {
+                    Picker("", selection: setting(\.layout)) {
+                        Text("Grid").tag(LayoutKind.grid)
+                        Text("Columns").tag(LayoutKind.columns)
                     }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 240)
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 200)
                 }
-                SettingRow(title: "Opening width", subtitle: store.config.useOwnWidth ? "Each window keeps the width it opens with." : nil) {
-                    Picker("", selection: setting(\.defaultWidth)) {
-                        ForEach(store.config.widthPresets.sorted() + [1.0], id: \.self) { (v: Double) in Text(percent(v)).tag(v) }
+                SettingRow(title: "Windows per screen", subtitle: "A laptop fits up to three columns; a big monitor four.", divider: false) {
+                    Picker("", selection: setting(\.windowsPerScreen)) {
+                        ForEach(1...4, id: \.self) { (n: Int) in Text("\(n)").tag(n) }
                     }
-                    .labelsHidden().frame(width: 110).disabled(store.config.useOwnWidth)
-                }
-                ToggleRow(title: "Keep the width each window opens with", isOn: setting(\.useOwnWidth))
-                ToggleRow(title: "Keep each window's original height", subtitle: "Windows sit at the top and keep the height they opened with.", isOn: setting(\.keepOriginalHeight))
-                ToggleRow(title: "Float fixed-size windows", subtitle: "Calculator, dialogs and settings windows stay free.", divider: false, isOn: setting(\.floatFixedSizeWindows))
-            }
-
-            SettingsGroup(title: "Scrolling", footer: "⌃⌥C centres the focused window once, whatever this is set to.") {
-                SettingRow(title: "Centre the focused window") {
-                    Picker("", selection: setting(\.centerMode)) {
-                        Text("Never").tag(CenterMode.never)
-                        Text("If it won't fit").tag(CenterMode.onOverflow)
-                        Text("Always").tag(CenterMode.always)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 280)
-                }
-                SettingRow(title: "When windows don't fill the screen", divider: false) {
-                    Picker("", selection: setting(\.sparse)) {
-                        Text("Start left").tag(SparseAlignment.left)
-                        Text("Centre").tag(SparseAlignment.center)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 200)
                 }
             }
 
-            SettingsGroup(title: "Preset widths", footer: "⌃⌥R steps through the widths you pick here.") {
-                HStack(spacing: 6) {
-                    ForEach(candidates, id: \.self) { (v: Double) in
-                        let on = store.config.widthPresets.contains { abs($0 - v) < 0.001 }
-                        ChipToggle(title: percent(v), on: on) {
-                            var p = store.config.widthPresets.filter { abs($0 - v) > 0.001 }
-                            if !on { p.append(v) }
-                            if !p.isEmpty { store.config.widthPresets = p.sorted() }
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(12)
+            SettingsGroup(title: "Spacing", footer: "Space between windows and around the edges. The menu bar and Dock always stay clear.") {
+                SliderRow(title: "Spacing", value: setting(\.spacing), range: 0...24, step: 1, divider: false) { "\(Int($0)) pt" }
             }
 
-            SettingsGroup(title: "Tabbed columns") {
-                SliderRow(title: "Tab bar height", value: setting(\.tabBarHeight), range: 22...40, step: 1, divider: false) { "\(Int($0)) pt" }
+            SettingsGroup(title: "When a screen is full") {
+                SettingRow(title: "A new window") {
+                    Picker("", selection: setting(\.whenFull)) {
+                        ForEach(WhenFull.allCases, id: \.self) { (w: WhenFull) in Text(w.title).tag(w) }
+                    }
+                    .labelsHidden().frame(width: 260)
+                }
+                SettingRow(title: "Moving a window there with ⌃⌥ + arrow", divider: false) {
+                    Picker("", selection: setting(\.intoFull)) {
+                        ForEach(IntoFull.allCases, id: \.self) { (w: IntoFull) in Text(w.title).tag(w) }
+                    }
+                    .labelsHidden().frame(width: 220)
+                }
+            }
+
+            SettingsGroup(title: "Quick actions", footer: "Rest the pointer on the grip for the window's stack and quick actions.") {
+                ToggleRow(title: "Show the grip above windows", divider: false, isOn: setting(\.quickActions))
             }
         }
     }
 }
 
-// MARK: - Appearance
+// MARK: - Highlight
 
-struct AppearancePane: View {
+struct HighlightPane: View {
     @ObservedObject private var store = SettingsStore.shared
-
-    private var borderColor: Binding<Color> {
-        Binding<Color>(get: { Color(nsColor: NSColor(hex: SettingsStore.shared.config.borderColor) ?? NSColor.systemBlue) },
-                       set: { (c: Color) in SettingsStore.shared.config.borderColor = NSColor(c).hexString })
-    }
-
-    private let swatches = ["#7B4FD6", "#4F8CFF", "#34C759", "#FF9F0A", "#FF375F", "#64D2FF", "#FFFFFF"]
+    @State private var noPeek = WindowManager.shared.noPeek
+    private let swatches = ["#7C5CFF", "#4F8CFF", "#2BB673", "#FF9F0A", "#FF375F", "#BF5AF2", "#8E8E93"]
 
     var body: some View {
+        let c = store.config
         VStack(alignment: .leading, spacing: 20) {
-            LivePreview(appearance: true)
+            LivePreview(highlight: true)
 
-            SettingsGroup(title: "Focus border") {
-                ToggleRow(title: "Draw a border around the focused window", isOn: setting(\.focusBorder))
+            SettingsGroup(title: "Window in use") {
+                SettingRow(title: "Style") {
+                    Picker("", selection: setting(\.highlight)) {
+                        ForEach(Highlight.allCases, id: \.self) { (h: Highlight) in Text(h.title).tag(h) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                }
                 SettingRow(title: "Colour") {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 7) {
                         ForEach(swatches, id: \.self) { (hex: String) in
-                            swatch(hex)
+                            let on = c.highlightColor.uppercased() == hex
+                            Circle().fill(Color(nsColor: NSColor(hex: hex) ?? .systemPurple)).frame(width: 20, height: 20)
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(on ? 0.8 : 0), lineWidth: 2).padding(-3))
+                                .onTapGesture { store.config.highlightColor = hex }
                         }
-                        ColorPicker("", selection: borderColor, supportsOpacity: false).labelsHidden()
+                        ColorPicker("", selection: Binding<Color>(
+                            get: { Color(nsColor: NSColor(hex: store.config.highlightColor) ?? .systemPurple) },
+                            set: { (col: Color) in store.config.highlightColor = NSColor(col).hexString }), supportsOpacity: false)
+                            .labelsHidden()
                     }
                 }
-                .disabled(!store.config.focusBorder)
-                .opacity(store.config.focusBorder ? 1 : 0.5)
-                SliderRow(title: "Thickness", value: setting(\.borderWidth), range: 1...10, step: 1) { "\(Int($0)) pt" }
-                    .disabled(!store.config.focusBorder)
-                SliderRow(title: "Corner radius", value: setting(\.borderRadius), range: 0...28, step: 1, divider: false) { "\(Int($0)) pt" }
-                    .disabled(!store.config.focusBorder)
+                SliderRow(title: "Border width", value: setting(\.borderWidth), range: 1...8, step: 1) { "\(Int($0)) pt" }
+                SliderRow(title: "Corner radius", value: setting(\.cornerRadius), range: 0...28, step: 1, divider: false) { "\(Int($0)) pt" }
             }
 
-            SettingsGroup(title: "Dimming") {
-                ToggleRow(title: "Dim the windows you're not using", isOn: setting(\.dimUnfocused))
-                SliderRow(title: "Amount", value: setting(\.dimAmount), range: 0.05...0.6, divider: false) { percent($0) }
-                    .disabled(!store.config.dimUnfocused)
-            }
-
-            SettingsGroup(title: "Strip map", footer: "While the map is showing, click a tile to jump to that window or drag tiles to reorder.") {
-                ToggleRow(title: "Flash it when the strip scrolls", isOn: setting(\.showIndicatorOnScroll))
-                SettingRow(title: "Show it while I hold") {
-                    HStack(spacing: 8) {
-                        HStack(spacing: 3) { KeyCap(label: "⌃", size: .small); KeyCap(label: "⌥", size: .small) }
-                        Toggle("", isOn: setting(\.showIndicatorOnHold)).toggleStyle(.switch).labelsHidden().controlSize(.small)
+            SettingsGroup(title: "No peek", footer: "No peek (⌃⌥D) dims every window but the one you're using, so you can focus and nobody can read over your shoulder.") {
+                SettingRow(title: "No peek is \(noPeek ? "on" : "off")") {
+                    Button(noPeek ? "Turn Off" : "Try It") {
+                        WindowManager.shared.toggleNoPeek()
+                        noPeek = WindowManager.shared.noPeek
                     }
+                    .buttonStyle(QuietButtonStyle())
                 }
-                SettingRow(title: "Position", divider: false) {
-                    Picker("", selection: setting(\.indicatorPosition)) {
-                        Text("Bottom").tag(IndicatorPosition.bottom)
-                        Text("Top").tag(IndicatorPosition.top)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 160)
-                }
+                SliderRow(title: "Dim amount", value: setting(\.noPeekDim), range: 0.1...0.9) { percent($0) }
+                ToggleRow(title: "Blur the other windows", subtitle: "Keeps them unreadable even when lightly dimmed.", divider: false,
+                          isOn: setting(\.noPeekBlur))
             }
         }
-    }
-
-    private func swatch(_ hex: String) -> some View {
-        let selected = store.config.borderColor.uppercased() == hex
-        return Button { store.config.borderColor = hex } label: {
-            Circle().fill(Color(nsColor: NSColor(hex: hex) ?? .white))
-                .frame(width: 18, height: 18)
-                .overlay(Circle().strokeBorder(Color.primary.opacity(0.2), lineWidth: 0.5))
-                .padding(3)
-                .overlay(Circle().strokeBorder(Color.primary.opacity(selected ? 0.7 : 0), lineWidth: 2))
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -551,6 +484,10 @@ struct ShortcutsPane: View {
     var body: some View {
         let conflicts = store.config.conflicts()
         VStack(alignment: .leading, spacing: 18) {
+            SettingsGroup {
+                ToggleRow(title: "Keyboard shortcuts", subtitle: "Turn off to use Ribbon only with the mouse and the menu bar.", divider: false,
+                          isOn: setting(\.shortcutsEnabled))
+            }
             HStack(spacing: 10) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -567,7 +504,7 @@ struct ShortcutsPane: View {
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
             if !HotkeyCenter.shared.failed.isEmpty {
-                Label("Taken by another app: \(HotkeyCenter.shared.failed.map { KeyboardLayout.label($0) }.joined(separator: ", "))",
+                Label("Taken by another app: \(HotkeyCenter.shared.failed.map { KeyboardLayout.label($0) }.joined(separator: ", ")). Pick other keys for them below.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 12, weight: .medium)).foregroundStyle(Color.orange)
             }
@@ -581,6 +518,8 @@ struct ShortcutsPane: View {
                     }
                 }
             }
+            .disabled(!store.config.shortcutsEnabled)
+            .opacity(store.config.shortcutsEnabled ? 1 : 0.5)
         }
     }
 
@@ -690,57 +629,7 @@ struct RecorderButton: View {
     }
 }
 
-// MARK: - Trackpad
-
-struct TrackpadPane: View {
-    @ObservedObject private var store = SettingsStore.shared
-    @State private var checks: [SetupCheck] = []
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Spacer()
-                TrackpadIllustration(fingers: store.config.swipeFingers)
-                Spacer()
-            }
-            SettingsGroup(title: "Swipe") {
-                ToggleRow(title: "Swipe to scroll the strip", isOn: setting(\.swipeEnabled))
-                SettingRow(title: "Fingers") {
-                    Picker("", selection: setting(\.swipeFingers)) { Text("Three").tag(3); Text("Four").tag(4) }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 160)
-                }
-                ToggleRow(title: "Natural direction", subtitle: "Windows follow your fingers, like scrolling a page.", isOn: setting(\.swipeNatural))
-                SettingRow(title: "Sensitivity", divider: false) {
-                    HStack(spacing: 8) {
-                        Text("Low").font(.system(size: 11)).foregroundStyle(.secondary)
-                        Slider(value: setting(\.swipeSensitivity), in: 0.4...2.5).frame(width: 200)
-                        Text("High").font(.system(size: 11)).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            if let c = checks.first(where: { $0.id == "swipe" }) {
-                SetupCheckCard(check: c) { checks = MacSetup.run() }
-            }
-            if !TrackpadWatcher.shared.isAvailable {
-                Label("This Mac's trackpad driver isn't available, so swipes are off.", systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            SettingsGroup(title: "Mouse", footer: "Focus follows the mouse only for windows that are fully on screen, so the strip never jumps while you point.") {
-                SettingRow(title: "Scroll the strip while holding") {
-                    HStack(spacing: 8) {
-                        HStack(spacing: 3) { KeyCap(label: "⌃", size: .small); KeyCap(label: "⌥", size: .small) }
-                        Toggle("", isOn: setting(\.scrollWheelWithModifiers)).toggleStyle(.switch).labelsHidden().controlSize(.small)
-                    }
-                }
-                ToggleRow(title: "Focus follows the mouse", divider: false, isOn: setting(\.focusFollowsMouse))
-            }
-        }
-        .onAppear { checks = MacSetup.run() }
-        .onChange(of: store.config.swipeFingers) { _ in checks = MacSetup.run() }
-    }
-}
-
-// MARK: - App rules
+// MARK: - Apps
 
 struct AppsPane: View {
     @ObservedObject private var store = SettingsStore.shared
@@ -748,7 +637,7 @@ struct AppsPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
-                Text("Float keeps an app's windows free on top of the strip. Ignore leaves the app alone completely.")
+                Text("Dialogs, sheets and panels are never tiled. Add apps here to leave their windows where you put them. You can also switch the app in front on or off from the menu bar.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Menu {
@@ -763,9 +652,9 @@ struct AppsPane: View {
                 }
                 .fixedSize()
             }
-            SettingsGroup(title: "Rules") {
+            SettingsGroup(title: "Not tiled") {
                 if store.config.appRules.isEmpty {
-                    SettingRow(title: "No rules yet", divider: false) { EmptyView() }
+                    SettingRow(title: "Every app is tiled", divider: false) { EmptyView() }
                 }
                 ForEach(store.config.appRules) { (rule: AppRule) in
                     ruleRow(rule)
@@ -784,21 +673,16 @@ struct AppsPane: View {
                 }
                 Spacer()
                 Picker("", selection: ruleBinding(rule.bundleID, \.behavior)) {
+                    Text("Don't tile").tag(AppBehavior.float)
+                    Text("Ignore completely").tag(AppBehavior.ignore)
                     Text("Tile").tag(AppBehavior.tile)
-                    Text("Float").tag(AppBehavior.float)
-                    Text("Ignore").tag(AppBehavior.ignore)
                 }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 180)
-                Picker("", selection: ruleBinding(rule.bundleID, \.width)) {
-                    Text("Default").tag(Double?.none)
-                    ForEach([0.25, 1.0 / 3, 0.5, 2.0 / 3, 0.75, 1.0], id: \.self) { (v: Double) in Text(percent(v)).tag(Double?.some(v)) }
-                }
-                .labelsHidden().frame(width: 92)
-                .disabled(rule.behavior != .tile)
+                .labelsHidden().frame(width: 170)
                 Button { store.config.appRules.removeAll { $0.bundleID == rule.bundleID } } label: {
                     Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .help("Remove: the app's windows tile again")
             }
             .padding(.horizontal, 14).padding(.vertical, 9)
             if rule.bundleID != store.config.appRules.last?.bundleID { Divider().padding(.leading, 54) }
@@ -830,100 +714,20 @@ struct AppsPane: View {
     }
 }
 
-// MARK: - Displays
+// MARK: - Advanced
 
-struct DisplaysPane: View {
-    @ObservedObject private var store = SettingsStore.shared
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 14) {
-                ForEach(Displays.current(), id: \.uuid) { (d: Display) in
-                    displayCard(d)
-                }
-                Spacer(minLength: 0)
-            }
-            HStack(spacing: 8) {
-                Text("Send the focused window to the next display with").font(.system(size: 12)).foregroundStyle(.secondary)
-                CommandKeys(command: .moveToNextDisplay, size: .small)
-            }
-        }
-    }
-
-    private func displayCard(_ d: Display) -> some View {
-        let on = !store.config.excludedDisplays.contains(d.uuid)
-        let aspect = CGFloat(d.frame.h / max(1, d.frame.w))
-        return VStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.85))
-                Wallpaper().clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).padding(5).opacity(on ? 1 : 0.35)
-                if d.isMain {
-                    Text("MAIN").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Color.white.opacity(0.85))).foregroundStyle(Color.black)
-                }
-            }
-            .frame(width: 160, height: 160 * aspect)
-            VStack(spacing: 2) {
-                Text(d.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                Text("\(Int(d.frame.w)) × \(Int(d.frame.h))").font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-            Toggle("Arrange windows here", isOn: Binding<Bool>(get: { on }, set: { (v: Bool) in
-                store.config.excludedDisplays.removeAll { $0 == d.uuid }
-                if !v { store.config.excludedDisplays.append(d.uuid) }
-            }))
-            .toggleStyle(.switch).controlSize(.small).font(.system(size: 12))
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
-    }
-}
-
-// MARK: - Mac Setup
-
-struct MacSetupPane: View {
-    @State private var checks: [SetupCheck] = MacSetup.run()
-    private let timer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        let good = checks.filter { $0.status == .ok }.count
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 16) {
-                ProgressRing(value: Double(good), total: Double(max(1, checks.count)), label: "\(good)/\(checks.count)", caption: "look good")
-                    .frame(width: 70, height: 70)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(good == checks.count ? "Everything looks good." : "A few things to look at.").font(.system(size: 15, weight: .semibold))
-                    Text("Only Accessibility is required; the rest just makes Ribbon smoother.").font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Check Again") { checks = MacSetup.run() }.buttonStyle(QuietButtonStyle())
-            }
-            .card(padding: 14, radius: 14)
-            ForEach(checks) { c in SetupCheckCard(check: c) { checks = MacSetup.run() } }
-            SettingsGroup(title: "If something looks wrong") {
-                SettingRow(title: "Windows jump back after you move them", subtitle: "Another window manager is running, or macOS edge tiling is on.") { EmptyView() }
-                SettingRow(title: "A swipe switches desktops instead", subtitle: "macOS uses the same number of fingers; see Trackpad & Mouse.") { EmptyView() }
-                SettingRow(title: "Ribbon stopped working after an update", subtitle: "In Privacy & Security → Accessibility, remove Ribbon with – and add it again.", divider: false) { EmptyView() }
-            }
-        }
-        .onReceive(timer) { _ in checks = MacSetup.run() }
-    }
-}
-
-// MARK: - Automation
-
-struct AutomationPane: View {
-    @State private var cliStatus = AutomationPane.cliInstalledPath()
+struct AdvancedPane: View {
+    @State private var cliStatus = AdvancedPane.cliInstalledPath()
     @State private var message: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             SettingsGroup(title: "URL scheme", footer: "Use these from Shortcuts, Alfred, Keyboard Maestro, a Stream Deck or any script.") {
-                codeRow("open -g \"ribbon://focus-right\"")
-                codeRow("open -g \"ribbon://cycle-width\"")
+                codeRow("open -g \"ribbon://swap-right\"")
+                codeRow("open -g \"ribbon://tile-2\"")
                 codeRow("open -g \"ribbon://focus-window/<number>\"", divider: false)
             }
-            SettingsGroup(title: "Command-line tool", footer: "Try ribbon help, ribbon state (JSON of every strip and window), ribbon config set innerGap 6 or ribbon doctor.") {
+            SettingsGroup(title: "Command-line tool", footer: "Try ribbon help, ribbon state (JSON of every screen and window) or ribbon config set spacing 12.") {
                 SettingRow(title: cliStatus.map { "Installed at \($0)" } ?? "Not installed", divider: false) {
                     Button(cliStatus == nil ? "Install…" : "Reinstall…") { installCLI() }.buttonStyle(BrandButtonStyle())
                 }
@@ -934,7 +738,7 @@ struct AutomationPane: View {
                 }
             }
             SettingsGroup(title: "Diagnostics") {
-                SettingRow(title: "Copy diagnostics", subtitle: "Mac Setup results, the current layout and recent log lines. Includes app names and window titles.") {
+                SettingRow(title: "Copy diagnostics", subtitle: "The current layout and recent log lines. Includes app names and window titles.") {
                     Button("Copy") { copyDiagnostics() }.buttonStyle(QuietButtonStyle())
                 }
                 SettingRow(title: "Log folder", divider: false) {
@@ -980,7 +784,7 @@ struct AutomationPane: View {
         let script = "do shell script \"mkdir -p /usr/local/bin && ln -sf '\(src)' /usr/local/bin/ribbon\" with administrator privileges"
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
-        cliStatus = AutomationPane.cliInstalledPath()
+        cliStatus = AdvancedPane.cliInstalledPath()
         message = err == nil ? "Installed. Open a new Terminal window and try ribbon help." : "Not installed: \(err?["NSAppleScriptErrorMessage"] ?? "cancelled")"
     }
 
@@ -1006,8 +810,6 @@ struct AutomationPane: View {
     private func copyDiagnostics() {
         let text = """
         Ribbon \(AppInfo.version) (\(AppInfo.build)) on macOS \(ProcessInfo.processInfo.operatingSystemVersionString)
-        --- Mac Setup
-        \(MacSetup.run().map { "\($0.status.symbol) \($0.title): \($0.detail)" }.joined(separator: "\n"))
         --- State
         \(WindowManager.shared.stateJSON())
         --- Log
@@ -1030,11 +832,11 @@ struct AboutPane: View {
             }
             Text("Ribbon").font(.system(size: 30, weight: .bold))
             Text("Version \(AppInfo.version) (\(AppInfo.build))").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-            Text("A scrolling window manager for macOS. Windows sit side by side on an endless strip, so opening one never squeezes the others.")
+            Text("Windows that arrange themselves. Open a window and it takes its place; close one and the others fill the space.")
                 .font(.system(size: 13)).multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 420)
             SettingsGroup {
-                SettingRow(title: "No account, no telemetry, no network") { Image(systemName: "hand.raised.fill").foregroundStyle(Brand.violet) }
-                SettingRow(title: "Never reads what's on your screen") { Image(systemName: "eye.slash.fill").foregroundStyle(Brand.violet) }
+                SettingRow(title: "No account, no analytics, no network") { Image(systemName: "hand.raised.fill").foregroundStyle(Brand.violet) }
+                SettingRow(title: "Never reads what's in your windows") { Image(systemName: "eye.slash.fill").foregroundStyle(Brand.violet) }
                 SettingRow(title: "Only needs Accessibility; no kernel extensions", divider: false) { Image(systemName: "lock.shield.fill").foregroundStyle(Brand.violet) }
             }
             .frame(maxWidth: 440)

@@ -46,6 +46,6 @@
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Ribbon uses this only when you ask it to install its command-line tool.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Ribbon, a scrolling window manager. Built for thegent.</string>
+	<string>Ribbon: windows that arrange themselves. Built for thegent.</string>
 </dict>
 </plist>

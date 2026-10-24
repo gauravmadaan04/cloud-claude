@@ -49,35 +49,53 @@ let demoApps: [WindowID: DemoApp] = [1: .mail, 2: .notes, 3: .safari, 4: .termin
 
 /// The virtual Mac screen previews are laid out on (points).
 let previewScreen = Rect(x: 0, y: 0, w: 1440, h: 900)
-let previewArea = Rect(x: 0, y: 30, w: 1440, h: 790)
+let previewVisible = Rect(x: 0, y: 30, w: 1440, h: 790)
 
-func previewParams(_ c: Config? = nil) -> LayoutParams {
-    let c = c ?? Config()
-    return LayoutParams(screen: previewScreen, area: previewArea, innerGap: max(c.innerGap, 0) * 1.4, outerGap: max(c.outerGap, 0) * 1.4,
-                        centerMode: c.centerMode, sparse: c.sparse, tabBarHeight: 40, keepOriginalHeight: false)
+/// A board with windows 1…n, the way Ribbon would tile them.
+func demoBoard(_ n: Int, capacity: Int = 3, active: WindowID? = nil) -> Board {
+    var b = Board()
+    for i in 1...max(1, n) { b.add(WindowID(i), capacity: capacity, stackWhenFull: true, activate: false) }
+    b.capacity = capacity
+    b.active = active ?? b.tiles.first?.showing
+    return b
 }
 
-func demoStrip(count: Int = 5, focus: Int = 1, params: LayoutParams = previewParams()) -> Strip {
-    var s = Strip()
-    let widths = [0.5, 0.5, 2.0 / 3, 1.0 / 3, 0.5, 0.5, 0.5, 0.5]
-    for i in 1...count { s.insert(WindowID(i), width: widths[(i - 1) % widths.count], at: .end, focus: false) }
-    s.focusColumn(min(focus, count - 1))
-    s.scroll = Layout.scrollToReveal(s, params)
-    return s
-}
-
-/// A miniature desktop showing a strip, drawn with the real layout engine.
-struct StripPreview: View {
-    var strip: Strip
-    var params: LayoutParams = previewParams()
-    var border: (color: Color, width: Double, radius: Double)? = nil
+/// What a preview shows on top of the plain layout.
+struct PreviewStyle: Equatable {
+    var kind: LayoutKind = .grid
+    var spacing: Double = 8
+    var highlight: Highlight = .activeBorder
+    var color: Color = Brand.violet
+    var radius: Double = 12
+    /// No peek: how dark the other windows get (0 = off).
     var dim: Double = 0
+    var cleanSpace = false
+    var grip = true
     var showDock = true
+
+    init(kind: LayoutKind = .grid, spacing: Double = 8, highlight: Highlight = .activeBorder, color: Color = Brand.violet,
+         radius: Double = 12, dim: Double = 0, cleanSpace: Bool = false, grip: Bool = true, showDock: Bool = true) {
+        self.kind = kind; self.spacing = spacing; self.highlight = highlight; self.color = color; self.radius = radius
+        self.dim = dim; self.cleanSpace = cleanSpace; self.grip = grip; self.showDock = showDock
+    }
+
+    init(config c: Config) {
+        self.init(kind: c.layout, spacing: c.spacing, highlight: c.highlight, color: Color(nsColor: NSColor(hex: c.highlightColor) ?? .systemPurple),
+                  radius: c.cornerRadius, grip: c.quickActions)
+    }
+}
+
+/// A miniature desktop tiled by the real layout engine.
+struct BoardPreview: View {
+    var board: Board
+    var style = PreviewStyle()
+    /// Windows drawn where they are instead of where the layout puts them (the messy "before").
+    var loose: [WindowID: Rect] = [:]
     var cornerRadius: CGFloat = 16
 
     var body: some View {
         GeometryReader { geo in
-            canvas(scale: geo.size.width / CGFloat(previewScreen.w))
+            canvas(k: geo.size.width / CGFloat(previewScreen.w))
         }
         .aspectRatio(CGFloat(previewScreen.w / previewScreen.h), contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -85,98 +103,97 @@ struct StripPreview: View {
         .shadow(color: Color.black.opacity(0.28), radius: 18, y: 10)
     }
 
-    private func canvas(scale k: CGFloat) -> some View {
-        let r = Layout.compute(strip, params)
+    private struct Item: Identifiable {
+        let id: WindowID
+        let frame: Rect
+        let active: Bool
+        let behind: Bool
+    }
+
+    private func items() -> [Item] {
+        let spacing = style.spacing * 1.5
+        let area = previewVisible.insetBy(spacing)
+        let arr = TileLayout.arrangement(style.kind, area: area)
+        let frames = TileLayout.frames(count: board.tiles.count, arr, area: area, gap: spacing, splits: board.splits)
+        var back: [Item] = [], front: [Item] = [], top: [Item] = []
+        for (i, t) in board.tiles.enumerated() where frames.indices.contains(i) {
+            for (j, wid) in t.waiting.enumerated() {
+                // Waiting windows peek out a little so the stack reads as a stack.
+                let off = Double(t.waiting.count - j) * 14
+                let f = loose[wid] ?? Rect(x: frames[i].x + off, y: frames[i].y - off * 0.6, w: frames[i].w, h: frames[i].h)
+                back.append(Item(id: wid, frame: f, active: false, behind: true))
+            }
+            let wid = t.showing
+            let zoomed = board.zoomed == wid || (style.cleanSpace && board.active == wid)
+            let item = Item(id: wid, frame: loose[wid] ?? (zoomed ? area : frames[i]), active: board.active == wid, behind: false)
+            if zoomed { top.append(item) } else { front.append(item) }
+        }
+        return back + front + top
+    }
+
+    private func canvas(k: CGFloat) -> some View {
+        let all = items()
+        let activeFrame = all.first { $0.active }?.frame
         return ZStack(alignment: .topLeading) {
             Wallpaper()
-            ForEach(r.placements, id: \.window) { pl in
-                windowView(pl, r: r, k: k)
+            if style.cleanSpace {
+                Rectangle().fill(Color(red: 0.16, green: 0.17, blue: 0.2))
             }
-            ForEach(r.tabBars, id: \.column) { tb in
-                tabBar(tb, r: r, k: k)
+            ForEach(all) { it in
+                windowView(it, k: k)
+            }
+            if style.grip, loose.isEmpty, let f = activeFrame, !style.cleanSpace {
+                Capsule().fill(style.color)
+                    .frame(width: 60 * k, height: 7 * k)
+                    .offset(x: CGFloat(f.midX) * k - 30 * k, y: CGFloat(f.minY) * k - 9 * k)
             }
             MenuBarStrip(scale: k)
-            if showDock { DockStrip(scale: k) }
+            if style.showDock && !style.cleanSpace { DockStrip(scale: k) }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: strip)
-        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: params)
+        .animation(.spring(response: 0.5, dampingFraction: 0.84), value: board)
+        .animation(.spring(response: 0.5, dampingFraction: 0.84), value: style)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: loose)
     }
 
-    @ViewBuilder
-    private func windowView(_ pl: Placement, r: LayoutResult, k: CGFloat) -> some View {
-        let col = strip.columns[pl.column]
-        let hiddenTab = col.mode == .tabbed && pl.row != col.active
-        if !hiddenTab {
-            let focused = strip.focusedWindow == pl.window
-            DemoWindowView(app: demoApps[pl.window] ?? .finder, focused: focused, scale: k,
-                           ring: focused && border == nil ? Brand.violet : nil)
-                .frame(width: CGFloat(pl.frame.w) * k, height: CGFloat(pl.frame.h) * k)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 11 * k + 2, style: .continuous)
-                        .fill(Color.black.opacity(focused ? 0 : dim))
-                )
-                .overlay(borderOverlay(focused: focused, k: k))
-                .offset(x: CGFloat(pl.frame.x) * k, y: CGFloat(pl.frame.y) * k)
-        }
-    }
-
-    @ViewBuilder
-    private func borderOverlay(focused: Bool, k: CGFloat) -> some View {
-        if focused, let b = border {
-            RoundedRectangle(cornerRadius: CGFloat(b.radius) * k + 2, style: .continuous)
-                .strokeBorder(b.color, lineWidth: max(1.5, CGFloat(b.width) * k * 1.6))
-                .padding(-CGFloat(b.width) * k)
-        }
-    }
-
-    private func tabBar(_ tb: RibbonCore.TabBarPlacement, r: LayoutResult, k: CGFloat) -> some View {
-        let x: CGFloat = CGFloat(r.columnRects[tb.column].x) * k
-        let y: CGFloat = CGFloat(tb.frame.y) * k
-        let w: CGFloat = CGFloat(tb.frame.w) * k
-        let h: CGFloat = CGFloat(tb.frame.h - 5) * k
-        return PreviewTabBar(windows: tb.windows, active: tb.active, k: k)
-            .frame(width: w, height: h)
-            .offset(x: x, y: y)
+    private func windowView(_ it: Item, k: CGFloat) -> some View {
+        let radius: CGFloat = CGFloat(style.radius) * k * 1.4 + 2
+        let showBorder = (style.highlight == .activeBorder && it.active) || (style.highlight == .allBorders && !it.behind)
+        let borderColor: Color = it.active ? style.color : Color.white.opacity(0.55)
+        let dimmed = style.dim > 0 && !it.active
+        return DemoWindowView(app: demoApps[it.id] ?? .finder, focused: it.active, scale: k)
+            .frame(width: CGFloat(it.frame.w) * k, height: CGFloat(it.frame.h) * k)
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.black.opacity(dimmed ? style.dim : 0)))
+            .blur(radius: dimmed ? 3 * k + 1 : 0)
+            .overlay(
+                RoundedRectangle(cornerRadius: radius + 2, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: max(1.5, 4 * k))
+                    .padding(-3 * k)
+                    .opacity(showBorder ? 1 : 0)
+            )
+            .shadow(color: style.color.opacity(style.highlight == .glow && it.active ? 0.9 : 0), radius: 22 * k)
+            .offset(x: CGFloat(it.frame.x) * k, y: CGFloat(it.frame.y) * k)
+            .zIndex(it.behind ? 0 : (it.active ? 2 : 1))
     }
 }
 
-/// The tab bar of a tabbed column in previews.
-private struct PreviewTabBar: View {
-    let windows: [WindowID]
-    let active: Int
-    let k: CGFloat
+/// A preview that plays a little script of changes on a loop.
+struct ScriptedBoard: View {
+    let start: Board
+    let script: [(inout Board) -> Void]
+    var every: Double = 1.4
+    var style = PreviewStyle()
+    @State private var board: Board?
+    @State private var tick = 0
 
     var body: some View {
-        let gap: CGFloat = 3 * k + 1
-        let pad: CGFloat = 3 * k
-        let radius: CGFloat = 9 * k + 1
-        HStack(spacing: gap) {
-            ForEach(Array(windows.enumerated()), id: \.offset) { (pair: (offset: Int, element: WindowID)) in
-                PreviewTab(app: demoApps[pair.element] ?? DemoApp.finder, active: pair.offset == active, k: k)
+        BoardPreview(board: board ?? start, style: style)
+            .onReceive(Timer.publish(every: every, on: .main, in: .common).autoconnect()) { _ in
+                var b = board ?? start
+                let phase = tick % (script.count + 1)
+                if phase == script.count { b = start } else { script[phase](&b) }
+                tick += 1
+                board = b
             }
-        }
-        .padding(pad)
-        .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.black.opacity(0.35)))
-    }
-}
-
-private struct PreviewTab: View {
-    let app: DemoApp
-    let active: Bool
-    let k: CGFloat
-
-    var body: some View {
-        let iconSize: CGFloat = max(6, 15 * k)
-        let textSize: CGFloat = max(6, 16 * k)
-        let radius: CGFloat = 7 * k + 1
-        let fill: Color = active ? Brand.violet : Color.white.opacity(0.22)
-        HStack(spacing: 4 * k) {
-            Image(systemName: app.symbol).font(.system(size: iconSize))
-            Text(app.title).font(.system(size: textSize, weight: .semibold)).lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill))
-        .foregroundStyle(Color.white)
     }
 }
 
@@ -203,7 +220,7 @@ struct MenuBarStrip: View {
             Text("Ribbon").font(.system(size: 15 * scale, weight: .bold))
             Text("File   Edit   View   Window").font(.system(size: 15 * scale))
             Spacer()
-            Image(systemName: "rectangle.split.3x1").font(.system(size: 16 * scale, weight: .semibold))
+            Image(systemName: "square.grid.2x2").font(.system(size: 15 * scale, weight: .semibold))
                 .padding(.horizontal, 6 * scale).padding(.vertical, 2 * scale)
                 .background(RoundedRectangle(cornerRadius: 4 * scale).fill(Color.white.opacity(0.25)))
             Image(systemName: "wifi").font(.system(size: 15 * scale))

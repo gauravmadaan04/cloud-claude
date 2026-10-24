@@ -30,34 +30,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hotkeys = HotkeyCenter.shared
         hotkeys.onCommand = { cmd in WindowManager.shared.perform(cmd) }
         hotkeys.apply(store.config)
-        WindowManager.shared.commandListeners.append { PracticeCenter.shared.received($0) }
-
-        TrackpadWatcher.shared.onSwipe = { ev in
-            let wm = WindowManager.shared
-            let c = SettingsStore.shared.config
-            switch ev {
-            case .began(let dx):
-                wm.interactiveBegin()
-                wm.interactiveScroll(points: SwipeMath.points(forPadDelta: dx, viewportWidth: AppDelegate.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
-            case .changed(let dx):
-                wm.interactiveScroll(points: SwipeMath.points(forPadDelta: dx, viewportWidth: AppDelegate.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
-            case .ended(let v):
-                wm.interactiveEnd(velocityPoints: SwipeMath.points(forPadDelta: v, viewportWidth: AppDelegate.viewportWidth(), sensitivity: c.swipeSensitivity, natural: c.swipeNatural))
-            }
-        }
-        applyInputSettings(store.config)
-        store.onChange { [weak self] old, new in
-            if old.bindings != new.bindings { HotkeyCenter.shared.apply(new) }
-            if old.swipeEnabled != new.swipeEnabled || old.swipeFingers != new.swipeFingers || old.tilingEnabled != new.tilingEnabled
-                || old.scrollWheelWithModifiers != new.scrollWheelWithModifiers || old.focusFollowsMouse != new.focusFollowsMouse {
-                self?.applyInputSettings(new)
-            }
+        HoverFocus.shared.apply(store.config)
+        store.onChange { old, new in
+            if old.bindings != new.bindings || old.shortcutsEnabled != new.shortcutsEnabled { HotkeyCenter.shared.apply(new) }
+            if old.hoverFocus != new.hoverFocus || old.tilingEnabled != new.tilingEnabled { HoverFocus.shared.apply(new) }
         }
 
         if !store.config.hasCompletedOnboarding {
+            // Windows are tidied at the end of the tour.
             UIHub.shared.showOnboarding()
-            // Start tiling straight away if permission already exists, so practice works on real windows.
-            if AXPermission.isTrusted { WindowManager.shared.start() }
         } else {
             if !AXPermission.isTrusted { AXPermission.prompt() }
             WindowManager.shared.start()
@@ -67,18 +48,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func applyInputSettings(_ c: Config) {
-        TrackpadWatcher.shared.stop()
-        if c.swipeEnabled && c.tilingEnabled { TrackpadWatcher.shared.start(fingers: c.swipeFingers) }
-        InputMonitors.shared.apply(c)
-    }
-
-    static func viewportWidth() -> Double {
-        let wm = WindowManager.shared
-        if let d = wm.display(at: Displays.mouseLocation) { return d.visible.w }
-        return wm.displays.first?.visible.w ?? 1440
-    }
-
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         UIHub.shared.openSettings()
         return true
@@ -86,10 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         let wm = WindowManager.shared
-        if wm.isRunning {
-            SessionStore.save(wm.snapshot())
-            wm.releaseParked()
-        }
+        if wm.isRunning { SessionStore.save(wm.snapshot()) }
         Log.info("Quit")
     }
 

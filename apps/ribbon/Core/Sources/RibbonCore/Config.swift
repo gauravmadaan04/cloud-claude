@@ -1,13 +1,34 @@
 import Foundation
 
-public enum NewWindowPlacement: String, Codable, CaseIterable {
-    case afterFocused, end
-    public var title: String { self == .afterFocused ? "Next to the focused window" : "At the end of the strip" }
+/// What a full screen does with one more window.
+public enum WhenFull: String, Codable, CaseIterable {
+    case stack, float
+    public var title: String { self == .stack ? "Stack it on the window in use" : "Float it in the middle" }
 }
 
-public enum IndicatorPosition: String, Codable, CaseIterable {
-    case bottom, top
-    public var title: String { self == .bottom ? "Bottom" : "Top" }
+/// What ⌃⌥ + arrow does when it carries a window onto a screen that is already full.
+public enum IntoFull: String, Codable, CaseIterable {
+    case swap, stack
+    public var title: String { self == .swap ? "Swap with a window there" : "Stack on top" }
+}
+
+/// How the window in use stands out.
+public enum Highlight: String, Codable, CaseIterable {
+    case none, activeBorder, allBorders, glow
+    public var title: String {
+        switch self {
+        case .none: return "None"
+        case .activeBorder: return "Border"
+        case .allBorders: return "All borders"
+        case .glow: return "Glow"
+        }
+    }
+}
+
+/// The plain background behind Clean Space.
+public enum Backdrop: String, Codable, CaseIterable {
+    case slate, fog, sand, aurora
+    public var title: String { rawValue.capitalized }
 }
 
 public enum AppBehavior: String, Codable, CaseIterable {
@@ -15,7 +36,7 @@ public enum AppBehavior: String, Codable, CaseIterable {
     public var title: String {
         switch self {
         case .tile: return "Tile"
-        case .float: return "Float"
+        case .float: return "Don't tile"
         case .ignore: return "Ignore completely"
         }
     }
@@ -26,50 +47,42 @@ public struct AppRule: Codable, Equatable, Identifiable, Hashable {
     public var bundleID: String
     public var name: String
     public var behavior: AppBehavior
-    /// Opening width for this app's windows (fraction), nil = the general default.
-    public var width: Double?
 
-    public init(bundleID: String, name: String, behavior: AppBehavior, width: Double? = nil) {
-        self.bundleID = bundleID; self.name = name; self.behavior = behavior; self.width = width
+    public init(bundleID: String, name: String, behavior: AppBehavior) {
+        self.bundleID = bundleID; self.name = name; self.behavior = behavior
     }
 }
 
 /// Every user setting. Changes apply instantly; there is no Save button.
 public struct Config: Codable, Equatable {
     public var tilingEnabled = true
-    public var innerGap: Double = 10
-    public var outerGap: Double = 10
-    public var widthPresets: [Double] = [0.25, 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.75]
-    /// Opening width of new windows (fraction of the working width).
-    public var defaultWidth: Double = 0.5
-    /// Keep the width a window opens with instead of `defaultWidth`.
-    public var useOwnWidth = false
-    public var newWindowPlacement: NewWindowPlacement = .afterFocused
-    public var centerMode: CenterMode = .never
-    public var sparse: SparseAlignment = .left
-    public var keepOriginalHeight = false
+    /// Grid or columns, for every screen that hasn't picked its own.
+    public var layout: LayoutKind = .grid
+    /// Windows per screen, for every screen that hasn't picked its own.
+    public var windowsPerScreen = 3
+    /// Space between windows and around the edge of the screen.
+    public var spacing: Double = 8
+    public var whenFull: WhenFull = .stack
+    public var intoFull: IntoFull = .swap
+    public var highlight: Highlight = .activeBorder
+    public var highlightColor = "#7C5CFF"
+    public var borderWidth: Double = 3
+    public var cornerRadius: Double = 12
+    /// The little grip above windows with quick actions.
+    public var quickActions = true
+    /// Activate a window when the pointer rests on it.
+    public var hoverFocus = false
+    public var shortcutsEnabled = true
+    public var noPeekDim: Double = 0.5
+    public var noPeekBlur = true
+    public var backdrop: Backdrop = .slate
     public var animate = true
     /// Spring settle time in seconds.
-    public var animationResponse: Double = 0.26
-    public var focusBorder = false
-    public var borderColor = "#4F8CFF"
-    public var borderWidth: Double = 4
-    public var borderRadius: Double = 12
-    public var dimUnfocused = false
-    public var dimAmount: Double = 0.25
-    public var focusFollowsMouse = false
-    public var showIndicatorOnScroll = true
-    public var showIndicatorOnHold = true
-    public var indicatorPosition: IndicatorPosition = .bottom
-    public var swipeEnabled = true
-    public var swipeFingers = 3
-    public var swipeNatural = true
-    public var swipeSensitivity: Double = 1.0
-    public var scrollWheelWithModifiers = true
+    public var animationResponse: Double = 0.24
     public var floatFixedSizeWindows = true
+    public var pauseForStageManager = true
     public var restoreSession = true
-    public var tabBarHeight: Double = 28
-    public var excludedDisplays: [String] = []
+    public var haptics = true
     public var appRules: [AppRule] = Config.defaultRules
     /// Shortcut overrides keyed by command name. Missing commands use the defaults.
     public var bindings: [String: [KeyCombo]] = [:]
@@ -77,16 +90,29 @@ public struct Config: Codable, Equatable {
 
     public init() {}
 
+    /// Small tools and fixed-shape windows that look wrong stretched into a tile.
     public static let defaultRules: [AppRule] = [
         AppRule(bundleID: "com.apple.systempreferences", name: "System Settings", behavior: .float),
         AppRule(bundleID: "com.apple.calculator", name: "Calculator", behavior: .float),
+        AppRule(bundleID: "com.apple.Stickies", name: "Stickies", behavior: .float),
         AppRule(bundleID: "com.apple.archiveutility", name: "Archive Utility", behavior: .float),
         AppRule(bundleID: "com.apple.ScreenContinuity", name: "iPhone Mirroring", behavior: .float),
+        AppRule(bundleID: "com.apple.PhotoBooth", name: "Photo Booth", behavior: .float),
+        AppRule(bundleID: "com.apple.DigitalColorMeter", name: "Digital Color Meter", behavior: .float),
+        AppRule(bundleID: "com.apple.FaceTime", name: "FaceTime", behavior: .float),
     ]
 
     public func rule(for bundleID: String?) -> AppRule? {
         guard let b = bundleID?.lowercased() else { return nil }
         return appRules.first { $0.bundleID.lowercased() == b }
+    }
+
+    /// True unless the app has been set not to tile.
+    public func tiles(_ bundleID: String?) -> Bool { (rule(for: bundleID)?.behavior ?? .tile) == .tile }
+
+    public mutating func setTiles(_ on: Bool, bundleID: String, name: String) {
+        appRules.removeAll { $0.bundleID.lowercased() == bundleID.lowercased() }
+        if !on { appRules.append(AppRule(bundleID: bundleID, name: name, behavior: .float)) }
     }
 
     public func combos(for c: Command) -> [KeyCombo] {
@@ -95,6 +121,7 @@ public struct Config: Codable, Equatable {
 
     /// All active shortcuts. Later commands lose a clash, so each key does one thing.
     public func effectiveBindings() -> [KeyCombo: Command] {
+        guard shortcutsEnabled else { return [:] }
         var out: [KeyCombo: Command] = [:]
         for c in Command.allCases {
             for k in combos(for: c) where out[k] == nil { out[k] = c }

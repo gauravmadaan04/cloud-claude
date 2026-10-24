@@ -10,8 +10,12 @@ final class HotkeyCenter {
 
     private var refs: [EventHotKeyRef] = []
     private var commands: [UInt32: Command] = [:]
+    private var transientRefs: [EventHotKeyRef] = []
+    private var transient: [UInt32: () -> Void] = [:]
     private var handlerInstalled = false
+    /// Shortcuts another app already owns.
     private(set) var failed: [KeyCombo] = []
+    private(set) var failedCommands: [Command] = []
     private(set) var suspended = false
     var onCommand: ((Command) -> Void)?
 
@@ -23,6 +27,7 @@ final class HotkeyCenter {
         installHandler()
         var nextID: UInt32 = 1
         failed = []
+        failedCommands = []
         for (combo, cmd) in config.effectiveBindings() {
             var ref: EventHotKeyRef?
             let id = EventHotKeyID(signature: OSType(0x5242_4E21), id: nextID) // 'RBN!'
@@ -33,10 +38,34 @@ final class HotkeyCenter {
                 commands[nextID] = cmd
             } else {
                 failed.append(combo)
+                failedCommands.append(cmd)
                 Log.error("Shortcut \(combo) for \(cmd.rawValue) is taken (status \(status))")
             }
             nextID += 1
         }
+    }
+
+    /// Extra keys that only work while something is open (the window switcher's arrows and Esc).
+    func registerTransient(_ items: [(KeyCombo, () -> Void)]) {
+        clearTransient()
+        installHandler()
+        var id: UInt32 = 10_000
+        for (combo, run) in items {
+            var ref: EventHotKeyRef?
+            let hk = EventHotKeyID(signature: OSType(0x5242_4E21), id: id)
+            if RegisterEventHotKey(combo.keyCode, HotkeyCenter.carbonModifiers(combo.modifiers), hk, GetApplicationEventTarget(), 0, &ref) == noErr,
+               let ref {
+                transientRefs.append(ref)
+                transient[id] = run
+            }
+            id += 1
+        }
+    }
+
+    func clearTransient() {
+        for r in transientRefs { UnregisterEventHotKey(r) }
+        transientRefs.removeAll()
+        transient.removeAll()
     }
 
     /// Lets the shortcut recorder see key presses that are normally swallowed.
@@ -57,6 +86,10 @@ final class HotkeyCenter {
     }
 
     fileprivate func fire(_ id: UInt32) {
+        if let run = transient[id] {
+            DispatchQueue.main.async { run() }
+            return
+        }
         guard let cmd = commands[id] else { return }
         DispatchQueue.main.async { self.onCommand?(cmd) }
     }
