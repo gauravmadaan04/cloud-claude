@@ -476,7 +476,7 @@ final class WindowManager {
             var touched = Set<ScreenKey>()
             var repaired = false
             let now = CACurrentMediaTime()
-            for m in self.misses() where suspects.contains(m.w.id) {
+            for m in misses() where suspects.contains(m.w.id) {
                 guard let actual = m.w.element.frame else { continue }
                 // Still bigger than asked: that's the app's minimum. Small overshoots (Finder stops at 501pt)
                 // only count once a repair has failed, so a window caught mid-resize isn't mistaken for one.
