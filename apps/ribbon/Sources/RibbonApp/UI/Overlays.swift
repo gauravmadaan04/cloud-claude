@@ -33,7 +33,7 @@ private func visibleTiles() -> [Visible] {
             let wid = t.showing
             // With a window filling the screen, only that one gets a highlight.
             if let z = b.zoomed, z != wid { continue }
-            guard let f = wm.windows[wid]?.lastFrame else { continue }
+            guard let f = wm.windows[wid]?.lastFrame, !wm.parkedWindows.contains(wid) else { continue }
             out.append(Visible(wid: wid, frame: f, active: wid == wm.focusedWindowID))
         }
     }
@@ -125,8 +125,11 @@ final class NoPeekOverlays {
         init() {
             let root = NSView()
             blur.blendingMode = .behindWindow
-            blur.material = .fullScreenUI
+            blur.material = .hudWindow
             blur.state = .active
+            blur.appearance = NSAppearance(named: .darkAqua)
+            // Part-transparent so the other windows read as dimmed shapes, not a grey wall.
+            blur.alphaValue = 0.7
             blur.autoresizingMask = [.width, .height]
             tint.wantsLayer = true
             tint.autoresizingMask = [.width, .height]
@@ -159,7 +162,7 @@ final class NoPeekOverlays {
             s.blur.frame = s.window.contentView?.bounds ?? .zero
             s.tint.frame = s.blur.frame
             s.blur.isHidden = !c.noPeekBlur
-            s.tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(c.noPeekDim).cgColor
+            s.tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(c.noPeekBlur ? c.noPeekDim * 0.7 : c.noPeekDim).cgColor
             if let id = activeID, let f = activeFrame, f.intersectionArea(d.frame) > 0 {
                 s.window.order(.below, relativeTo: id)
             } else {

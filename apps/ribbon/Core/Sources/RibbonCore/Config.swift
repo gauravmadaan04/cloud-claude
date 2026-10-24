@@ -76,6 +76,15 @@ public struct Config: Codable, Equatable {
     public var noPeekDim: Double = 0.5
     public var noPeekBlur = true
     public var backdrop: Backdrop = .slate
+    /// Scrolling layout: width of a new column, as a share of the screen.
+    public var scrollingWidth: Double = 0.5
+    /// Scrolling layout: swipe with three (or four) fingers to scroll.
+    public var swipeEnabled = true
+    public var swipeFingers = 3
+    public var swipeNatural = true
+    public var swipeSensitivity: Double = 1.0
+    /// Scrolling layout: hold ⌃⌥ and use the scroll wheel.
+    public var scrollWheelWithModifiers = true
     public var animate = true
     /// Spring settle time in seconds.
     public var animationResponse: Double = 0.24

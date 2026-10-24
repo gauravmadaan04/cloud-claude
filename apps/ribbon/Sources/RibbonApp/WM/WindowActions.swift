@@ -27,6 +27,7 @@ extension WindowManager {
         case .tabView: UIHub.shared.tabView.trigger(forward: true); return
         case .tabViewBack: UIHub.shared.tabView.trigger(forward: false); return
         case .noPeek: toggleNoPeek(); return
+        case .openMenu: UIHub.shared.menuBar.toggleFromKeyboard(); return
         default: break
         }
         guard isRunning else { return }
@@ -39,7 +40,12 @@ extension WindowManager {
         case .nextDisplay: moveToDisplay(step: 1)
         case .previousDisplay: moveToDisplay(step: -1)
         case .tile1, .tile2, .tile3, .tile4: if let key = commandKey() { setCapacity(cmd.tileCount ?? 3, for: key) }
-        case .toggleLayout: if let key = commandKey() { setLayout(layoutKind(key) == .grid ? .columns : .grid, for: key) }
+        case .toggleLayout:
+            if let key = commandKey() {
+                let all = LayoutKind.allCases
+                let next = all[((all.firstIndex(of: layoutKind(key)) ?? 0) + 1) % all.count]
+                setLayout(next, for: key)
+            }
         default: screenCommand(cmd)
         }
     }
@@ -74,6 +80,23 @@ extension WindowManager {
             guard b.cycle(tile: i, cmd == .stackNext ? 1 : -1) else { return }
             boards[key] = b
             focusOS(b.tiles[i].showing)
+        case .grow where isScrolling(key), .shrink where isScrolling(key):
+            let current = b.tiles[i].width ?? config.scrollingWidth
+            let next = min(1, max(0.2, current + (cmd == .grow ? 0.1 : -0.1)))
+            if abs(next - current) < 0.001 {
+                UIHub.shared.notice(cmd == .grow ? "Maximum size reached" : "Minimum size reached", symbol: "arrow.left.and.right", on: d)
+                NSSound.beep()
+            } else {
+                setWidth(next, tile: i, key: key)
+            }
+        case .cycleWidth:
+            guard isScrolling(key) else {
+                UIHub.shared.notice("Widths are for the Scrolling layout", symbol: "rectangle.split.3x1", on: d)
+                return
+            }
+            let presets = [1.0 / 3, 0.5, 2.0 / 3, 1.0]
+            let current = b.tiles[i].width ?? config.scrollingWidth
+            setWidth(presets.first { $0 > current + 0.01 } ?? presets[0], tile: i, key: key)
         case .grow, .shrink:
             let grow = cmd == .grow
             if let s = TileLayout.resized(b.splits, tile: i, by: grow ? 0.05 : -0.05, count: b.tiles.count, arrangement(key, d)) {
@@ -108,10 +131,35 @@ extension WindowManager {
         haptic()
     }
 
+    /// Scrolling layout: the width of a column, as a share of the screen.
+    func setWidth(_ f: Double, tile i: Int, key: ScreenKey) {
+        guard var b = boards[key], b.tiles.indices.contains(i) else { return }
+        b.tiles[i].width = f
+        for w in b.tiles[i].windows { windows[w]?.minSize.w = 0 }
+        b.setActive(b.tiles[i].showing)
+        boards[key] = b
+        relayout(key)
+    }
+
+    /// The window in use on a screen, and its tile.
+    func windowInUse(_ key: ScreenKey) -> (WindowID, Int)? {
+        guard let b = boards[key], !b.isEmpty else { return nil }
+        let wid = focusedWindowID.flatMap { b.contains($0) ? $0 : nil } ?? b.active ?? b.tiles[0].showing
+        return b.tileIndex(of: wid).map { (wid, $0) }
+    }
+
+    /// Swaps two tiled windows, on the same screen or on two screens (the menu bar map's drag and drop).
+    func swapWindows(_ a: WindowID, _ b: WindowID) {
+        guard a != b, let wa = windows[a], let kb = windows[b]?.key, let tb = boards[kb]?.tileIndex(of: b) else { return }
+        if var board = boards[kb] { board.show(b); boards[kb] = board }
+        swap(wa, withTile: tb, of: kb)
+    }
+
     /// Equal sizes again; minimum sizes are learned afresh.
     func resetSizes(_ key: ScreenKey) {
         guard var b = boards[key] else { return }
         b.splits = Splits()
+        for t in b.tiles.indices { b.tiles[t].width = nil }
         for w in b.windows { windows[w]?.minSize = Size(w: 0, h: 0) }
         boards[key] = b
         relayout(key)
@@ -128,6 +176,21 @@ extension WindowManager {
         UIHub.shared.notice(eff == 1 ? "1 window on this screen" : "\(eff) windows on this screen", symbol: "rectangle.split.2x2", on: d)
     }
 
+    /// One click in the layout gallery: a layout and a window count together.
+    func setArrangement(_ kind: LayoutKind, count: Int, for key: ScreenKey) {
+        guard let d = display(uuid: key.display) else { return }
+        var b = boards[key] ?? Board()
+        b.layout = kind
+        if kind != .scrolling { b.capacity = count }
+        boards[key] = b
+        fillFromOverflow(key)
+        relayout(key)
+        haptic()
+        let eff = capacity(key, d)
+        let text = kind == .scrolling ? "Scrolling" : (eff == 1 ? "1 window" : "\(kind.title) · \(eff) windows")
+        UIHub.shared.notice(text, symbol: kind == .scrolling ? "rectangle.split.3x1" : "square.grid.2x2", on: d)
+    }
+
     func setLayout(_ kind: LayoutKind, for key: ScreenKey) {
         guard let d = display(uuid: key.display) else { return }
         var b = boards[key] ?? Board()
@@ -135,7 +198,7 @@ extension WindowManager {
         boards[key] = b
         fillFromOverflow(key)
         relayout(key)
-        UIHub.shared.notice(kind.title, symbol: kind == .grid ? "square.grid.2x2" : "rectangle.split.3x1", on: d)
+        UIHub.shared.notice(kind.title, symbol: kind == .grid ? "square.grid.2x2" : (kind == .columns ? "rectangle.split.3x1" : "arrow.left.and.right.square"), on: d)
     }
 
     func toggleFloat() {
@@ -317,8 +380,17 @@ extension WindowManager {
         w.lastFrame = actual
         let now = CACurrentMediaTime()
         if d.resizing, now - d.lastLive > 1.0 / 30, let disp = display(uuid: key.display), var b = boards[key], b.zoomed != w.id {
-            // The neighbours make room as you drag.
+            // The neighbours make room as you drag (in the scrolling layout they slide along).
             d.lastLive = now
+            if arrangement(key, disp) == .scrolling {
+                if b.tiles.indices.contains(d.tile) {
+                    b.tiles[d.tile].width = TileLayout.fraction(forPixelWidth: actual.w, working: area(for: disp).w, gap: config.spacing)
+                }
+                boards[key] = b
+                drag = d
+                relayout(key, animated: false, except: w.id, reveal: false)
+                return
+            }
             b.splits = TileLayout.splits(afterResizing: d.tile, from: d.start, to: actual, count: b.tiles.count, arrangement(key, disp),
                                          area: area(for: disp), gap: config.spacing, splits: b.splits)
             boards[key] = b
@@ -390,7 +462,12 @@ extension WindowManager {
         w.lastFrame = actual
         animator.mover.invalidate(w.id)
         if d.resizing {
-            if let disp = display(uuid: key.display), b.zoomed != w.id, let actual {
+            if let disp = display(uuid: key.display), b.zoomed != w.id, let actual, arrangement(key, disp) == .scrolling {
+                if b.tiles.indices.contains(d.tile) {
+                    b.tiles[d.tile].width = TileLayout.fraction(forPixelWidth: actual.w, working: area(for: disp).w, gap: config.spacing)
+                }
+                boards[key] = b
+            } else if let disp = display(uuid: key.display), b.zoomed != w.id, let actual {
                 b.splits = TileLayout.splits(afterResizing: d.tile, from: d.start, to: actual, count: b.tiles.count, arrangement(key, disp),
                                              area: area(for: disp), gap: config.spacing, splits: b.splits)
                 boards[key] = b
@@ -421,7 +498,7 @@ extension WindowManager {
         relayout(key)
     }
 
-    private func swap(_ w: TrackedWindow, withTile ti: Int, of tk: ScreenKey) {
+    func swap(_ w: TrackedWindow, withTile ti: Int, of tk: ScreenKey) {
         guard let key = w.key, var sb = boards[key] else { return }
         if tk == key {
             guard let i = sb.tileIndex(of: w.id) else { return }
@@ -499,16 +576,20 @@ extension WindowManager {
                 "capacity": d.map { capacity(key, $0) } ?? 0,
                 "splits": ["x": b.splits.x, "leftY": b.splits.leftY, "rightY": b.splits.rightY, "weights": b.splits.weights] as [String: Any],
                 "zoomed": opt(b.zoomed.map { Int($0) }),
+                "scroll": b.scroll,
+                "dragging": drag != nil || simulatedDrag,
                 "activeWindow": opt(b.active.map { Int($0) }),
                 "tiles": b.tiles.enumerated().map { i, t -> [String: Any] in
                     [
                         "frame": rect(frames.indices.contains(i) ? frames[i] : nil),
                         "showing": Int(t.showing),
+                        "width": opt(t.width),
                         "windows": t.windows.map { wid -> [String: Any] in
                             let w = windows[wid]
                             return [
                                 "id": Int(wid), "app": w?.appName ?? "?", "bundle": w?.bundleID ?? "", "title": w?.title ?? "",
                                 "frame": rect(w?.element.frame), "target": rect(targetFrame(for: wid)),
+                                "parked": parkedWindows.contains(wid),
                             ]
                         },
                     ]

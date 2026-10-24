@@ -245,6 +245,62 @@ final class LayoutTests: XCTestCase {
     }
 }
 
+final class ScrollingTests: XCTestCase {
+    func frames(_ widths: [Double], scroll: Double = 0) -> [Rect] {
+        TileLayout.frames(count: widths.count, .scrolling, area: area, gap: gap, splits: Splits(), widths: widths, scroll: scroll)
+    }
+
+    func testColumnsRunPastTheScreen() {
+        let f = frames([0.5, 0.5, 0.5])
+        XCTAssertEqual(f[0].x, area.x)
+        XCTAssertEqual(f[0].w + f[1].w + gap, area.w, accuracy: 0.001, "two halves fill the screen exactly")
+        XCTAssertEqual(f[2].minX, f[1].maxX + gap, accuracy: 0.001)
+        XCTAssertGreaterThan(f[2].maxX, area.maxX)
+        XCTAssertEqual(TileLayout.visibility(f[0], area: area), .visible)
+        XCTAssertEqual(TileLayout.visibility(f[2], area: area), .hidden(.right))
+        XCTAssertEqual(TileLayout.arrangement(.scrolling, area: Rect(x: 0, y: 0, w: 1080, h: 1900)), .scrolling)
+        XCTAssertEqual(TileLayout.capacity(requested: 3, .scrolling, area: area), 3)
+        XCTAssertEqual(TileLayout.maxTiles(.scrolling, area: area), 99)
+    }
+
+    func testRevealScrollsJustEnough() {
+        let f = frames([0.5, 0.5, 0.5, 0.5])
+        let s = TileLayout.reveal(2, f, area: area, scroll: 0)
+        XCTAssertEqual(f[2].maxX - s, area.maxX, accuracy: 0.001, "the third column's right edge meets the screen edge")
+        XCTAssertEqual(TileLayout.reveal(1, f, area: area, scroll: s), s, "already visible: no movement")
+        XCTAssertEqual(TileLayout.reveal(0, f, area: area, scroll: s), 0)
+        let (lo, hi) = TileLayout.scrollLimits(f, area: area)
+        XCTAssertEqual(lo, 0)
+        XCTAssertEqual(hi, f[3].maxX - area.maxX, accuracy: 0.001)
+        let scrolled = frames([0.5, 0.5, 0.5, 0.5], scroll: s)
+        XCTAssertEqual(TileLayout.visibility(scrolled[0], area: area), .hidden(.left))
+        XCTAssertEqual(TileLayout.settleIndex(f, area: area, scroll: s), 1)
+    }
+
+    func testWidthConversions() {
+        let px = TileLayout.pixelWidth(1.0 / 3, working: 1424, gap: 8)
+        XCTAssertEqual(TileLayout.fraction(forPixelWidth: px, working: 1424, gap: 8), 1.0 / 3, accuracy: 0.0001)
+        XCTAssertEqual(TileLayout.pixelWidth(1, working: 1424, gap: 8), 1424)
+    }
+
+    func testNewColumnsOpenNextToTheOneInUse() {
+        var b = Board()
+        for i in 1...3 { b.add(WindowID(i), capacity: 99, stackWhenFull: false) }
+        b.setActive(1)
+        b.add(9, capacity: 99, stackWhenFull: false, after: b.activeTile)
+        XCTAssertEqual(b.showing, [1, 9, 2, 3])
+        XCTAssertEqual(SwipeMath.rubberBand(-100, min: 0, max: 500), -pow(100, 0.75), accuracy: 0.001)
+    }
+
+    func testSwipeRecognizer() {
+        var r = SwipeRecognizer(fingers: 3)
+        XCTAssertNil(r.feed(count: 3, x: 0.5, y: 0.5, time: 0))
+        XCTAssertEqual(r.feed(count: 3, x: 0.56, y: 0.5, time: 0.01), .began(dx: 0.06000000000000005))
+        if case .changed? = r.feed(count: 3, x: 0.6, y: 0.5, time: 0.02) {} else { XCTFail("expected a change") }
+        if case .ended? = r.feed(count: 0, x: 0, y: 0, time: 0.03) {} else { XCTFail("expected the end") }
+    }
+}
+
 final class MotionTests: XCTestCase {
     func testSpringSettles() {
         var sp = Spring(value: 0, target: 1000, response: 0.25)

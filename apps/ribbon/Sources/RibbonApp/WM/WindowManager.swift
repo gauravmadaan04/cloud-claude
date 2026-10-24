@@ -58,6 +58,13 @@ final class WindowManager {
     var boards: [ScreenKey: Board] = [:]
     /// Tile frames from the last layout of each screen.
     var tileFrames: [ScreenKey: [Rect]] = [:]
+    /// Where each tiled window was last sent (parked at the screen edge when scrolled out of view).
+    var windowTargets: [WindowID: Rect] = [:]
+    /// Scrolling layout: windows parked at a screen edge because they're scrolled out of view.
+    var parkedWindows = Set<WindowID>()
+    /// Scrolling layout: the screen a swipe or ⌃⌥ + scroll is moving, and where the fingers have taken it.
+    var swipeKey: ScreenKey?
+    var swipeRaw: Double = 0
     var displays: [Display] = []
     private(set) var isRunning = false
     var focusedWindowID: WindowID?
@@ -138,12 +145,15 @@ final class WindowManager {
         SessionStore.save(session!)
         animator.cancelAll()
         endDrag()
+        releaseParked()
         validateTimer?.invalidate(); validateTimer = nil
         observers.values.forEach { $0.stop() }
         observers.removeAll()
         windows.removeAll()
         boards.removeAll()
         tileFrames.removeAll()
+        windowTargets.removeAll()
+        parkedWindows.removeAll()
         detached.removeAll()
         cleanSpace.removeAll()
         isRunning = false
@@ -322,6 +332,8 @@ final class WindowManager {
     private func forget(_ wid: WindowID) {
         animator.cancel(wid)
         windows[wid] = nil
+        windowTargets[wid] = nil
+        parkedWindows.remove(wid)
         detached[wid] = nil
         enforceWork[wid]?.cancel()
         enforceWork[wid] = nil
@@ -463,7 +475,11 @@ final class WindowManager {
                 for wid in b.windows {
                     guard let w = windows[wid], w.key == key, !animator.isAnimating(wid), drag?.wid != wid,
                           let target = targetFrame(for: wid)?.rounded(), let actual = w.element.frame else { continue }
-                    if !actual.isClose(to: target, tolerance: 2) { out.append(Miss(key: key, w: w, target: target)) }
+                    // macOS may nudge a parked window along the edge; only its size has to be right.
+                    let ok = parkedWindows.contains(wid)
+                        ? abs(actual.w - target.w) <= 2 && abs(actual.h - target.h) <= 2
+                        : actual.isClose(to: target, tolerance: 2)
+                    if !ok { out.append(Miss(key: key, w: w, target: target)) }
                 }
             }
             return out
@@ -576,7 +592,9 @@ final class WindowManager {
         if let slot, slot.key == key {
             result = b.restore(w.id, at: slot.index, capacity: cap, stackWhenFull: stack)
         } else {
-            result = b.add(w.id, capacity: cap, stackWhenFull: stack, activate: activate)
+            // The scrolling layout opens new windows next to the one in use.
+            let next = arrangement(key, d) == .scrolling ? b.activeTile : nil
+            result = b.add(w.id, capacity: cap, stackWhenFull: stack, activate: activate, after: next)
         }
         if result == .full {
             overflow(w, on: d)
@@ -620,6 +638,8 @@ final class WindowManager {
         b.remove(w.id)
         boards[key] = b
         w.key = nil
+        windowTargets[w.id] = nil
+        parkedWindows.remove(w.id)
         animator.cancel(w.id)
         if relayoutNow {
             fillFromOverflow(key)
@@ -699,6 +719,7 @@ final class WindowManager {
 
     private func recoverAfterChange() {
         guard isRunning else { return }
+        TrackpadWatcher.shared.restart()
         let old = Set(displays.map(\.uuid))
         refreshDisplays()
         let now = Set(displays.map(\.uuid))
@@ -801,13 +822,21 @@ final class WindowManager {
 
     /// Where a tiled window should be right now.
     func targetFrame(for wid: WindowID) -> Rect? {
-        guard let w = windows[wid], let key = w.key, let b = boards[key], let i = b.tileIndex(of: wid),
-              let frames = tileFrames[key], frames.indices.contains(i), let d = display(uuid: key.display) else { return nil }
-        if b.zoomed == wid { return area(for: d) }
-        return frames[i]
+        guard windows[wid]?.key != nil else { return nil }
+        return windowTargets[wid]
     }
 
-    private func mins(_ b: Board) -> [Size] {
+    /// Scrolling layout: column frames before scrolling.
+    func unscrolledFrames(_ key: ScreenKey, _ d: Display, _ b: Board) -> [Rect] {
+        TileLayout.frames(count: b.tiles.count, .scrolling, area: area(for: d), gap: config.spacing, splits: b.splits, mins: mins(b),
+                          widths: b.tiles.map { $0.width ?? config.scrollingWidth }, scroll: 0)
+    }
+
+    func isScrolling(_ key: ScreenKey) -> Bool {
+        display(uuid: key.display).map { arrangement(key, $0) == .scrolling } ?? false
+    }
+
+    func mins(_ b: Board) -> [Size] {
         b.tiles.map { t in
             t.windows.reduce(Size(w: 0, h: 0)) { acc, wid in
                 let m = windows[wid]?.minSize ?? Size(w: 0, h: 0)
@@ -820,14 +849,29 @@ final class WindowManager {
         for key in Set(boards.keys).union(activeKeys) where isActive(key) { relayout(key, animated: animated) }
     }
 
-    /// Places every window on a screen. `except` skips the window the user is dragging.
-    func relayout(_ key: ScreenKey, animated: Bool = true, except: WindowID? = nil) {
+    /// Places every window on a screen. `except` skips the window the user is dragging; `reveal`
+    /// scrolls the scrolling layout so the window in use is in view.
+    func relayout(_ key: ScreenKey, animated: Bool = true, except: WindowID? = nil, reveal: Bool = true) {
         guard isRunning, var b = boards[key], let d = display(uuid: key.display), isActive(key) else { return }
         let A = area(for: d)
         let arr = arrangement(key, d)
         b.fit(capacity: capacity(key, d))
         var m = mins(b)
-        var frames = TileLayout.frames(count: b.tiles.count, arr, area: A, gap: config.spacing, splits: b.splits, mins: m)
+        func compute() -> [Rect] {
+            guard arr == .scrolling else {
+                return TileLayout.frames(count: b.tiles.count, arr, area: A, gap: config.spacing, splits: b.splits, mins: m)
+            }
+            let unscrolled = TileLayout.frames(count: b.tiles.count, .scrolling, area: A, gap: config.spacing, splits: b.splits, mins: m,
+                                               widths: b.tiles.map { $0.width ?? config.scrollingWidth }, scroll: 0)
+            if reveal, let i = b.activeTile {
+                b.scroll = TileLayout.reveal(i, unscrolled, area: A, scroll: b.scroll)
+            } else if swipeKey != key {
+                let (lo, hi) = TileLayout.scrollLimits(unscrolled, area: A)
+                b.scroll = min(hi, max(lo, b.scroll))
+            }
+            return unscrolled.map { Rect(x: $0.x - b.scroll, y: $0.y, w: $0.w, h: $0.h) }
+        }
+        var frames = compute()
         // A window that can't fit floats in the middle, newest first.
         var guardCount = 0
         while !TileLayout.fits(frames, mins: m), guardCount < 4 {
@@ -839,25 +883,37 @@ final class WindowManager {
             w.key = nil
             w.floating = true
             w.overflowed = true
+            windowTargets[w.id] = nil
+            parkedWindows.remove(w.id)
             animator.move(w.id, element: w.element, pid: w.pid, from: w.lastFrame, to: centered(w, on: d), animated: config.animate,
                           response: config.animationResponse)
             Log.info("\(w.appName) can't fit next to the others: floating it")
             m = mins(b)
-            frames = TileLayout.frames(count: b.tiles.count, arr, area: A, gap: config.spacing, splits: b.splits, mins: m)
+            frames = compute()
         }
         boards[key] = b
         tileFrames[key] = frames
+        let others = displays.filter { $0.uuid != d.uuid }.map(\.frame)
         for (i, t) in b.tiles.enumerated() {
+            var f = frames[i]
+            var parked = false
+            // Scrolled out of view: macOS won't let a window leave the screen, so it waits at the edge.
+            if arr == .scrolling, b.zoomed != t.showing, case .hidden(let side) = TileLayout.visibility(f, area: A) {
+                f = Parking.frame(size: f.size, side: side, screen: d.frame, others: others, y: f.y)
+                parked = true
+            }
             for wid in t.windows {
+                let target = (b.zoomed == wid ? A : f).rounded()
+                windowTargets[wid] = target
+                if parked { parkedWindows.insert(wid) } else { parkedWindows.remove(wid) }
                 guard wid != except, let w = windows[wid] else { continue }
-                let f = (b.zoomed == wid ? A : frames[i]).rounded()
-                if !animator.isAnimating(w.id), let lf = w.lastFrame, lf.isClose(to: f, tolerance: 0.5),
-                   CACurrentMediaTime() - w.lastSetTime < 5 || w.element.frame.map({ $0.isClose(to: f, tolerance: 1) }) == true {
+                if !animator.isAnimating(w.id), let lf = w.lastFrame, lf.isClose(to: target, tolerance: 0.5),
+                   CACurrentMediaTime() - w.lastSetTime < 5 || w.element.frame.map({ $0.isClose(to: target, tolerance: 1) }) == true {
                     continue
                 }
                 // Windows waiting in a stack jump straight there; the ones you can see glide.
                 let glide = animated && config.animate && t.showing == wid
-                animator.move(w.id, element: w.element, pid: w.pid, from: w.lastFrame ?? w.element.frame, to: f,
+                animator.move(w.id, element: w.element, pid: w.pid, from: w.lastFrame ?? w.element.frame, to: target,
                               animated: glide, response: config.animationResponse)
             }
         }
@@ -867,6 +923,61 @@ final class WindowManager {
         }
         scheduleSave()
         notifyLayout()
+    }
+
+    /// Brings windows parked at the screen edges back into view (when pausing or quitting).
+    func releaseParked() {
+        var i = 0
+        for wid in parkedWindows {
+            guard let w = windows[wid], let key = w.key, let d = display(uuid: key.display), let f = windowTargets[wid] else { continue }
+            let wv = min(f.w, d.visible.w - 80), hv = min(f.h, d.visible.h - 80)
+            let off = Double(i % 8) * 30
+            w.element.setSize(CGSize(width: wv, height: hv))
+            w.element.setPosition(CGPoint(x: d.visible.x + 40 + off, y: d.visible.y + 30 + off))
+            i += 1
+        }
+        parkedWindows.removeAll()
+    }
+
+    // MARK: - Scrolling by swipe or ⌃⌥ + scroll wheel
+
+    /// The scrolling screen under the pointer, if there is one.
+    func scrollingKeyUnderPointer() -> ScreenKey? {
+        guard isRunning, let d = display(at: Displays.mouseLocation), let k = activeKey(for: d), arrangement(k, d) == .scrolling else { return nil }
+        return k
+    }
+
+    func interactiveBegin() {
+        swipeKey = scrollingKeyUnderPointer()
+        if let k = swipeKey { swipeRaw = boards[k]?.scroll ?? 0 }
+    }
+
+    func interactiveScroll(points: Double) {
+        guard isRunning, let key = swipeKey, var b = boards[key], let d = display(uuid: key.display) else { return }
+        let (lo, hi) = TileLayout.scrollLimits(unscrolledFrames(key, d, b), area: area(for: d))
+        swipeRaw += points
+        b.scroll = SwipeMath.rubberBand(swipeRaw, min: lo, max: hi)
+        boards[key] = b
+        relayout(key, animated: false, reveal: false)
+    }
+
+    /// The fingers lifted: the strip coasts and settles on the column nearest the middle, which becomes the one in use.
+    func interactiveEnd(velocityPoints: Double) {
+        guard isRunning, let key = swipeKey, var b = boards[key], let d = display(uuid: key.display) else { swipeKey = nil; return }
+        swipeKey = nil
+        let A = area(for: d)
+        let unscrolled = unscrolledFrames(key, d, b)
+        let (lo, hi) = TileLayout.scrollLimits(unscrolled, area: A)
+        let projected = min(hi, max(lo, b.scroll + velocityPoints * 0.18))
+        guard let i = TileLayout.settleIndex(unscrolled, area: A, scroll: projected), b.tiles.indices.contains(i) else {
+            relayout(key)
+            return
+        }
+        b.scroll = projected
+        b.setActive(b.tiles[i].showing)
+        boards[key] = b
+        relayout(key, animated: true, reveal: true)
+        focusOS(b.tiles[i].showing)
     }
 
     func notifyLayout() { layoutListeners.forEach { $0() } }
@@ -900,7 +1011,11 @@ final class WindowManager {
         if let key = w.key, var b = boards[key] {
             lastKey = key
             var changed = false
-            if b.active != wid { b.setActive(wid) }
+            if b.active != wid {
+                b.setActive(wid)
+                // The scrolling layout brings the window in use into view.
+                if isScrolling(key) { changed = true }
+            }
             // Brought forward with ⌘-Tab, the Dock or a click: it's now the one showing in its stack.
             if b.show(wid) { changed = true }
             // Clean Space follows the window in use; focus mode ends when you switch away.

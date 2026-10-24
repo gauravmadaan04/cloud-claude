@@ -161,7 +161,9 @@ def settled(st=None):
             f, g = w["frame"], w["target"]
             if f is None or g is None:
                 return False
-            if not all(close(f[i], g[i], 3) for i in range(4)):
+            # Scrolled out of view: parked at the edge, where macOS may nudge it; the size must match.
+            n = 2 if w.get("parked") else 4
+            if not all(close(f[i + (4 - n)], g[i + (4 - n)], 3) for i in range(n)):
                 return False
     return True
 
@@ -359,6 +361,61 @@ def _():
     home()
 
 
+@test("one click picks a layout (the menu bar gallery)")
+def _():
+    cli("arrange", "grid", "2")
+    wait(lambda: len(screen()["tiles"]) == 2 and screen()["capacity"] == 2, what="halves")
+    wait_settled()
+    cli("arrange", "columns", "3")
+    wait(lambda: screen()["arrangement"] == "columns" and len(screen()["tiles"]) == 3, what="three columns")
+    wait_settled()
+    cli("arrange", "grid", "3")
+    home()
+
+
+@test("scrolling layout: columns run past the screen")
+def _():
+    focus("Fixture 1")
+    cli("arrange", "scrolling")
+    wait(lambda: screen()["arrangement"] == "scrolling", what="scrolling layout")
+    wait_settled()
+    st = state()
+    sc = screen(st)
+    a = area(st)
+    f1 = win(sc, "Fixture 1")["frame"]
+    assert close(f1[0], a[0]) and close(f1[2], (a[2] - GAP) / 2), f"first column {f1}, area {a}"
+    assert win(sc, "Fixture 3")["parked"], "the third column waits at the screen edge"
+    shot("scrolling")
+    focus("Fixture 3")
+    wait(lambda: not win(screen(), "Fixture 3")["parked"] and win(screen(), "Fixture 1")["parked"], what="the strip scrolls to Fixture 3")
+    wait_settled()
+    f3 = win(screen(), "Fixture 3")["frame"]
+    assert close(f3[0] + f3[2], a[0] + a[2]), f"Fixture 3 meets the right edge: {f3}"
+    shot("scrolled")
+    cli("cycle-width")
+    wait(lambda: close(screen()["tiles"][2]["width"] or 0, 2 / 3, 0.01), what="a wider column")
+    focus("Fixture 1")
+    fix("open", "Fixture 7")
+    wait(lambda: "Fixture 7" in all_titles(), what="new column")
+    assert showing()[1] == "Fixture 7", f"opens next to the window in use: {showing()}"
+    fix("close", "Fixture 7")
+    wait(lambda: "Fixture 7" not in all_titles(), what="column closed")
+    cli("reset-sizes")
+    cli("arrange", "grid", "3")
+    home()
+    assert not any(w["parked"] for t in screen()["tiles"] for w in t["windows"]), "nothing left parked"
+
+
+@test("⌃⌥Space opens the menu bar panel")
+def _():
+    focus("Fixture 1")
+    cli("open-menu")
+    time.sleep(1.0)
+    shot("menu-from-keyboard")
+    cli("open-menu")
+    time.sleep(0.4)
+
+
 @test("make bigger, smaller and reset sizes")
 def _():
     focus("Fixture 1")
@@ -470,6 +527,7 @@ def _():
     edge = (f1[0] + f1[2] - 1, f1[1] + f1[3] * 0.5)
     cli("debug-drag", str(edge[0]), str(edge[1]), str(edge[0] + 120), str(edge[1]), "none")
     wait(lambda: screen()["splits"]["x"] > 0.56, timeout=10, what="split moved by the drag")
+    wait(lambda: not screen()["dragging"], timeout=10, what="drag finished")
     wait_settled()
     sc = screen()
     f1, f2 = win(sc, "Fixture 1")["frame"], win(sc, "Fixture 2")["frame"]
@@ -580,7 +638,7 @@ def _():
 
 @test("welcome tour renders every step")
 def _():
-    for step in range(6):
+    for step in range(7):
         cli("show-onboarding", str(step))
         time.sleep(1.8)
         shot(f"tour-step-{step}")
@@ -619,7 +677,7 @@ def _():
     assert sc["layout"] == "columns", sc["layout"]
     wait_settled()
     shot("after-restart")
-    cli("toggle-layout")
+    cli("arrange", "grid", "3")
     focus("Fixture 1")
     cli("make-primary")
     home()

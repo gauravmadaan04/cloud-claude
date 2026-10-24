@@ -1,10 +1,17 @@
 # Ribbon: windows that arrange themselves
 
 A native macOS window manager that tiles automatically. Open a window and it takes its place; close one
-and the others fill the space. Grid or columns, 1–4 windows per screen, stacks when a screen is full.
+and the others fill the space. Arrange everything with clicks from the menu bar panel (a live map of the
+screen, a gallery of layouts, labelled buttons); every action also has an optional shortcut.
 Menu bar app, SwiftUI settings, a two-minute tour, universal binary (Apple silicon + Intel), macOS 13+.
 
 ## Features
+- Menu bar panel: click a layout picture (full, halves, 1 + 2, quarters, 3 or 4 columns, scrolling), click a
+  window in the live map to switch to it, drag one onto another to swap, buttons for main / focus / float /
+  swap / bigger / smaller / widths, every mode as a switch. ⌃⌥Space opens it; single keys work inside.
+  VoiceOver labels and actions throughout.
+- Scrolling layout (the PaperWM idea): columns on a strip that runs past the screen edges, three- or
+  four-finger swipes, ⌃⌥ + scroll wheel, width presets (⅓ ½ ⅔ full).
 - Automatic tiling per screen (each display and each Space): grid (main window left, the rest share the
   right; four makes a 2×2) or equal columns; tall screens stack rows. 1–4 windows per screen
   (⌃⌥⌘1–4), chosen per screen from the menu bar panel.

@@ -22,7 +22,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .general: return "The main switch, startup and the little things."
-        case .layout: return "Grid or columns, how many windows per screen, and spacing."
+        case .layout: return "Grid, columns or scrolling, how many windows per screen, and spacing."
         case .highlight: return "How the window you're using stands out, and No peek."
         case .shortcuts: return "Every shortcut, rebindable. Keys work on any keyboard layout."
         case .apps: return "Apps whose windows Ribbon leaves where you put them."
@@ -60,7 +60,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var keywords: String {
         switch self {
         case .general: return "pause login startup restore animation speed reset tour hover focus stage manager clean space background haptics"
-        case .layout: return "grid columns windows per screen spacing gap full stack float quick actions grip"
+        case .layout: return "grid columns scrolling strip swipe trackpad fingers width windows per screen spacing gap full stack float quick actions grip"
         case .highlight: return "border glow colour color no peek dim blur corner"
         case .shortcuts: return "keys hotkeys keyboard bindings"
         case .apps: return "exclude float ignore tile apps rules"
@@ -356,7 +356,7 @@ struct LivePreview: View {
 
     var body: some View {
         let c = store.config
-        let n = min(c.windowsPerScreen, 4)
+        let n = c.layout == .scrolling ? 5 : min(c.windowsPerScreen, 4)
         var b = demoBoard(n, capacity: n)
         b.setActive(WindowID(step % n + 1))
         var style = PreviewStyle(config: c)
@@ -380,19 +380,57 @@ struct LayoutPane: View {
         VStack(alignment: .leading, spacing: 20) {
             LivePreview()
 
-            SettingsGroup(title: "Every screen", footer: "Each screen can choose its own from the menu bar, or with ⌃⌥⌘1–4.") {
+            SettingsGroup(title: "Every screen", footer: "Each screen can pick its own from the menu bar panel: click the Ribbon icon, then a layout.") {
                 SettingRow(title: "Layout") {
-                    Picker("", selection: setting(\.layout)) {
-                        Text("Grid").tag(LayoutKind.grid)
-                        Text("Columns").tag(LayoutKind.columns)
+                    HStack(spacing: 6) {
+                        ForEach(LayoutKind.allCases, id: \.self) { (k: LayoutKind) in
+                            let on = store.config.layout == k
+                            Button { store.config.layout = k } label: {
+                                VStack(spacing: 4) {
+                                    LayoutGlyph(kind: k, count: 3, on: on).frame(width: 40, height: 26)
+                                        .padding(5)
+                                        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                            .fill(on ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(0.06))))
+                                    Text(k.title).font(.system(size: 11, weight: on ? .semibold : .regular))
+                                }
+                            }
+                            .buttonStyle(PressableStyle())
+                            .accessibilityLabel("\(k.title) layout")
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
                     }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 200)
                 }
-                SettingRow(title: "Windows per screen", subtitle: "A laptop fits up to three columns; a big monitor four.", divider: false) {
+                SettingRow(title: "Windows per screen", subtitle: "Grid and columns. A laptop fits up to three columns; a big monitor four.", divider: false) {
                     Picker("", selection: setting(\.windowsPerScreen)) {
                         ForEach(1...4, id: \.self) { (n: Int) in Text("\(n)").tag(n) }
                     }
                     .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                    .disabled(store.config.layout == .scrolling)
+                }
+            }
+
+            SettingsGroup(title: "Scrolling layout", footer: "Windows sit side by side on a strip that runs past the screen edges, so a new window never squeezes the others. If macOS uses three-finger swipes to change desktops, pick four fingers here.") {
+                SettingRow(title: "New column width") {
+                    Picker("", selection: setting(\.scrollingWidth)) {
+                        Text("⅓").tag(1.0 / 3)
+                        Text("½").tag(0.5)
+                        Text("⅔").tag(2.0 / 3)
+                        Text("Full").tag(1.0)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                }
+                ToggleRow(title: "Swipe to scroll", isOn: setting(\.swipeEnabled))
+                SettingRow(title: "Fingers") {
+                    Picker("", selection: setting(\.swipeFingers)) { Text("Three").tag(3); Text("Four").tag(4) }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 160)
+                        .disabled(!store.config.swipeEnabled)
+                }
+                ToggleRow(title: "Natural direction", subtitle: "Windows follow your fingers, like scrolling a page.", isOn: setting(\.swipeNatural))
+                SettingRow(title: "Scroll with the mouse wheel while holding", divider: false) {
+                    HStack(spacing: 8) {
+                        HStack(spacing: 3) { KeyCap(label: "⌃", size: .small); KeyCap(label: "⌥", size: .small) }
+                        Toggle("", isOn: setting(\.scrollWheelWithModifiers)).toggleStyle(.switch).labelsHidden().controlSize(.small)
+                    }
                 }
             }
 

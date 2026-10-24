@@ -82,6 +82,14 @@ final class IPCServer {
             UIHub.shared.menuBar.open(); return .init(ok: true)
         case "hide-menu":
             UIHub.shared.menuBar.close(); return .init(ok: true)
+        case "arrange":
+            // arrange grid|columns|scrolling [1-4]: what a click in the menu bar's layout gallery does.
+            guard let kindName = req.args.first, let kind = LayoutKind(rawValue: kindName.lowercased()), let key = wm.commandKey() else {
+                return .init(ok: false, message: "Usage: arrange grid|columns|scrolling [1-4]")
+            }
+            let n = req.args.count > 1 ? Int(req.args[1]) ?? 3 : (kind == .scrolling ? 99 : 3)
+            wm.setArrangement(kind, count: n, for: key)
+            return .init(ok: true, message: kind == .scrolling ? "Scrolling" : "\(kind.title), \(n) windows")
         case "show-shortcuts-sheet":
             UIHub.shared.showCheatSheet(); return .init(ok: true)
         case "tab-view-open":

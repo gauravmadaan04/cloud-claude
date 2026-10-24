@@ -114,7 +114,13 @@ struct BoardPreview: View {
         let spacing = style.spacing * 1.5
         let area = previewVisible.insetBy(spacing)
         let arr = TileLayout.arrangement(style.kind, area: area)
-        let frames = TileLayout.frames(count: board.tiles.count, arr, area: area, gap: spacing, splits: board.splits)
+        var frames = TileLayout.frames(count: board.tiles.count, arr, area: area, gap: spacing, splits: board.splits,
+                                       widths: board.tiles.map { $0.width ?? 0.5 })
+        if arr == .scrolling, let i = board.activeTile {
+            // Keep the window in use in view, as the real strip does.
+            let scroll = TileLayout.reveal(i, frames, area: area, scroll: board.scroll)
+            frames = frames.map { Rect(x: $0.x - scroll, y: $0.y, w: $0.w, h: $0.h) }
+        }
         var back: [Item] = [], front: [Item] = [], top: [Item] = []
         for (i, t) in board.tiles.enumerated() where frames.indices.contains(i) {
             for (j, wid) in t.waiting.enumerated() {

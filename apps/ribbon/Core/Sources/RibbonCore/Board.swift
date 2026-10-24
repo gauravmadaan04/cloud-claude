@@ -5,8 +5,14 @@ public typealias WindowID = UInt32
 
 /// How a screen's tiles are arranged.
 public enum LayoutKind: String, Codable, CaseIterable {
-    case grid, columns
-    public var title: String { self == .grid ? "Grid" : "Columns" }
+    case grid, columns, scrolling
+    public var title: String {
+        switch self {
+        case .grid: return "Grid"
+        case .columns: return "Columns"
+        case .scrolling: return "Scrolling"
+        }
+    }
 }
 
 /// One place on the screen. It shows one window; more can wait behind it in a stack.
@@ -17,6 +23,8 @@ public struct Tile: Codable, Equatable {
     public private(set) var showing: WindowID
     /// Most recently shown first; `recent[0] == showing`. Picks what comes forward when the top window goes.
     private var recent: [WindowID]
+    /// Scrolling layout: the column's width as a share of the screen (nil: the default width).
+    public var width: Double?
 
     public init(_ wid: WindowID) {
         windows = [wid]; showing = wid; recent = [wid]
@@ -121,6 +129,8 @@ public struct Board: Codable, Equatable {
     /// Windows per screen for this screen; nil follows the setting for all screens.
     public var capacity: Int?
     public var splits = Splits()
+    /// Scrolling layout: how far the strip is scrolled, in points.
+    public var scroll: Double = 0
     /// The window in focus mode, filling the screen.
     public var zoomed: WindowID?
     /// The window last used on this screen.
@@ -138,12 +148,13 @@ public struct Board: Codable, Equatable {
     public func isShowing(_ wid: WindowID) -> Bool { tiles.contains { $0.showing == wid } }
 
     /// Adds a window: in a tile of its own while there's room, else on top of the tile in use.
+    /// `after` puts the new tile next to that one instead of at the end (the scrolling layout).
     @discardableResult
-    public mutating func add(_ wid: WindowID, capacity: Int, stackWhenFull: Bool, activate: Bool = true) -> AddResult {
+    public mutating func add(_ wid: WindowID, capacity: Int, stackWhenFull: Bool, activate: Bool = true, after: Int? = nil) -> AddResult {
         if contains(wid) { return .alreadyThere }
         let result: AddResult
         if tiles.count < max(1, capacity) {
-            tiles.append(Tile(wid))
+            if let a = after, tiles.indices.contains(a) { tiles.insert(Tile(wid), at: a + 1) } else { tiles.append(Tile(wid)) }
             result = .newTile
         } else if stackWhenFull {
             let target = activeTile ?? tiles.count - 1

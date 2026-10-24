@@ -5,12 +5,12 @@ import RibbonCore
 
 final class OnboardingModel: ObservableObject {
     static let shared = OnboardingModel()
-    static let stepCount = 6
+    static let stepCount = 7
 
-    enum InputMode: String, CaseIterable { case keyboard = "Keyboard", mouse = "Mouse" }
+    enum InputMode: String, CaseIterable { case click = "Click", keyboard = "Keyboard" }
 
     @Published var step = 0
-    @Published var input: InputMode = .keyboard
+    @Published var input: InputMode = .click
 
     func go(_ s: Int, animated: Bool = true) {
         let target = max(0, min(OnboardingModel.stepCount - 1, s))
@@ -26,6 +26,7 @@ private struct TourStep {
 private let tourSteps: [TourStep] = [
     TourStep(title: "Welcome", symbol: "sparkles"),
     TourStep(title: "Permission", symbol: "lock.shield"),
+    TourStep(title: "The menu bar", symbol: "menubar.rectangle"),
     TourStep(title: "The basics", symbol: "square.grid.2x2"),
     TourStep(title: "Power tools", symbol: "wand.and.stars"),
     TourStep(title: "Make it yours", symbol: "paintbrush"),
@@ -74,9 +75,10 @@ struct OnboardingView: View {
         switch model.step {
         case 0: WelcomeStep()
         case 1: PermissionStep()
-        case 2: BasicsStep()
-        case 3: PowerToolsStep()
-        case 4: MakeItYoursStep()
+        case 2: MenuBarStep()
+        case 3: BasicsStep()
+        case 4: PowerToolsStep()
+        case 5: MakeItYoursStep()
         default: ReadyStep(finish: finish)
         }
     }
@@ -222,7 +224,7 @@ private struct HowTo: View {
                     }
                 }
             } else {
-                Label(mouse, systemImage: "computermouse").font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary)
+                Label(mouse, systemImage: "cursorarrow.click").font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary)
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -258,8 +260,8 @@ private struct InputSwitch: View {
     @ObservedObject private var model = OnboardingModel.shared
     var body: some View {
         Picker("", selection: $model.input) {
+            Label("Click", systemImage: "cursorarrow.click").tag(OnboardingModel.InputMode.click)
             Label("Keyboard", systemImage: "keyboard").tag(OnboardingModel.InputMode.keyboard)
-            Label("Mouse", systemImage: "computermouse").tag(OnboardingModel.InputMode.mouse)
         }
         .pickerStyle(.segmented).labelsHidden().frame(width: 210)
     }
@@ -299,10 +301,9 @@ struct WelcomeStep: View {
             }
             .frame(maxWidth: .infinity)
             HStack(spacing: 8) {
-                FeatureChip(symbol: "square.grid.2x2", text: "Grid or columns")
-                FeatureChip(symbol: "rectangle.split.2x2", text: "1–4 windows a screen")
+                FeatureChip(symbol: "square.grid.2x2", text: "Grid · Columns · Scrolling")
                 FeatureChip(symbol: "square.stack.3d.up", text: "Stacks when full")
-                FeatureChip(symbol: "computermouse", text: "Mouse or keyboard")
+                FeatureChip(symbol: "cursorarrow.click", text: "Click or keys")
             }
         }
         .onAppear { settle() }
@@ -447,14 +448,92 @@ struct PermissionStep: View {
     }
 }
 
-// MARK: - 3 The basics
+// MARK: - 3 The menu bar
+
+/// The menu bar panel, animated: a click on a layout picture rearranges the screen.
+struct MenuBarStep: View {
+    @State private var choice = 2
+    private let timer = Timer.publish(every: 1.8, on: .main, in: .common).autoconnect()
+    private let choices = LayoutChoice.all.filter { $0.id != "cols4" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            StepTitle(eyebrow: "The menu bar", title: "Everything is one click away.",
+                      subtitle: "Ribbon lives in the menu bar. Click its icon to see your screen, pick a layout and arrange windows. No shortcuts to learn.")
+            HStack(alignment: .top, spacing: 26) {
+                mockPanel.frame(width: 300)
+                VStack(alignment: .leading, spacing: 16) {
+                    tip(1, "Click the Ribbon icon", "It's at the top right of your screen. ⌃⌥Space opens it from the keyboard.")
+                    tip(2, "Click a layout picture", "Full, halves, 1 + 2, quarters, columns or scrolling: your windows rearrange at once.")
+                    tip(3, "Click or drag in the map", "Click a window to switch to it. Drag one onto another to swap them.")
+                    tip(4, "Use the buttons", "Make the main window, focus, float, swap, bigger or smaller: all labelled.")
+                }
+            }
+        }
+        .onReceive(timer) { _ in withAnimation(Brand.spring) { choice = (choice + 1) % choices.count } }
+    }
+
+    private var mockPanel: some View {
+        let c = choices[choice]
+        let n = c.kind == .scrolling ? 5 : c.count
+        let board = demoBoard(n, capacity: max(1, min(n, 4)), active: c.kind == .scrolling ? 3 : 1)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 22, height: 22)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Ribbon").font(.system(size: 12, weight: .bold))
+                    Text("Arranging \(n) windows").font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Capsule().fill(Brand.gradient).frame(width: 30, height: 17)
+            }
+            BoardPreview(board: board, style: PreviewStyle(kind: c.kind, grip: false, showDock: false), cornerRadius: 10)
+            HStack(spacing: 4) {
+                ForEach(choices) { (o: LayoutChoice) in
+                    let on = o.id == c.id
+                    LayoutGlyph(kind: o.kind, count: o.count, on: on)
+                        .frame(width: 26, height: 17)
+                        .padding(4)
+                        .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(on ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Color.primary.opacity(0.07))))
+                        .scaleEffect(on ? 1.08 : 1)
+                }
+            }
+            HStack(spacing: 6) {
+                ForEach(["arrow.left", "arrow.right", "crown.fill", "scope", "macwindow.on.rectangle"], id: \.self) { (sym: String) in
+                    Image(systemName: sym).font(.system(size: 11, weight: .semibold))
+                        .frame(width: 30, height: 24)
+                        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(0.07)))
+                }
+            }
+        }
+        .padding(14)
+        .glassSurface(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.12), radius: 18, y: 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("A picture of Ribbon's menu bar panel, showing the \(c.title) layout")
+    }
+
+    private func tip(_ n: Int, _ title: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(n)").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.white)
+                .frame(width: 26, height: 26).background(Circle().fill(Brand.gradient))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 14, weight: .semibold))
+                Text(text).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+// MARK: - 4 The basics
 
 struct BasicsStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .bottom) {
                 StepTitle(eyebrow: "The basics", title: "Everything happens on its own.",
-                          subtitle: "When you do want to rearrange, it takes one key or one drag.")
+                          subtitle: "When you do want to rearrange, it's one click. Keys are there if you like them.")
                 InputSwitch()
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
@@ -464,16 +543,16 @@ struct BasicsStep: View {
                         { _ = $0.remove(2) },
                     ])
                 }
-                FeatureCard(title: "Swap windows", keys: ["⌃", "⌥", "←", "→"], mouse: "⌘-drag a title bar onto another window") {
+                FeatureCard(title: "Swap windows", keys: ["⌃", "⌥", "←", "→"], mouse: "Menu bar map: drag one window onto another") {
                     mini(demoBoard(3, active: 1), [{ _ = $0.swap(0, 1) }, { _ = $0.swap(1, 2) }, { _ = $0.swap(2, 0) }])
                 }
-                FeatureCard(title: "Make it the main one", keys: ["⌃", "⌥", "↩"], mouse: "Quick actions: the crown") {
+                FeatureCard(title: "Make it the main one", keys: ["⌃", "⌥", "↩"], mouse: "Menu bar: the crown button") {
                     mini(demoBoard(3, active: 3), [{ _ = $0.makePrimary(2) }])
                 }
-                FeatureCard(title: "Focus", keys: ["⌃", "⌥", "Z"], mouse: "Quick actions: the target") {
+                FeatureCard(title: "Focus", keys: ["⌃", "⌥", "Z"], mouse: "Menu bar: the Focus button") {
                     mini(demoBoard(3, active: 2), every: 1.6, [{ $0.zoomed = 2 }])
                 }
-                FeatureCard(title: "Stacks when full", keys: ["⌃", "⌥", "`"], mouse: "Click the grip's segments") {
+                FeatureCard(title: "Stacks when full", keys: ["⌃", "⌥", "`"], mouse: "Click the grip above the window") {
                     mini(demoBoard(3, active: 1), every: 1.3, [
                         { _ = $0.add(4, capacity: 3, stackWhenFull: true) }, { _ = $0.cycle(tile: 0, 1) }, { _ = $0.cycle(tile: 0, 1) },
                     ])
@@ -486,7 +565,7 @@ struct BasicsStep: View {
     }
 }
 
-// MARK: - 4 Power tools
+// MARK: - 5 Power tools
 
 struct PowerToolsStep: View {
     var body: some View {
@@ -503,16 +582,16 @@ struct PowerToolsStep: View {
                 FeatureCard(title: "No peek", keys: ["⌃", "⌥", "D"], mouse: "Menu bar: No peek") {
                     mini(demoBoard(3, active: 2), style: PreviewStyle(dim: 0.55, showDock: false), [{ $0.setActive(1) }, { $0.setActive(3) }])
                 }
-                FeatureCard(title: "Window switcher", keys: ["⌥", "⇥"], mouse: "Hold ⌥, tap ⇥, let go") {
+                FeatureCard(title: "Window switcher", keys: ["⌥", "⇥"], mouse: "Menu bar: click any window in the map") {
                     mini(demoBoard(3, active: 1), every: 0.9, [{ $0.setActive(2) }, { $0.setActive(3) }])
                 }
                 FeatureCard(title: "Clean Space", keys: ["⌃", "⌥", "P"], mouse: "Menu bar: Clean Space") {
                     mini(demoBoard(3, active: 2), style: PreviewStyle(cleanSpace: true, grip: false, showDock: false), [{ $0.setActive(1) }])
                 }
-                FeatureCard(title: "Windows per screen", keys: ["⌃", "⌥", "⌘", "1–4"], mouse: "Menu bar: pick 1 to 4") {
+                FeatureCard(title: "Layouts", keys: ["⌃", "⌥", "⌘", "1–4"], mouse: "Menu bar: click a layout picture") {
                     mini(demoBoard(4, capacity: 4), every: 1.5, [{ _ = $0.fit(capacity: 2) }, { _ = $0.fit(capacity: 3) }])
                 }
-                FeatureCard(title: "Float a window", keys: ["⌃", "⌥", "F"], mouse: "Quick actions: float") {
+                FeatureCard(title: "Float a window", keys: ["⌃", "⌥", "F"], mouse: "Menu bar: the Float button") {
                     mini(demoBoard(3, active: 3), [{ _ = $0.remove(3) }])
                 }
             }
@@ -520,7 +599,7 @@ struct PowerToolsStep: View {
     }
 }
 
-// MARK: - 5 Make it yours
+// MARK: - 6 Make it yours
 
 struct MakeItYoursStep: View {
     @ObservedObject private var store = SettingsStore.shared
@@ -531,12 +610,15 @@ struct MakeItYoursStep: View {
             StepTitle(eyebrow: "Make it yours", title: "Pick how it looks.",
                       subtitle: "You can change any of this later from the menu bar or Settings.")
             HStack(alignment: .top, spacing: 22) {
-                BoardPreview(board: demoBoard(min(c.windowsPerScreen, 4), capacity: min(c.windowsPerScreen, 4)), style: PreviewStyle(config: c))
+                BoardPreview(board: c.layout == .scrolling ? demoBoard(5, capacity: 5, active: 3)
+                                                           : demoBoard(min(c.windowsPerScreen, 4), capacity: min(c.windowsPerScreen, 4)),
+                             style: PreviewStyle(config: c))
                     .frame(width: 300)
                 VStack(alignment: .leading, spacing: 14) {
                     option("Layout") {
                         segmented([("Grid", "square.grid.2x2", c.layout == .grid, { store.config.layout = .grid }),
-                                   ("Columns", "rectangle.split.3x1", c.layout == .columns, { store.config.layout = .columns })])
+                                   ("Columns", "rectangle.split.3x1", c.layout == .columns, { store.config.layout = .columns }),
+                                   ("Scrolling", "arrow.left.and.right.square", c.layout == .scrolling, { store.config.layout = .scrolling })])
                     }
                     option("Windows per screen") {
                         segmented((1...4).map { (n: Int) -> (String, String?, Bool, () -> Void) in
@@ -585,7 +667,7 @@ struct MakeItYoursStep: View {
     }
 }
 
-// MARK: - 6 Ready
+// MARK: - 7 Ready
 
 struct ReadyStep: View {
     let finish: () -> Void
@@ -595,14 +677,14 @@ struct ReadyStep: View {
             HStack(alignment: .center, spacing: 18) {
                 SuccessMark(size: 54)
                 StepTitle(eyebrow: "Ready", title: "You're all set.",
-                          subtitle: "Press Tidy My Workspace and watch your windows fall into place. Ribbon then lives in the menu bar.")
+                          subtitle: "Press Tidy My Workspace and watch your windows fall into place. Everything else is one click away in the menu bar, or press ⌃⌥Space.")
             }
             VStack(spacing: 0) {
+                tip(.openMenu, "Open Ribbon's menu from the keyboard", "then 1–4, G C S, arrows")
                 tip(.swapRight, "Swap with a neighbour", "⌃⌥ and any arrow")
                 tip(.makePrimary, "Make the window you're in the main one", nil)
                 tip(.focusMode, "Focus: fill the screen, press again to go back", nil)
                 tip(.tabView, "See every window and switch", "Hold ⌥ and tap ⇥")
-                tip(.tile2, "Choose how many windows share a screen", "⌃⌥⌘ and 1 to 4")
                 tip(.showShortcuts, "Every shortcut, any time", nil, divider: false)
             }
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.6)))

@@ -29,6 +29,7 @@ public enum IPC {
         ("ping", "Check that Ribbon is running"),
         ("version", "Print the app version"),
         ("config", "config get <key> | config set <key> <value> | config list"),
+        ("arrange", "arrange grid|columns|scrolling [1-4]: pick this screen's layout"),
         ("focus-window", "focus-window <window-number>: focus a window by its number"),
         ("pause", "Pause tiling"),
         ("resume", "Resume tiling"),

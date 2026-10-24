@@ -13,6 +13,7 @@ public struct SavedWindow: Codable, Equatable, Hashable {
 public struct TileSnapshot: Codable, Equatable {
     public var windows: [SavedWindow]
     public var showing: Int
+    public var width: Double?
 }
 
 /// One screen's windows and choices (window count, layout, sizes).
@@ -24,6 +25,7 @@ public struct BoardSnapshot: Codable, Equatable {
     public var layout: LayoutKind?
     public var capacity: Int?
     public var splits: Splits
+    public var scroll: Double?
 
     public init(displayUUID: String, spaceID: UInt64, spaceIndex: Int, board: Board, ref: (WindowID) -> SavedWindow?) {
         self.displayUUID = displayUUID
@@ -32,9 +34,10 @@ public struct BoardSnapshot: Codable, Equatable {
         layout = board.layout
         capacity = board.capacity
         splits = board.splits
+        scroll = board.scroll
         tiles = board.tiles.map { t in
             let refs = t.windows.compactMap(ref)
-            return TileSnapshot(windows: refs, showing: refs.firstIndex { $0.id == t.showing } ?? 0)
+            return TileSnapshot(windows: refs, showing: refs.firstIndex { $0.id == t.showing } ?? 0, width: t.width)
         }
     }
 }
@@ -81,10 +84,12 @@ public enum SessionRestore {
         board.layout = snap.layout
         board.capacity = snap.capacity
         board.splits = snap.splits
+        board.scroll = snap.scroll ?? 0
         for (ti, t) in snap.tiles.enumerated() {
             let wins = found[ti].compactMap { $0 }
             guard let first = wins.first else { continue }
             var tile = Tile(first)
+            tile.width = t.width
             for w in wins.dropFirst() { tile.push(w, show: false) }
             if let shown = found[ti].indices.contains(t.showing) ? found[ti][t.showing] : nil { tile.show(shown) }
             board.tiles.append(tile)

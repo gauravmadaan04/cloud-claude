@@ -10,10 +10,10 @@ public enum Command: String, CaseIterable, Codable {
     case grow = "grow", shrink = "shrink", resetSizes = "reset-sizes"
     case toggleFloat = "toggle-float", focusMode = "focus-mode", noPeek = "no-peek", cleanSpace = "clean-space"
     case tile1 = "tile-1", tile2 = "tile-2", tile3 = "tile-3", tile4 = "tile-4"
-    case toggleLayout = "toggle-layout"
+    case toggleLayout = "toggle-layout", cycleWidth = "cycle-width"
     case nextDisplay = "next-display", previousDisplay = "previous-display"
     case retile = "retile", toggleTiling = "toggle-tiling"
-    case showShortcuts = "show-shortcuts", openSettings = "open-settings"
+    case showShortcuts = "show-shortcuts", openSettings = "open-settings", openMenu = "open-menu"
 
     public enum Category: String, CaseIterable {
         case move = "Move", activate = "Activate", size = "Size", modes = "Modes", layout = "Layout", app = "Ribbon"
@@ -25,8 +25,8 @@ public enum Command: String, CaseIterable, Codable {
         case .focusNext, .focusPrevious, .stackNext, .stackPrevious, .tabView, .tabViewBack: return .activate
         case .grow, .shrink, .resetSizes: return .size
         case .toggleFloat, .focusMode, .noPeek, .cleanSpace: return .modes
-        case .tile1, .tile2, .tile3, .tile4, .toggleLayout, .retile: return .layout
-        case .toggleTiling, .showShortcuts, .openSettings: return .app
+        case .tile1, .tile2, .tile3, .tile4, .toggleLayout, .cycleWidth, .retile: return .layout
+        case .toggleTiling, .showShortcuts, .openSettings, .openMenu: return .app
         }
     }
 
@@ -54,13 +54,15 @@ public enum Command: String, CaseIterable, Codable {
         case .tile2: return "2 windows on this screen"
         case .tile3: return "3 windows on this screen"
         case .tile4: return "4 windows on this screen"
-        case .toggleLayout: return "Switch between grid and columns"
+        case .toggleLayout: return "Next layout: grid, columns, scrolling"
+        case .cycleWidth: return "Scrolling: change the column width"
         case .nextDisplay: return "Send to the next display"
         case .previousDisplay: return "Send to the previous display"
         case .retile: return "Tidy up now"
         case .toggleTiling: return "Pause or resume Ribbon"
         case .showShortcuts: return "Show all shortcuts"
         case .openSettings: return "Open Settings"
+        case .openMenu: return "Open the Ribbon menu"
         }
     }
 
@@ -124,6 +126,8 @@ public enum Command: String, CaseIterable, Codable {
             .tile3: [k(KeyCode.n3, coc)],
             .tile4: [k(KeyCode.n4, coc)],
             .toggleLayout: [k(KeyCode.l, coc)],
+            .cycleWidth: [k(KeyCode.r, co)],
+            .openMenu: [k(KeyCode.space, co)],
             .showShortcuts: [k(KeyCode.slash, co)],
         ]
     }()

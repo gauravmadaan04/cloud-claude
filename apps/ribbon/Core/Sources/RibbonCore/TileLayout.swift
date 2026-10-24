@@ -2,7 +2,21 @@ import Foundation
 
 /// How tiles are placed on a particular screen.
 public enum Arrangement: String, Equatable {
-    case grid, columns, rows
+    case grid, columns, rows, scrolling
+}
+
+/// Where a window of the scrolling layout is relative to the screen.
+public enum Visibility: Equatable {
+    case visible, partial, hidden(Side)
+
+    public var isOnScreen: Bool { if case .hidden = self { return false } else { return true } }
+    public var name: String {
+        switch self {
+        case .visible: return "visible"
+        case .partial: return "partial"
+        case .hidden(let s): return "hidden-\(s.rawValue)"
+        }
+    }
 }
 
 public enum Direction: String, Codable, CaseIterable {
@@ -16,6 +30,7 @@ public enum TileLayout {
 
     /// Tall screens always stack windows in rows.
     public static func arrangement(_ kind: LayoutKind, area: Rect) -> Arrangement {
+        if kind == .scrolling { return .scrolling }
         if area.h > area.w * 1.1 { return .rows }
         return kind == .grid ? .grid : .columns
     }
@@ -26,6 +41,7 @@ public enum TileLayout {
         case .grid: return 4
         case .columns: return area.w >= 1900 ? 4 : 3
         case .rows: return 3
+        case .scrolling: return 99
         }
     }
 
@@ -68,12 +84,22 @@ public enum TileLayout {
 
     /// Frames for `count` tiles in `area` (already inset by the outer spacing). `mins` are the
     /// smallest sizes the windows in each tile accept.
-    public static func frames(count: Int, _ a: Arrangement, area: Rect, gap: Double, splits: Splits, mins: [Size] = []) -> [Rect] {
+    /// `widths` and `scroll` are only used by the scrolling layout.
+    public static func frames(count: Int, _ a: Arrangement, area: Rect, gap: Double, splits: Splits, mins: [Size] = [],
+                              widths: [Double] = [], scroll: Double = 0) -> [Rect] {
         guard count > 0 else { return [] }
         func mw(_ i: Int) -> Double { mins.indices.contains(i) ? mins[i].w : 0 }
         func mh(_ i: Int) -> Double { mins.indices.contains(i) ? mins[i].h : 0 }
         let A = area
         switch a {
+        case .scrolling:
+            var x = A.x - scroll
+            return (0..<count).map { i in
+                let f = widths.indices.contains(i) ? widths[i] : 0.5
+                let w = max(mw(i), pixelWidth(f, working: A.w, gap: gap))
+                defer { x += w + gap }
+                return Rect(x: x, y: A.y, w: w, h: A.h)
+            }
         case .columns:
             let ws = split(A.w, gap: gap, shares: splits.weights(count), mins: (0..<count).map(mw))
             var x = A.x
@@ -103,6 +129,46 @@ public enum TileLayout {
             column(right, x: rx, w: ws[1], share: splits.rightY)
             return out
         }
+    }
+
+    // MARK: Scrolling
+
+    /// A column's width in points: a half is exactly half the screen less one gap, so two halves fill it.
+    public static func pixelWidth(_ fraction: Double, working: Double, gap: Double) -> Double {
+        min(working, max(80, fraction * (working + gap) - gap))
+    }
+
+    public static func fraction(forPixelWidth px: Double, working: Double, gap: Double) -> Double {
+        min(1, max(0.1, (px + gap) / max(1, working + gap)))
+    }
+
+    /// How far the strip can scroll: `unscrolled` are the frames at scroll 0.
+    public static func scrollLimits(_ unscrolled: [Rect], area: Rect) -> (Double, Double) {
+        guard let last = unscrolled.last else { return (0, 0) }
+        return (0, max(0, last.maxX - area.x - area.w))
+    }
+
+    /// The scroll that shows column `i` with as little movement as possible.
+    public static func reveal(_ i: Int, _ unscrolled: [Rect], area: Rect, scroll: Double) -> Double {
+        let (lo, hi) = scrollLimits(unscrolled, area: area)
+        guard unscrolled.indices.contains(i) else { return min(hi, max(lo, scroll)) }
+        let x0 = unscrolled[i].minX - area.x, x1 = unscrolled[i].maxX - area.x
+        var s = scroll
+        if x0 < s { s = x0 } else if x1 > s + area.w { s = x1 - area.w }
+        return min(hi, max(lo, s))
+    }
+
+    public static func visibility(_ f: Rect, area: Rect) -> Visibility {
+        if f.minX >= area.minX - 1 && f.maxX <= area.maxX + 1 { return .visible }
+        if f.maxX <= area.minX + 1 { return .hidden(.left) }
+        if f.minX >= area.maxX - 1 { return .hidden(.right) }
+        return .partial
+    }
+
+    /// After a swipe: the column whose centre is nearest the middle of the screen.
+    public static func settleIndex(_ unscrolled: [Rect], area: Rect, scroll: Double) -> Int? {
+        let mid = area.x + scroll + area.w / 2
+        return unscrolled.indices.min { abs(unscrolled[$0].midX - mid) < abs(unscrolled[$1].midX - mid) }
     }
 
     /// True when every tile is at least as big as its windows need.
@@ -163,6 +229,8 @@ public enum TileLayout {
                 if inLeft { out.leftY = clampShare(s.leftY + (top ? delta : -delta)) }
                 else { out.rightY = clampShare(s.rightY + (top ? delta : -delta)) }
             }
+        case .scrolling:
+            return nil
         case .columns, .rows:
             guard count > 1, (0..<count).contains(i) else { return nil }
             var w = s.weights(count)
@@ -201,6 +269,8 @@ public enum TileLayout {
                     if inLeft { out.leftY = clampShare(topH / usableH) } else { out.rightY = clampShare(topH / usableH) }
                 }
             }
+        case .scrolling:
+            return s
         case .columns, .rows:
             guard count > 1 else { return s }
             let horizontal = a == .columns

@@ -170,11 +170,13 @@ final class KeyPanel: NSPanel {
     var onEscape: (() -> Void)?
     /// Return true to swallow the key.
     var onKey: ((UInt16, NSEvent.ModifierFlags) -> Bool)?
+    var onKeyEvent: ((NSEvent) -> Bool)?
     override var canBecomeKey: Bool { true }
     override func cancelOperation(_ sender: Any?) { onEscape?() }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { onEscape?(); return }
         if let onKey, onKey(event.keyCode, event.modifierFlags) { return }
+        if let onKeyEvent, onKeyEvent(event) { return }
         super.keyDown(with: event)
     }
 }

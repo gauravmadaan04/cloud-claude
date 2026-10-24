@@ -31,9 +31,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeys.onCommand = { cmd in WindowManager.shared.perform(cmd) }
         hotkeys.apply(store.config)
         HoverFocus.shared.apply(store.config)
-        store.onChange { old, new in
+        TrackpadWatcher.shared.onSwipe = { ev in
+            let wm = WindowManager.shared
+            let c = SettingsStore.shared.config
+            let width = wm.scrollingKeyUnderPointer().flatMap { wm.display(uuid: $0.display) }?.visible.w ?? 1440
+            func pts(_ dx: Double) -> Double { SwipeMath.points(forPadDelta: dx, viewportWidth: width, sensitivity: c.swipeSensitivity, natural: c.swipeNatural) }
+            switch ev {
+            case .began(let dx):
+                wm.interactiveBegin()
+                wm.interactiveScroll(points: pts(dx))
+            case .changed(let dx):
+                wm.interactiveScroll(points: pts(dx))
+            case .ended(let v):
+                wm.interactiveEnd(velocityPoints: pts(v))
+            }
+        }
+        applyScrollInput(store.config)
+        store.onChange { [weak self] old, new in
             if old.bindings != new.bindings || old.shortcutsEnabled != new.shortcutsEnabled { HotkeyCenter.shared.apply(new) }
             if old.hoverFocus != new.hoverFocus || old.tilingEnabled != new.tilingEnabled { HoverFocus.shared.apply(new) }
+            if old.swipeEnabled != new.swipeEnabled || old.swipeFingers != new.swipeFingers || old.tilingEnabled != new.tilingEnabled
+                || old.scrollWheelWithModifiers != new.scrollWheelWithModifiers {
+                self?.applyScrollInput(new)
+            }
         }
 
         if !store.config.hasCompletedOnboarding {
@@ -46,6 +66,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let i = args.firstIndex(of: "--show-settings") {
             UIHub.shared.openSettings(tab: args.indices.contains(i + 1) ? args[i + 1] : nil)
         }
+    }
+
+    /// Swipes and ⌃⌥ + scroll for screens that use the Scrolling layout.
+    private func applyScrollInput(_ c: Config) {
+        TrackpadWatcher.shared.stop()
+        if c.swipeEnabled && c.tilingEnabled { TrackpadWatcher.shared.start(fingers: c.swipeFingers) }
+        ScrollWheel.shared.apply(c)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

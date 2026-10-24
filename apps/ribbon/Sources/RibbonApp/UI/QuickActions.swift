@@ -43,6 +43,8 @@ final class GripController {
             for (key, b) in wm.boards where wm.isActive(key) && !wm.cleanSpace.contains(key.display) {
                 guard let frames = wm.tileFrames[key], let d = wm.display(uuid: key.display) else { continue }
                 for (i, t) in b.tiles.enumerated() where frames.indices.contains(i) {
+                    // Scrolled out of view: no grip.
+                    if !TileLayout.visibility(frames[i], area: wm.area(for: d)).isOnScreen { continue }
                     let inUse = t.showing == wm.focusedWindowID
                     guard inUse || t.isStack else { continue }
                     if let z = b.zoomed, z != t.showing { continue }

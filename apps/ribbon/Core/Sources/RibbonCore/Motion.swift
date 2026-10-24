@@ -1,5 +1,31 @@
 import Foundation
 
+/// Where to put windows that have scrolled off the screen. macOS won't let a window go
+/// completely off-screen, so a sliver stays at the edge, choosing an edge or corner that
+/// doesn't spill onto a neighbouring display.
+public enum Parking {
+    public static let peek = 1.0
+
+    public static func frame(size: Size, side: Side, screen: Rect, others: [Rect], y: Double) -> Rect {
+        let w = size.w, h = size.h
+        let rightX = screen.maxX - peek, leftX = screen.minX - w + peek
+        let bottomY = screen.maxY - peek
+        let near: [Rect]
+        let far: [Rect]
+        if side == .right {
+            near = [Rect(x: rightX, y: y, w: w, h: h), Rect(x: rightX, y: bottomY, w: w, h: h)]
+            far = [Rect(x: leftX, y: bottomY, w: w, h: h), Rect(x: leftX, y: y, w: w, h: h)]
+        } else {
+            near = [Rect(x: leftX, y: y, w: w, h: h), Rect(x: leftX, y: bottomY, w: w, h: h)]
+            far = [Rect(x: rightX, y: bottomY, w: w, h: h), Rect(x: rightX, y: y, w: w, h: h)]
+        }
+        let candidates = near + far
+        func spill(_ r: Rect) -> Double { others.reduce(0) { $0 + r.intersectionArea($1) } }
+        if let clean = candidates.first(where: { spill($0) == 0 }) { return clean }
+        return candidates.min { spill($0) < spill($1) } ?? candidates[0]
+    }
+}
+
 /// A critically damped spring, evaluated analytically so any frame rate gives the same motion.
 public struct Spring: Equatable {
     public var value: Double
