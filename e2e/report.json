@@ -1,0 +1,200 @@
+{
+  "passed": 30,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Ribbon starts with Accessibility access",
+      "ok": true,
+      "secs": 0.02
+    },
+    {
+      "name": "open windows tile into a grid",
+      "ok": true,
+      "secs": 0.35
+    },
+    {
+      "name": "fixed-size windows float instead of tiling",
+      "ok": true,
+      "secs": 0.01
+    },
+    {
+      "name": "\u2303\u2325 + arrow swaps with the neighbour",
+      "ok": true,
+      "secs": 1.59
+    },
+    {
+      "name": "make the window in use the main one",
+      "ok": true,
+      "secs": 1.73
+    },
+    {
+      "name": "a full screen stacks a new window on the one in use",
+      "ok": true,
+      "secs": 1.17
+    },
+    {
+      "name": "windows per screen: 4, 2 and back to 3",
+      "ok": true,
+      "secs": 1.82
+    },
+    {
+      "name": "columns layout",
+      "ok": true,
+      "secs": 1.2
+    },
+    {
+      "name": "one click picks a layout (the menu bar gallery)",
+      "ok": true,
+      "secs": 0.97
+    },
+    {
+      "name": "scrolling layout: columns run past the screen",
+      "ok": true,
+      "secs": 4.37
+    },
+    {
+      "name": "\u2303\u2325Space opens the menu bar panel",
+      "ok": true,
+      "secs": 3.01
+    },
+    {
+      "name": "make bigger, smaller and reset sizes",
+      "ok": true,
+      "secs": 1.05
+    },
+    {
+      "name": "focus mode fills the screen and comes back",
+      "ok": true,
+      "secs": 1.63
+    },
+    {
+      "name": "float and tile a window again",
+      "ok": true,
+      "secs": 1.31
+    },
+    {
+      "name": "minimise and restore keeps the place",
+      "ok": true,
+      "secs": 1.84
+    },
+    {
+      "name": "native tabs share one tile",
+      "ok": true,
+      "secs": 2.95
+    },
+    {
+      "name": "apps that refuse to shrink get room without overlap",
+      "ok": true,
+      "secs": 4.43
+    },
+    {
+      "name": "\u2318-drag swaps two windows",
+      "ok": true,
+      "secs": 2.55
+    },
+    {
+      "name": "dragging the edge between windows resizes both",
+      "ok": true,
+      "secs": 2.26
+    },
+    {
+      "name": "ribbon:// URLs run commands",
+      "ok": true,
+      "secs": 0.52
+    },
+    {
+      "name": "settings apply instantly (spacing)",
+      "ok": true,
+      "secs": 1.2
+    },
+    {
+      "name": "highlight styles: border, all borders, glow",
+      "ok": true,
+      "secs": 3.07
+    },
+    {
+      "name": "No peek dims the other windows",
+      "ok": true,
+      "secs": 1.44
+    },
+    {
+      "name": "Clean Space shows one window on a plain background",
+      "ok": true,
+      "secs": 1.45
+    },
+    {
+      "name": "window switcher shows every window and switches",
+      "ok": true,
+      "secs": 1.8
+    },
+    {
+      "name": "quick actions grip, menu bar panel, cheat sheet and settings render",
+      "ok": true,
+      "secs": 15.67
+    },
+    {
+      "name": "welcome tour renders every step",
+      "ok": true,
+      "secs": 16.71
+    },
+    {
+      "name": "pausing leaves every window where it is",
+      "ok": true,
+      "secs": 1.53
+    },
+    {
+      "name": "layout survives quitting and reopening Ribbon",
+      "ok": true,
+      "secs": 3.49
+    },
+    {
+      "name": "a real app (Finder) is tiled",
+      "ok": true,
+      "secs": 2.38
+    }
+  ],
+  "screenshots": [
+    "01-before-ribbon.jpg",
+    "02-grid-three-windows.jpg",
+    "03-swapped.jpg",
+    "04-stacked.jpg",
+    "05-grid-four.jpg",
+    "06-two-per-screen.jpg",
+    "07-columns.jpg",
+    "08-scrolling.jpg",
+    "09-scrolled.jpg",
+    "10-menu-from-keyboard.jpg",
+    "11-focus-mode.jpg",
+    "12-floating.jpg",
+    "13-native-tabs.jpg",
+    "14-min-width.jpg",
+    "15-drag-swapped.jpg",
+    "16-edge-resized.jpg",
+    "17-no-spacing.jpg",
+    "18-highlight-activeBorder.jpg",
+    "19-highlight-allBorders.jpg",
+    "20-highlight-glow.jpg",
+    "21-no-peek.jpg",
+    "22-clean-space.jpg",
+    "23-window-switcher.jpg",
+    "24-grip.jpg",
+    "25-menu-panel.jpg",
+    "26-cheat-sheet.jpg",
+    "27-settings-general.jpg",
+    "28-settings-layout.jpg",
+    "29-settings-highlight.jpg",
+    "30-settings-shortcuts.jpg",
+    "31-settings-apps.jpg",
+    "32-settings-advanced.jpg",
+    "33-settings-about.jpg",
+    "34-tour-step-0.jpg",
+    "35-tour-step-1.jpg",
+    "36-tour-step-2.jpg",
+    "37-tour-step-3.jpg",
+    "38-tour-step-4.jpg",
+    "39-tour-step-5.jpg",
+    "40-tour-step-6.jpg",
+    "41-after-restart.jpg",
+    "42-finder.jpg"
+  ]
+}

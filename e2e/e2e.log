@@ -1,0 +1,137 @@
+Ribbon e2e on 26.6.2
+fixture: {
+  "windows" : [
+    {
+      "frame" : [
+        120,
+        156,
+        640,
+        452
+      ],
+      "key" : true,
+      "number" : 29,
+      "visible" : true,
+      "miniaturized" : false,
+      "title" : "Fixture 1"
+    },
+    {
+      "visible" : true,
+      "title" : "Fixture 2",
+      "frame" : [
+        160,
+        126,
+        640,
+        452
+      ],
+      "key" : false,
+      "number" : 30,
+      "miniaturized" : false
+    },
+    {
+      "visible" : true,
+      "number" : 31,
+      "key" : false,
+      "miniaturized" : false,
+      "title" : "Fixture 3",
+      "frame" : [
+        200,
+        96,
+        640,
+        452
+      ]
+    },
+    {
+      "number" : 32,
+      "title" : "Fixed",
+      "miniaturized" : false,
+      "frame" : [
+        240,
+        226,
+        300,
+        292
+      ],
+      "visible" : true,
+      "key" : false
+    }
+  ],
+  "screens" : [
+    {
+      "visible" : [
+        0,
+        31,
+        1024,
+        677
+      ],
+      "frame" : [
+        0,
+        0,
+        1024,
+        768
+      ]
+    }
+  ],
+  "active" : true
+}
+displays: [{"area": [8, 39, 1008, 661], "frame": [0, 0, 1024, 768], "main": true, "name": "Apple Virtual", "space": 1, "uuid": "5A42259C-47B8-4590-9762-97DBE4FE7F1B", "visible": [0, 31, 1024, 677]}]
+PASS Ribbon starts with Accessibility access
+PASS open windows tile into a grid
+PASS fixed-size windows float instead of tiling
+PASS ⌃⌥ + arrow swaps with the neighbour
+PASS make the window in use the main one
+PASS a full screen stacks a new window on the one in use
+PASS windows per screen: 4, 2 and back to 3
+PASS columns layout
+PASS one click picks a layout (the menu bar gallery)
+PASS scrolling layout: columns run past the screen
+PASS ⌃⌥Space opens the menu bar panel
+PASS make bigger, smaller and reset sizes
+PASS focus mode fills the screen and comes back
+PASS float and tile a window again
+PASS minimise and restore keeps the place
+PASS native tabs share one tile
+PASS apps that refuse to shrink get room without overlap
+PASS ⌘-drag swaps two windows
+PASS dragging the edge between windows resizes both
+PASS ribbon:// URLs run commands
+PASS settings apply instantly (spacing)
+PASS highlight styles: border, all borders, glow
+PASS No peek dims the other windows
+PASS Clean Space shows one window on a plain background
+PASS window switcher shows every window and switches
+PASS quick actions grip, menu bar panel, cheat sheet and settings render
+PASS welcome tour renders every step
+PASS pausing leaves every window where it is
+PASS layout survives quitting and reopening Ribbon
+PASS a real app (Finder) is tiled
+# Ribbon end-to-end tests: 30/30 passed
+
+- ✅ Ribbon starts with Accessibility access (0.02s)
+- ✅ open windows tile into a grid (0.35s)
+- ✅ fixed-size windows float instead of tiling (0.01s)
+- ✅ ⌃⌥ + arrow swaps with the neighbour (1.59s)
+- ✅ make the window in use the main one (1.73s)
+- ✅ a full screen stacks a new window on the one in use (1.17s)
+- ✅ windows per screen: 4, 2 and back to 3 (1.82s)
+- ✅ columns layout (1.2s)
+- ✅ one click picks a layout (the menu bar gallery) (0.97s)
+- ✅ scrolling layout: columns run past the screen (4.37s)
+- ✅ ⌃⌥Space opens the menu bar panel (3.01s)
+- ✅ make bigger, smaller and reset sizes (1.05s)
+- ✅ focus mode fills the screen and comes back (1.63s)
+- ✅ float and tile a window again (1.31s)
+- ✅ minimise and restore keeps the place (1.84s)
+- ✅ native tabs share one tile (2.95s)
+- ✅ apps that refuse to shrink get room without overlap (4.43s)
+- ✅ ⌘-drag swaps two windows (2.55s)
+- ✅ dragging the edge between windows resizes both (2.26s)
+- ✅ ribbon:// URLs run commands (0.52s)
+- ✅ settings apply instantly (spacing) (1.2s)
+- ✅ highlight styles: border, all borders, glow (3.07s)
+- ✅ No peek dims the other windows (1.44s)
+- ✅ Clean Space shows one window on a plain background (1.45s)
+- ✅ window switcher shows every window and switches (1.8s)
+- ✅ quick actions grip, menu bar panel, cheat sheet and settings render (15.67s)
+- ✅ welcome tour renders every step (16.71s)
+- ✅ pausing leaves every window where it is (1.53s)
+- ✅ layout survives quitting and reopening Ribbon (3.49s)
+- ✅ a real app (Finder) is tiled (2.38s)

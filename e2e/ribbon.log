@@ -1,0 +1,51 @@
+04:47:19.338 I Ribbon 2.0.0 launched on macOS Version 26.6.2 (Build 25G83)
+04:47:19.487 I Trackpad gestures on 0 device(s), 3 fingers
+04:47:19.497 I Starting (2.0.0)
+04:47:19.544 D adopt 29 RibbonFixture 'Fixture 1' tile (120,156 640x452)
+04:47:19.545 D adopt 32 RibbonFixture 'Fixed' float (240,226 300x292)
+04:47:19.546 D adopt 31 RibbonFixture 'Fixture 3' tile (200,96 640x452)
+04:47:19.547 D adopt 30 RibbonFixture 'Fixture 2' tile (160,126 640x452)
+04:47:19.550 D attach 29 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:19.551 D attach 30 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:19.551 D attach 31 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:24.767 D adopt 56 RibbonFixture 'Fixture 9' tile (280,36 640x452)
+04:47:24.779 D attach 56 RibbonFixture -> 5A42259C#1 (stacked)
+04:47:25.825 D adopt 62 RibbonFixture 'Fixture 8' tile (280,36 640x452)
+04:47:25.841 D attach 62 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:32.843 D adopt 75 RibbonFixture 'Fixture 7' tile (280,36 640x452)
+04:47:33.070 D attach 75 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:39.685 I Floated RibbonFixture
+04:47:40.426 D attach 30 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:40.427 I Tiled RibbonFixture
+04:47:42.758 I Trackpad gestures on 0 device(s), 3 fingers
+04:47:42.773 D attach 30 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:43.648 D adopt 91 RibbonFixture 'Tab A' tile (120,156 640x452)
+04:47:43.657 D attach 91 RibbonFixture -> 5A42259C#1 (newTile)
+04:47:43.681 I Trackpad gestures on 0 device(s), 3 fingers
+04:47:44.476 I Trackpad gestures on 0 device(s), 3 fingers
+04:47:47.052 I Trackpad gestures on 0 device(s), 3 fingers
+04:47:47.878 I RibbonFixture won't go smaller than 685x0
+04:47:51.846 I Swapped RibbonFixture
+04:47:54.370 I Resized next to RibbonFixture
+04:47:55.150 I URL ribbon://tile-2
+04:47:55.244 I URL ribbon://command/tile-3
+04:47:56.587 I RibbonFixture won't go smaller than 512x337
+04:48:36.935 I Stopping
+04:48:38.110 I Starting (2.0.0)
+04:48:38.121 D adopt 29 RibbonFixture 'Fixture 1' tile (8,39 488x661)
+04:48:38.123 D adopt 31 RibbonFixture 'Fixture 3' tile (504,363 512x337)
+04:48:38.125 D adopt 30 RibbonFixture 'Fixture 2' tile (504,39 512x316)
+04:48:38.126 D adopt 32 RibbonFixture 'Fixed' float (240,226 300x292)
+04:48:38.129 I Restored 3 windows on 5A42259C#1
+04:48:38.129 I Trackpad gestures on 0 device(s), 3 fingers
+04:48:40.706 I Quit
+04:48:40.887 I Ribbon 2.0.0 launched on macOS Version 26.6.2 (Build 25G83)
+04:48:40.994 I Trackpad gestures on 0 device(s), 3 fingers
+04:48:41.001 I Starting (2.0.0)
+04:48:41.030 D adopt 31 RibbonFixture 'Fixture 3' tile (8,39 331x661)
+04:48:41.031 D adopt 29 RibbonFixture 'Fixture 1' tile (685,39 331x660)
+04:48:41.033 D adopt 30 RibbonFixture 'Fixture 2' tile (347,39 331x661)
+04:48:41.034 D adopt 32 RibbonFixture 'Fixed' float (240,226 300x292)
+04:48:41.039 I Restored 3 windows on 5A42259C#1
+04:48:43.532 D adopt 155 Finder 'Applications' tile (52,92 920x436)
+04:48:43.538 D attach 155 Finder -> 5A42259C#1 (newTile)
