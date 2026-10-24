@@ -333,7 +333,7 @@ struct PanelView: View {
     }
 
     private var keyHints: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             hint("1–4", "windows")
             hint("G C S", "layout")
             hint("← →", "swap")
@@ -350,6 +350,7 @@ struct PanelView: View {
                 .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.1)))
             Text(text).font(.system(size: 10.5)).foregroundStyle(.secondary)
         }
+        .fixedSize()
     }
 
     private var footer: some View {

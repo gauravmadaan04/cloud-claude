@@ -346,7 +346,7 @@ def _():
 @test("columns layout")
 def _():
     cli("toggle-layout")
-    wait(lambda: screen()["arrangement"] == "columns", what="columns")
+    wait(lambda: screen()["arrangement"] == "columns", what="columns (next layout)")
     wait_settled()
     st = state()
     sc = screen(st)
@@ -356,7 +356,7 @@ def _():
     for f in frames:
         assert close(f[3], ah) and close(f[2], w), f"column {f}, expected {w}x{ah}"
     shot("columns")
-    cli("toggle-layout")
+    cli("arrange", "grid", "3")
     wait(lambda: screen()["arrangement"] == "grid", what="grid again")
     home()
 

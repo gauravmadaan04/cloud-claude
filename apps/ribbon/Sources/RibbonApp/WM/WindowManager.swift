@@ -817,7 +817,10 @@ final class WindowManager {
     }
 
     func capacity(_ key: ScreenKey, _ d: Display) -> Int {
-        TileLayout.capacity(requested: boards[key]?.capacity ?? config.windowsPerScreen, arrangement(key, d), area: area(for: d))
+        let arr = arrangement(key, d)
+        // The scrolling strip takes any number of windows.
+        if arr == .scrolling { return TileLayout.maxTiles(.scrolling, area: area(for: d)) }
+        return TileLayout.capacity(requested: boards[key]?.capacity ?? config.windowsPerScreen, arr, area: area(for: d))
     }
 
     /// Where a tiled window should be right now.
