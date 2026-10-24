@@ -84,7 +84,7 @@ func render(scale: CGFloat) -> Data {
     let steps = [
         "Drag Ribbon onto Applications.",
         "Open it from Applications. If macOS says it can't verify Ribbon: System Settings → Privacy & Security → Open Anyway.",
-        "Follow the two-minute welcome tour. It sets up access and teaches the shortcuts.",
+        "Take the two-minute tour, then press Tidy My Workspace and watch your windows fall into place.",
     ]
     var y: CGFloat = 290
     for (i, s) in steps.enumerated() {

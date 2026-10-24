@@ -497,7 +497,7 @@ extension WindowManager {
                 "layout": layoutKind(key).rawValue,
                 "arrangement": d.map { arrangement(key, $0).rawValue } ?? "unknown",
                 "capacity": d.map { capacity(key, $0) } ?? 0,
-                "splits": ["x": b.splits.x, "leftY": b.splits.leftY, "rightY": b.splits.rightY, "weights": b.splits.weights],
+                "splits": ["x": b.splits.x, "leftY": b.splits.leftY, "rightY": b.splits.rightY, "weights": b.splits.weights] as [String: Any],
                 "zoomed": opt(b.zoomed.map { Int($0) }),
                 "activeWindow": opt(b.active.map { Int($0) }),
                 "tiles": b.tiles.enumerated().map { i, t -> [String: Any] in

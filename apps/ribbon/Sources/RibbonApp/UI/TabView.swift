@@ -46,10 +46,7 @@ final class TabViewController {
         p.onKey = { [weak self] code, flags in self?.key(code, flags) ?? false }
         p.setFrameOrigin(NSPoint(x: vf.midX - size.width / 2, y: vf.midY - size.height / 2))
         p.orderFrontRegardless()
-        if sticky {
-            NSApp.activate(ignoringOtherApps: true)
-            p.makeKey()
-        }
+        if sticky { p.makeKey() }
         panel = p
         let opt: Modifiers = [.option]
         HotkeyCenter.shared.registerTransient([

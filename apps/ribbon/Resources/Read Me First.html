@@ -58,13 +58,13 @@
       <h1>Welcome to Ribbon</h1>
     </div>
   </header>
-  <p class="lede">A scrolling window manager for your Mac. Every window is a column on one long strip that runs past the edges of the screen, so opening a window never squeezes the others.</p>
+  <p class="lede">Windows that arrange themselves. Open a window and it takes its place in a tidy grid or columns; close one and the others fill the space. No dragging, no resizing.</p>
 
   <h2>Install in three steps</h2>
   <div class="steps">
     <div class="step">
       <h3>Drag Ribbon into Applications</h3>
-      <p>In the window this guide came from, drag the <b>Ribbon</b> icon onto the <b>Applications</b> folder. Then eject the “Ribbon” disk.</p>
+      <p>In the window this guide came from, drag the <b>Ribbon</b> icon onto the <b>Applications</b> folder. If an older Ribbon is there, choose <b>Replace</b>. Then eject the “Ribbon” disk.</p>
     </div>
     <div class="step">
       <h3>Open it the first time</h3>
@@ -76,19 +76,27 @@
       <pre>xattr -dr com.apple.quarantine /Applications/Ribbon.app &amp;&amp; open /Applications/Ribbon.app</pre>
     </div>
     <div class="step">
-      <h3>Follow the welcome tour</h3>
-      <p>Ribbon opens a short tour. It asks for <b>Accessibility</b> access (that's how any window manager moves windows), checks your Mac's settings, and lets you practise the five shortcuts you'll use most. It takes about two minutes.</p>
+      <h3>Take the two-minute tour</h3>
+      <p>Ribbon asks for <b>Accessibility</b> access (that's how any window manager moves windows), shows the basics, lets you pick grid or columns, and ends with <b>Tidy My Workspace</b>: your windows fall into place.</p>
     </div>
   </div>
 
-  <div class="note"><b>Updating later?</b> After replacing Ribbon with a newer copy, macOS may keep an old Accessibility entry that no longer works. Open <b>Privacy &amp; Security → Accessibility</b>, select Ribbon, click <b>–</b>, then open Ribbon again and allow it.</div>
+  <div class="note"><b>Updating from an older Ribbon?</b> macOS may keep an old Accessibility entry that no longer works. Open <b>Privacy &amp; Security → Accessibility</b>, select Ribbon, click <b>–</b>, then open Ribbon again and allow it.</div>
 
-  <h2>The five shortcuts to learn first</h2>
+  <h2>How it works</h2>
+  <div class="grid">
+    <div class="card"><h3>Automatic</h3><p>Each screen holds 1 to 4 windows (3 to start). The first window is the main one on the left; the others share the right. New windows take their place as they open.</p></div>
+    <div class="card"><h3>Stacks</h3><p>When a screen is full, a new window sits on top of the one you're using. <kbd>⌃⌥`</kbd> or the grip above it switches between them.</p></div>
+    <div class="card"><h3>Grid or columns</h3><p>Pick per screen from the menu bar, or press <kbd>⌃⌥⌘1</kbd>–<kbd>4</kbd> for how many windows share it. Tall screens stack in rows.</p></div>
+    <div class="card"><h3>Mouse</h3><p><b>⌘-drag</b> a title bar onto another window to swap them; <b>⌥⌘-drag</b> to stack. Drag the edge between two windows to resize both.</p></div>
+  </div>
+
+  <h2>The shortcuts worth knowing</h2>
   <div class="five">
-    <div><span>Focus the next window (the strip scrolls to show it)</span><span><kbd>⌃⌥→</kbd> <kbd>⌃⌥←</kbd></span></div>
-    <div><span>Move the focused window along the strip</span><span><kbd>⌃⌥⇧→</kbd> <kbd>⌃⌥⇧←</kbd></span></div>
-    <div><span>Cycle preset widths (¼, ⅓, ½, ⅔, ¾)</span><span><kbd>⌃⌥R</kbd></span></div>
-    <div><span>Stack a window under its left neighbour</span><span><kbd>⌃⌥[</kbd></span></div>
+    <div><span>Swap with the window next to it</span><span><kbd>⌃⌥</kbd> + arrows</span></div>
+    <div><span>Make the window you're in the main one</span><span><kbd>⌃⌥↩</kbd></span></div>
+    <div><span>Focus: fill the screen (again to go back)</span><span><kbd>⌃⌥Z</kbd></span></div>
+    <div><span>See every window and switch</span><span>hold <kbd>⌥</kbd>, tap <kbd>⇥</kbd></span></div>
     <div><span>Show every shortcut</span><span><kbd>⌃⌥/</kbd></span></div>
   </div>
   <p>⌃ is Control, ⌥ is Option, ⇧ is Shift, ⌘ is Command. Every shortcut can be changed in <b>Settings → Shortcuts</b>.</p>
@@ -96,59 +104,42 @@
   <h2>All default shortcuts</h2>
   <table>
     <tr><th>Do this</th><th>Press</th></tr>
-    <tr><td>Focus left / down / up / right</td><td><kbd>⌃⌥H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> or <kbd>⌃⌥</kbd> + arrows</td></tr>
-    <tr><td>Focus first / last window</td><td><kbd>⌃⌥⌘←</kbd> <kbd>⌃⌥⌘→</kbd></td></tr>
-    <tr><td>Jump to window 1–9</td><td><kbd>⌃⌥1</kbd> … <kbd>⌃⌥9</kbd></td></tr>
-    <tr><td>Back to the previous window</td><td><kbd>⌃⌥⇥</kbd></td></tr>
-    <tr><td>Move window left / right (or up / down in a stack)</td><td><kbd>⌃⌥⇧</kbd> + the focus keys</td></tr>
-    <tr><td>Move window to the start / end</td><td><kbd>⌃⌥⇧⌘←</kbd> <kbd>⌃⌥⇧⌘→</kbd></td></tr>
-    <tr><td>Send window to the next / previous display</td><td><kbd>⌃⌥N</kbd> <kbd>⌃⌥⇧N</kbd></td></tr>
-    <tr><td>Cycle widths forwards / backwards</td><td><kbd>⌃⌥R</kbd> <kbd>⌃⌥⇧R</kbd></td></tr>
-    <tr><td>Full width (press again to go back)</td><td><kbd>⌃⌥F</kbd></td></tr>
-    <tr><td>Centre the window on screen</td><td><kbd>⌃⌥C</kbd></td></tr>
-    <tr><td>Wider / narrower</td><td><kbd>⌃⌥=</kbd> <kbd>⌃⌥-</kbd></td></tr>
-    <tr><td>Taller / shorter in a stack, equalise heights</td><td><kbd>⌃⌥⇧=</kbd> <kbd>⌃⌥⇧-</kbd> <kbd>⌃⌥0</kbd></td></tr>
-    <tr><td>Stack into the left / right column</td><td><kbd>⌃⌥[</kbd> <kbd>⌃⌥]</kbd></td></tr>
-    <tr><td>Pop out of a stack to the left / right</td><td><kbd>⌃⌥⇧[</kbd> <kbd>⌃⌥⇧]</kbd></td></tr>
-    <tr><td>Turn a stack into tabs (and back)</td><td><kbd>⌃⌥⇧T</kbd></td></tr>
-    <tr><td>Float / tile the window</td><td><kbd>⌃⌥T</kbd></td></tr>
-    <tr><td>Pin to the left / right edge (press again to unpin)</td><td><kbd>⌃⌥P</kbd> <kbd>⌃⌥⇧P</kbd></td></tr>
-    <tr><td>Scroll the strip without the mouse</td><td><kbd>⌃⌥,</kbd> <kbd>⌃⌥.</kbd></td></tr>
-    <tr><td>Show the strip map</td><td><kbd>⌃⌥I</kbd> or hold <kbd>⌃⌥</kbd></td></tr>
-    <tr><td>Pause / resume Ribbon</td><td><kbd>⌃⌥Q</kbd></td></tr>
+    <tr><td>Swap with the window left / right / above / below (at a screen edge: move to the next screen)</td><td><kbd>⌃⌥</kbd> + arrows</td></tr>
+    <tr><td>Make the window you're in the main one</td><td><kbd>⌃⌥↩</kbd></td></tr>
+    <tr><td>Go to the next / previous window</td><td><kbd>⌃⌥]</kbd> <kbd>⌃⌥[</kbd></td></tr>
+    <tr><td>Show the next / previous window in this spot (stacks)</td><td><kbd>⌃⌥`</kbd> <kbd>⌃⌥⇧`</kbd></td></tr>
+    <tr><td>Window switcher (forwards / backwards)</td><td><kbd>⌥⇥</kbd> <kbd>⌥⇧⇥</kbd></td></tr>
+    <tr><td>Make bigger / smaller, reset sizes</td><td><kbd>⌃⌥=</kbd> <kbd>⌃⌥-</kbd> <kbd>⌃⌥0</kbd></td></tr>
+    <tr><td>Float the window, or tile it again</td><td><kbd>⌃⌥F</kbd></td></tr>
+    <tr><td>Focus mode</td><td><kbd>⌃⌥Z</kbd></td></tr>
+    <tr><td>No peek: dim and blur the other windows</td><td><kbd>⌃⌥D</kbd></td></tr>
+    <tr><td>Clean Space: one window on a plain background</td><td><kbd>⌃⌥P</kbd></td></tr>
+    <tr><td>1, 2, 3 or 4 windows on this screen</td><td><kbd>⌃⌥⌘1</kbd> … <kbd>⌃⌥⌘4</kbd></td></tr>
+    <tr><td>Switch this screen between grid and columns</td><td><kbd>⌃⌥⌘L</kbd></td></tr>
+    <tr><td>Show every shortcut</td><td><kbd>⌃⌥/</kbd></td></tr>
   </table>
-
-  <h2>Mouse and trackpad</h2>
-  <div class="grid">
-    <div class="card"><h3>Swipe</h3><p>Slide three fingers left or right and the strip follows, then settles on the nearest window. You can switch to four fingers in Settings.</p></div>
-    <div class="card"><h3>Scroll wheel</h3><p>Hold <kbd>⌃⌥</kbd> and scroll to move the strip with a mouse.</p></div>
-    <div class="card"><h3>Drag to reorder</h3><p>Drag a window by its title bar and drop it between two others. Drop it on another display to move it there.</p></div>
-    <div class="card"><h3>Resize</h3><p>Drag a window's edge as usual; Ribbon remembers the new width for that column.</p></div>
-    <div class="card"><h3>Strip map</h3><p>Hold <kbd>⌃⌥</kbd>: a map of the strip appears. Click a tile to jump to it, drag tiles to reorder.</p></div>
-    <div class="card"><h3>Menu bar</h3><p>The three-column icon in the menu bar has Pause, Settings, Mac Setup, the window list and the tour.</p></div>
-  </div>
 
   <h2>If something isn't right</h2>
   <ul>
     <li><b>Nothing moves.</b> Check System Settings → Privacy &amp; Security → Accessibility has Ribbon switched on. If it already is, remove it with <b>–</b> and add it again.</li>
-    <li><b>Windows jump back after you move them.</b> Another window manager (Rectangle, Magnet, Moom, Amethyst…) is running, or macOS edge tiling is on. Ribbon's <b>Mac Setup</b> page finds both.</li>
-    <li><b>A swipe changes desktops instead.</b> macOS uses the same number of fingers. In System Settings → Trackpad → More Gestures, set “Swipe between full-screen applications” to four fingers (or off), or switch Ribbon to four fingers.</li>
-    <li><b>A shortcut does nothing.</b> Another app may own it; Settings → Shortcuts shows taken shortcuts in orange and lets you pick another.</li>
-    <li><b>Windows are stuck at the screen edge after quitting.</b> Ribbon brings them back when it pauses or quits. If it ever crashes, open it again and press <kbd>⌃⌥Q</kbd> twice.</li>
+    <li><b>Windows jump back after you move them.</b> Another window manager (Rectangle, Magnet, Moom, Amethyst…) may be running. Quit it, or turn off its automatic arranging.</li>
+    <li><b>Ribbon says it's paused.</b> Stage Manager is on; Ribbon steps aside until you turn it off (or untick that in Settings → General).</li>
+    <li><b>A shortcut does nothing.</b> Another app may own it. The menu bar panel warns you, and Settings → Shortcuts shows taken keys in orange.</li>
+    <li><b>An app looks wrong tiled.</b> Click the menu bar icon while that app is in front and switch off “Tile &lt;app&gt;”.</li>
   </ul>
 
   <h2>Extras</h2>
   <ul>
-    <li><b>URL scheme:</b> every command is a link, e.g. <code>open -g "ribbon://focus-right"</code>. Use it from Shortcuts, Keyboard Maestro or a Stream Deck.</li>
-    <li><b>Command-line tool:</b> Settings → Automation → Install. Then <code>ribbon help</code>, <code>ribbon state</code>, <code>ribbon config set innerGap 6</code>.</li>
-    <li><b>Raycast:</b> Settings → Automation → Export Raycast Commands, then add the folder in Raycast.</li>
-    <li><b>Privacy:</b> no account, no telemetry, no network. Ribbon only moves windows and never reads what's on screen.</li>
+    <li><b>URL scheme:</b> every command is a link, e.g. <code>open -g "ribbon://swap-right"</code>. Use it from Shortcuts, Keyboard Maestro or a Stream Deck.</li>
+    <li><b>Command-line tool:</b> Settings → Advanced → Install. Then <code>ribbon help</code>, <code>ribbon state</code>, <code>ribbon config set spacing 12</code>.</li>
+    <li><b>Raycast:</b> Settings → Advanced → Export, then add the folder in Raycast.</li>
+    <li><b>Privacy:</b> no account, no analytics, no network. Ribbon only moves windows and never reads what's in them.</li>
   </ul>
 
   <h2>Uninstall</h2>
-  <p>Quit Ribbon from its menu bar icon, drag it from Applications to the Bin, and remove it from Privacy &amp; Security → Accessibility. Settings live in <code>~/Library/Preferences/in.thegent.ribbon.plist</code> and layouts in <code>~/Library/Application Support/Ribbon</code>.</p>
+  <p>Quit Ribbon from its menu bar panel, drag it from Applications to the Bin, and remove it from Privacy &amp; Security → Accessibility. Settings live in <code>~/Library/Preferences/in.thegent.ribbon.plist</code> and layouts in <code>~/Library/Application Support/Ribbon</code>.</p>
 
-  <footer>Ribbon 1.0 · requires macOS 13 Ventura or later · runs natively on Apple silicon and Intel Macs.</footer>
+  <footer>Ribbon 2.0 · requires macOS 13 Ventura or later · runs natively on Apple silicon and Intel Macs.</footer>
 </main>
 </body>
 </html>

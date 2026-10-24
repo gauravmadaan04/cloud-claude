@@ -60,7 +60,7 @@ final class MenuBarController: NSObject, NSWindowDelegate {
         panel?.orderOut(nil)
         panel = p
         position()
-        NSApp.activate(ignoringOtherApps: true)
+        // A non-activating panel takes clicks and keys without pulling focus from the app you were in.
         p.makeKeyAndOrderFront(nil)
         if outsideMonitor == nil {
             outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.close() }
