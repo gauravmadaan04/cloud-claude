@@ -1,5 +1,5 @@
 // Draws the DMG window background (1x and 2x): swift make_dmg_background.swift <out-dir>
-// Icon centres must match scripts/dmg_settings.py: app (165,185), Applications (495,185), guide (566,360).
+// Icon centres must match scripts/dmg_settings.py: app (165,185), Applications (495,185), guide (560,338).
 import AppKit
 
 let outDir = URL(fileURLWithPath: CommandLine.arguments[1])
@@ -99,7 +99,7 @@ func render(scale: CGFloat) -> Data {
         y += max(22, h) + 10
     }
 
-    text("Need a hand?", 496, 292, size: 12, weight: .semibold, color: NSColor(white: 0.35, alpha: 1), width: 140, center: true)
+    text("Need a hand?", 490, 266, size: 12, weight: .semibold, color: NSColor(white: 0.35, alpha: 1), width: 140, center: true)
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
 }

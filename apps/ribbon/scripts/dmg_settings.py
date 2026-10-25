@@ -10,7 +10,7 @@ icon = defines.get("icon")
 icon_locations = {
     os.path.basename(app): (165, 185),
     "Applications": (495, 185),
-    os.path.basename(readme): (566, 360),
+    os.path.basename(readme): (560, 338),
 }
 # With "show hidden files" on in Finder, the disk's own files (.background.tiff, .VolumeIcon.icns,
 # .DS_Store) would land on top of the layout. They sit just below the window instead, out of sight.
