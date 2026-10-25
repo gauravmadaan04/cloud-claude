@@ -12,6 +12,10 @@ icon_locations = {
     "Applications": (495, 185),
     os.path.basename(readme): (566, 360),
 }
+# With "show hidden files" on in Finder, the disk's support files would land on top of the layout.
+# Park them well outside the window so the install screen stays clean either way.
+for i, hidden in enumerate([".background", ".VolumeIcon.icns", ".DS_Store", ".fseventsd", ".Trashes", ".TemporaryItems"]):
+    icon_locations[hidden] = (120 + i * 110, 1200)
 window_rect = ((200, 140), (660, 440))
 default_view = "icon-view"
 icon_size = 96

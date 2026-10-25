@@ -60,6 +60,26 @@ jobs:
           cp ~/Library/Logs/DiagnosticReports/Ribbon* dist/e2e/ 2>/dev/null || true
           VERSION=2.0.0 scripts/make_dmg.sh
 
+      # The install window as someone with "show hidden files" on sees it.
+      - name: Check the install window with hidden files shown
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          mkdir -p dist/e2e
+          defaults write com.apple.finder AppleShowAllFiles -bool true
+          killall Finder || true
+          sleep 3
+          hdiutil attach "dist/Ribbon-2.0.0.dmg" -noautoopen | tail -1
+          VOL=$(ls -d /Volumes/Ribbon* | head -1)
+          ls -la "$VOL"
+          open "$VOL"
+          sleep 4
+          screencapture -x dist/e2e/install-window-hidden-files.png
+          osascript -e 'tell application "Finder" to close every window' || true
+          hdiutil detach "$VOL" || true
+          defaults write com.apple.finder AppleShowAllFiles -bool false
+          killall Finder || true
+
       - name: Publish build to the ribbon-dist branch
         if: ${{ !cancelled() }}
         env:

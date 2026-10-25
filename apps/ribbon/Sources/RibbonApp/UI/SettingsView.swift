@@ -255,6 +255,9 @@ struct GeneralPane: View {
                             StatusPill(kind: .warn, text: "Needs Accessibility")
                             Button("Grant Access…") { AXPermission.prompt(); AXPermission.openSettings() }
                                 .buttonStyle(BrandButtonStyle())
+                            Button("Already on? Fix") { AXPermission.repair() }
+                                .buttonStyle(QuietButtonStyle())
+                                .help("Clears an old Accessibility entry from an earlier copy of Ribbon, then asks again")
                         }
                         if WindowManager.shared.pausedForStageManager {
                             StatusPill(kind: .info, text: "Paused for Stage Manager")

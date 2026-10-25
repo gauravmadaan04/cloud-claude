@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = SettingsStore.shared
         if args.contains("--reset") { store.config = Config() }
         if args.contains("--skip-onboarding") { store.config.hasCompletedOnboarding = true }
+        if !AppInfo.isE2E { AXPermission.clearStaleEntryIfNeeded() }
 
         IPCServer.shared.start()
         UIHub.shared.setup()

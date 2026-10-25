@@ -129,5 +129,41 @@ enum AXPermission {
             NSWorkspace.shared.open(url)
         }
     }
+
+    /// Removes Ribbon's row from Accessibility. macOS ties the row to one exact build, so after an
+    /// update an old row can show as switched on while the new build still isn't allowed.
+    @discardableResult
+    static func resetEntry() -> Bool {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        p.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? IPC.bundleID]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return false }
+        p.waitUntilExit()
+        Log.info("Reset Ribbon's Accessibility entry (status \(p.terminationStatus))")
+        return p.terminationStatus == 0
+    }
+
+    /// "It's switched on but Ribbon still asks": clear the stale row, ask again and show the list,
+    /// where Ribbon now appears switched off, ready to switch on.
+    static func repair() {
+        resetEntry()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            prompt()
+            openSettings()
+        }
+    }
+
+    /// Once per build: if this build isn't allowed yet, clear whatever row an earlier build left behind,
+    /// so switching Ribbon on applies to this copy.
+    static func clearStaleEntryIfNeeded() {
+        let build = "\(AppInfo.version)-\(AppInfo.build)"
+        let key = "accessibilityCheckedForBuild"
+        guard UserDefaults.standard.string(forKey: key) != build else { return }
+        UserDefaults.standard.set(build, forKey: key)
+        guard !isTrusted else { return }
+        resetEntry()
+    }
 }
 #endif

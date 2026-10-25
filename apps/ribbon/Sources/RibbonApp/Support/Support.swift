@@ -143,5 +143,15 @@ enum AppInfo {
     }
     static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev" }
     static var isE2E: Bool { CommandLine.arguments.contains("--e2e") }
+
+    /// Quits and opens Ribbon again (macOS sometimes only notices a new Accessibility switch on relaunch).
+    static func relaunch() {
+        let path = Bundle.main.bundlePath.replacingOccurrences(of: "'", with: "'\\''")
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "sleep 0.6; /usr/bin/open '\(path)'"]
+        try? p.run()
+        NSApp.terminate(nil)
+    }
 }
 #endif

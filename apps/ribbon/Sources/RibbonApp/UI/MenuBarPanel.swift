@@ -243,9 +243,18 @@ struct PanelView: View {
     @ViewBuilder
     private var actionCard: some View {
         if !AXPermission.isTrusted {
-            card("hand.raised.fill", BadgeColors.red, "Ribbon needs Accessibility access to arrange your windows.", "Grant Access") {
-                AXPermission.prompt()
-                AXPermission.openSettings()
+            VStack(alignment: .leading, spacing: 6) {
+                card("hand.raised.fill", BadgeColors.red, "Ribbon needs Accessibility access to arrange your windows.", "Grant Access") {
+                    AXPermission.prompt()
+                    AXPermission.openSettings()
+                }
+                HStack(spacing: 6) {
+                    Text("Already switched on?").font(.system(size: 11.5)).foregroundStyle(.secondary)
+                    Button("Fix permission") { AXPermission.repair() }.buttonStyle(.link).font(.system(size: 11.5, weight: .semibold))
+                    Text("·").foregroundStyle(.tertiary)
+                    Button("Relaunch") { AppInfo.relaunch() }.buttonStyle(.link).font(.system(size: 11.5, weight: .semibold))
+                }
+                .padding(.leading, 4)
             }
         } else if IsSecureEventInputEnabled() {
             card("lock.fill", BadgeColors.orange, "Another app is using Secure Input, so shortcuts pause until it's done. Clicks here still work.", nil) {}

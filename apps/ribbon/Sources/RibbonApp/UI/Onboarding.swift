@@ -320,7 +320,7 @@ struct WelcomeStep: View {
 
 struct PermissionStep: View {
     @State private var trusted = AXPermission.isTrusted
-    @State private var showHelp = false
+    @State private var repaired = false
     @State private var pulse = false
     @State private var loginOn = LoginItem.isEnabled
     @State private var taken = HotkeyCenter.shared.failedCommands
@@ -368,14 +368,27 @@ struct PermissionStep: View {
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
             .frame(maxWidth: 520)
             if !trusted {
-                DisclosureGroup(isExpanded: $showHelp) {
-                    Text("In Privacy & Security → Accessibility, click **+**, open **Applications** and choose **Ribbon**. After installing a newer version, select Ribbon, click **–**, then add it again.")
-                        .font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 6)
-                } label: {
-                    Text("Ribbon isn't in the list?").font(.system(size: 12.5, weight: .medium))
+                HStack(alignment: .center, spacing: 12) {
+                    IconBadge(symbol: "wrench.and.screwdriver.fill", colors: BadgeColors.orange, size: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Already switched on, but Ribbon still asks?").font(.system(size: 13, weight: .semibold))
+                        Text(repaired ? "Done. Ribbon now shows as switched off in the list: switch it on once more."
+                                      : "macOS is holding on to an older copy of Ribbon. Fix clears it, then switch Ribbon on again.")
+                            .font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button(repaired ? "Fix Again" : "Fix Permission") {
+                        AXPermission.repair()
+                        withAnimation(Brand.snappy) { repaired = true }
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                    if repaired {
+                        Button("Relaunch") { AppInfo.relaunch() }.buttonStyle(QuietButtonStyle())
+                            .help("Quit and reopen Ribbon, in case macOS needs it to notice the switch")
+                    }
                 }
-                .frame(maxWidth: 520)
+                .card(padding: 12, radius: 14)
+                .frame(maxWidth: 560)
             }
             Spacer(minLength: 0)
         }
