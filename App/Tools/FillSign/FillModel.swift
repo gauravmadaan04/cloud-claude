@@ -241,13 +241,12 @@ enum FillDrawing {
     }
 }
 
-/// How an item shows in the editor: drawn the way it will be saved, with a frame and a size handle when selected.
-/// The annotation is a little bigger than the item, so the frame and handle are redrawn (and erased) with it.
+/// How an item shows in the editor, drawn the way it will be saved. (The selection frame is drawn over the page
+/// by the editor, not here.) The annotation is a little bigger than the item, so it's easy to click.
 final class FillAnnotation: PDFAnnotation {
-    static let margin: CGFloat = 5
+    static let margin: CGFloat = 3
     var item: FillItem
     var rotation: Int
-    var isSelected = false
 
     init(item: FillItem, rotation: Int) {
         self.item = item
@@ -268,19 +267,6 @@ final class FillAnnotation: PDFAnnotation {
 
     override func draw(with box: PDFDisplayBox, in context: CGContext) {
         FillDrawing.draw(item, rotation: rotation, in: context, placeholder: true)
-        guard isSelected else { return }
-        context.saveGState()
-        let frame = bounds.insetBy(dx: 2.5, dy: 2.5)
-        context.setStrokeColor(CGColor(red: 0.42, green: 0.3, blue: 0.95, alpha: 1))
-        context.setLineWidth(1)
-        context.stroke(frame)
-        // The size handle sits at the bottom-right corner as you see it.
-        let corner = FillAnnotation.handleCorner(of: frame, rotation: rotation)
-        let handle = CGRect(x: corner.x - 2.5, y: corner.y - 2.5, width: 5, height: 5)
-        context.setFillColor(CGColor(gray: 1, alpha: 1))
-        context.fill(handle)
-        context.stroke(handle)
-        context.restoreGState()
     }
 
     /// The page point that shows as the bottom-right corner on screen.

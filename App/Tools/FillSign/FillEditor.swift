@@ -318,7 +318,6 @@ final class FillEditor {
     private func attach(_ item: FillItem) {
         guard let page = document.page(at: item.page) else { return }
         let a = FillAnnotation(item: item, rotation: page.rotation)
-        a.isSelected = item.id == selectedID
         page.addAnnotation(a)
         annotations[item.id] = a
         redraw(item.page)
@@ -330,18 +329,13 @@ final class FillEditor {
     }
 
     private func refreshSelection(old: UUID?) {
-        for (id, a) in annotations {
-            let on = id == selectedID
-            if a.isSelected != on {
-                a.isSelected = on
-                if let page = a.page { view?.annotationsChanged(on: page) }
-            }
-        }
+        (view as? FillPDFView)?.overlay?.needsDisplay = true
     }
 
     private func redraw(_ index: Int) {
         guard let page = document.page(at: index) else { return }
         view?.annotationsChanged(on: page)
+        (view as? FillPDFView)?.overlay?.needsDisplay = true
     }
 }
 
@@ -349,6 +343,8 @@ final class FillEditor {
 /// typing in form fields, links) works as usual.
 final class FillPDFView: PDFView {
     weak var editor: FillEditor?
+    /// Draws the selection frame over the page.
+    weak var overlay: FillSelectionOverlay?
 
     private enum Drag {
         case move(id: UUID, start: CGPoint, center: CGPoint)
@@ -375,7 +371,7 @@ final class FillPDFView: PDFView {
         switch editor.tool {
         case .select:
             if let id = editor.selectedID, let b = editor.bounds(of: id) {
-                let corner = convert(FillAnnotation.handleCorner(of: b.insetBy(dx: 2.5, dy: 2.5), rotation: page.rotation), from: page)
+                let corner = convert(FillAnnotation.handleCorner(of: b, rotation: page.rotation), from: page)
                 if hypot(corner.x - p.x, corner.y - p.y) < 9 {
                     let vb = convert(b, from: page)
                     drag = .resize(id: id, startX: p.x, width: vb.width)
@@ -478,9 +474,40 @@ final class FillPDFView: PDFView {
     }
 }
 
+/// The selected item's frame and size handle, drawn over the page view. It lets every click through.
+final class FillSelectionOverlay: NSView {
+    weak var pdfView: FillPDFView?
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let v = pdfView, let editor = v.editor, let item = editor.selected, let b = editor.bounds(of: item.id),
+              let page = v.document?.page(at: item.page) else { return }
+        let r = convert(v.convert(b, from: page), from: v).insetBy(dx: 0.5, dy: 0.5)
+        let purple = NSColor(srgbRed: 0.42, green: 0.3, blue: 0.95, alpha: 1)
+        purple.setStroke()
+        let frame = NSBezierPath(rect: r)
+        frame.lineWidth = 1
+        frame.stroke()
+        // The size handle, at the bottom-right corner as you see it.
+        let corner = NSPoint(x: r.maxX, y: isFlipped ? r.maxY : r.minY)
+        let handle = NSBezierPath(rect: NSRect(x: corner.x - 4, y: corner.y - 4, width: 8, height: 8))
+        NSColor.white.setFill()
+        handle.fill()
+        handle.stroke()
+    }
+}
+
 /// The page view, in SwiftUI.
 struct FillDocumentView: NSViewRepresentable {
     let editor: FillEditor
+
+    final class Coordinator {
+        var observers: [NSObjectProtocol] = []
+        deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> FillPDFView {
         let view = FillPDFView()
@@ -491,6 +518,22 @@ struct FillDocumentView: NSViewRepresentable {
         view.backgroundColor = NSColor.underPageBackgroundColor
         view.editor = editor
         view.setAccessibilityIdentifier("fill.document")
+        let overlay = FillSelectionOverlay(frame: view.bounds)
+        overlay.autoresizingMask = [.width, .height]
+        overlay.pdfView = view
+        view.addSubview(overlay)
+        view.overlay = overlay
+        // Scrolling and zooming move the page under the frame: draw it again.
+        let center = NotificationCenter.default
+        context.coordinator.observers.append(center.addObserver(forName: .PDFViewScaleChanged, object: view, queue: .main) { [weak overlay] _ in
+            overlay?.needsDisplay = true
+        })
+        if let clip = view.documentView?.enclosingScrollView?.contentView {
+            clip.postsBoundsChangedNotifications = true
+            context.coordinator.observers.append(center.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak overlay] _ in
+                overlay?.needsDisplay = true
+            })
+        }
         editor.view = view
         return view
     }
