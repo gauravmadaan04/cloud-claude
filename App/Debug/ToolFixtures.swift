@@ -140,14 +140,36 @@ extension FixtureFactory {
     }
 
     /// Something said out loud, recorded with macOS's own voice.
+    /// Checks how long the recording came out and tries again if it's much too short (speech can come out
+    /// clipped when the speech service is still starting); notes each try in /private/tmp/haven-fixture.log.
     static func speech(_ text: String, to path: String) {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-        p.arguments = ["-o", path, "--file-format=m4af", "--data-format=aac", text]
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        try? p.run()
-        p.waitUntilExit()
+        for attempt in 1...3 {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+            p.arguments = ["-o", path, "--file-format=m4af", "--data-format=aac", text]
+            p.standardOutput = FileHandle.nullDevice
+            let errors = Pipe()
+            p.standardError = errors
+            try? p.run()
+            p.waitUntilExit()
+            let problem = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let seconds = (try? AVAudioFile(forReading: URL(fileURLWithPath: path))).map { Double($0.length) / max(1, $0.fileFormat.sampleRate) } ?? 0
+            fixtureLog("speech try \(attempt): \((path as NSString).lastPathComponent) \(String(format: "%.2f", seconds)) s, say exit \(p.terminationStatus) \(problem)")
+            if seconds > Double(text.count) / 40 { return }
+            Thread.sleep(forTimeInterval: 1)
+        }
+    }
+
+    static func fixtureLog(_ line: String) {
+        let url = URL(fileURLWithPath: "/private/tmp/haven-fixture.log")
+        let entry = Data("\(Date()) \(line)\n".utf8)
+        if let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile()
+            h.write(entry)
+            try? h.close()
+        } else {
+            try? entry.write(to: url)
+        }
     }
 
     /// An H.264 video with a moving square over a colour wash, and (optionally) a tone as its soundtrack.

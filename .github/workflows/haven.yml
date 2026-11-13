@@ -89,6 +89,7 @@ jobs:
         run: |
           mkdir -p crashes
           cp ~/Library/Logs/DiagnosticReports/Haven*.ips crashes/ 2>/dev/null || true
+          cp /private/tmp/haven-fixture.log crashes/ 2>/dev/null && cat crashes/haven-fixture.log || true
           for f in crashes/*.ips; do
             [ -f "$f" ] || continue
             echo "== $f"
