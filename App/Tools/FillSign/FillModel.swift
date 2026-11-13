@@ -242,7 +242,9 @@ enum FillDrawing {
 }
 
 /// How an item shows in the editor: drawn the way it will be saved, with a frame and a size handle when selected.
+/// The annotation is a little bigger than the item, so the frame and handle are redrawn (and erased) with it.
 final class FillAnnotation: PDFAnnotation {
+    static let margin: CGFloat = 5
     var item: FillItem
     var rotation: Int
     var isSelected = false
@@ -250,27 +252,31 @@ final class FillAnnotation: PDFAnnotation {
     init(item: FillItem, rotation: Int) {
         self.item = item
         self.rotation = rotation
-        super.init(bounds: FillDrawing.pageBounds(center: item.center, size: item.size, rotation: rotation), forType: .stamp, withProperties: nil)
+        super.init(bounds: Self.area(item, rotation), forType: .stamp, withProperties: nil)
     }
 
     required init?(coder: NSCoder) { nil }
 
+    static func area(_ item: FillItem, _ rotation: Int) -> CGRect {
+        FillDrawing.pageBounds(center: item.center, size: item.size, rotation: rotation).insetBy(dx: -margin, dy: -margin)
+    }
+
     func update(_ new: FillItem) {
         item = new
-        bounds = FillDrawing.pageBounds(center: new.center, size: new.size, rotation: rotation)
+        bounds = Self.area(new, rotation)
     }
 
     override func draw(with box: PDFDisplayBox, in context: CGContext) {
         FillDrawing.draw(item, rotation: rotation, in: context, placeholder: true)
         guard isSelected else { return }
         context.saveGState()
-        let frame = bounds.insetBy(dx: -2, dy: -2)
+        let frame = bounds.insetBy(dx: 2.5, dy: 2.5)
         context.setStrokeColor(CGColor(red: 0.42, green: 0.3, blue: 0.95, alpha: 1))
         context.setLineWidth(1)
         context.stroke(frame)
         // The size handle sits at the bottom-right corner as you see it.
         let corner = FillAnnotation.handleCorner(of: frame, rotation: rotation)
-        let handle = CGRect(x: corner.x - 3.5, y: corner.y - 3.5, width: 7, height: 7)
+        let handle = CGRect(x: corner.x - 2.5, y: corner.y - 2.5, width: 5, height: 5)
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(handle)
         context.stroke(handle)

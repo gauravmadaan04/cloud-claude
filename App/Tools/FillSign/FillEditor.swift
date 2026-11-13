@@ -287,7 +287,7 @@ final class FillEditor {
 
     func item(at point: CGPoint, on page: PDFPage) -> FillItem? {
         let index = document.index(for: page)
-        return items.last { $0.page == index && (annotations[$0.id]?.bounds.insetBy(dx: -3, dy: -3).contains(point) ?? false) }
+        return items.last { $0.page == index && (annotations[$0.id]?.bounds.contains(point) ?? false) }
     }
 
     func bounds(of id: UUID) -> CGRect? { annotations[id]?.bounds }
@@ -375,7 +375,7 @@ final class FillPDFView: PDFView {
         switch editor.tool {
         case .select:
             if let id = editor.selectedID, let b = editor.bounds(of: id) {
-                let corner = convert(FillAnnotation.handleCorner(of: b.insetBy(dx: -2, dy: -2), rotation: page.rotation), from: page)
+                let corner = convert(FillAnnotation.handleCorner(of: b.insetBy(dx: 2.5, dy: 2.5), rotation: page.rotation), from: page)
                 if hypot(corner.x - p.x, corner.y - p.y) < 9 {
                     let vb = convert(b, from: page)
                     drag = .resize(id: id, startX: p.x, width: vb.width)

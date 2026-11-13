@@ -799,6 +799,9 @@ final class HavenUITests: XCTestCase {
         XCTAssertTrue(waitOnDisk("Movies/Beach Clip.gif", 60))
 
         // A spoken voice memo: transcribed with Whisper, then found by what was said.
+        // One job at a time here, so a slow GIF can't overlap the transcription.
+        let running = el("job")
+        if running.exists { _ = running.waitForNonExistence(timeout: 90) }
         el("sidebar.category.music").click()
         let memo = file("Voice Memo.m4a")
         waitFor(memo, 20)
@@ -808,8 +811,15 @@ final class HavenUITests: XCTestCase {
         sleep(1)
         snap("98-transcribe")
         el("transcribe.go").click()
-        sleep(4)
-        snapScreen("98b-transcribing")
+        // A job that stops at once says why in a message that's only up for a moment: keep it.
+        let toast = el("toast")
+        if toast.waitForExistence(timeout: 5) {
+            let said = toast.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+            print("TOAST after Transcribe: \(said)")
+            snapScreen("98b-transcribing")
+        } else {
+            snapScreen("98b-transcribing")
+        }
         XCTAssertTrue(waitOnDisk("Music/Voice Memo.txt", 120), "a transcript is written")
         XCTAssertTrue(waitOnDisk("Music/Voice Memo.srt", 10), "and subtitles")
         sleep(2)
