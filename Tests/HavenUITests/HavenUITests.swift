@@ -808,6 +808,8 @@ final class HavenUITests: XCTestCase {
         sleep(1)
         snap("98-transcribe")
         el("transcribe.go").click()
+        sleep(4)
+        snapScreen("98b-transcribing")
         XCTAssertTrue(waitOnDisk("Music/Voice Memo.txt", 120), "a transcript is written")
         XCTAssertTrue(waitOnDisk("Music/Voice Memo.srt", 10), "and subtitles")
         sleep(2)
@@ -863,10 +865,12 @@ final class HavenUITests: XCTestCase {
         form.rightClick()
         menuItem("Tools").hover()
         menuItem("Fill & Sign…").click()
-        let page = el("fill.document")
-        waitFor(page, 15, "the Fill & Sign window opens")
+        let window = app.windows.matching(NSPredicate(format: "title BEGINSWITH 'Fill & Sign'")).firstMatch
+        waitFor(window, 15, "the Fill & Sign window opens")
         sleep(1)
         snapScreen("100-fill-open")
+        // Points on the form's page, as fractions of the window (the page fills its middle).
+        func clickPage(_ x: CGFloat, _ y: CGFloat) { window.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).click() }
 
         // My Details once, then the form fills itself.
         el("fill.details").click()
@@ -889,7 +893,7 @@ final class HavenUITests: XCTestCase {
 
         // Text anywhere: click the page, then type.
         el("fill.tool.text").click()
-        page.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.62)).click()
+        clickPage(0.44, 0.75)
         let text = el("fill.text")
         waitFor(text, 5, "the text box takes the typing")
         text.click()
@@ -897,7 +901,7 @@ final class HavenUITests: XCTestCase {
 
         // Today's date.
         el("fill.tool.date").click()
-        page.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.67)).click()
+        clickPage(0.44, 0.81)
 
         // A signature, typed in a handwriting font, then placed.
         el("fill.signature").click()
@@ -907,11 +911,11 @@ final class HavenUITests: XCTestCase {
         sleep(1)
         snapScreen("103-fill-signature-maker")
         el("signmaker.save").click()
-        page.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.76)).click()
+        clickPage(0.42, 0.89)
 
         // A tick in a box.
         el("fill.tool.check").click()
-        page.coordinate(withNormalizedOffset: CGVector(dx: 0.14, dy: 0.57)).click()
+        clickPage(0.09, 0.75)
         app.typeKey(.escape, modifierFlags: [])
         sleep(1)
         snapScreen("104-fill-done")

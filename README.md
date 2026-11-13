@@ -20,6 +20,8 @@ Haven is a personal build modelled on [Homy](https://tryhomy.app/), with some ex
 | Menu bar | The ten newest downloads with thumbnails, ready to drag into other apps |
 | Looks | Playful (pastel) and Minimal (black, white and grey), ⌃⌘T. Light, dark or system |
 | Saved searches | Save any search to the sidebar; relative dates stay current |
+| File Tools (⇧⌘T) | 27 tools in the right-click menu for images, PDFs, video, audio and on-device AI. New files go next to the originals; Undo takes them away |
+| Fill & Sign | Fill in any PDF in its own window: type anywhere, your saved details and today's date, form fields filled from your details in one click, signatures and initials (drawn, typed in a handwriting font, or from a photo), ticks, white-out, redaction that removes the text underneath, highlight/underline/strike. Saves a "(signed)" or "(filled)" copy, with the form locked if you like |
 | Rules (off by default) | Trash old installers, file screenshots into monthly folders, archive old downloads |
 | Shortcuts & Siri | Find Files, Get Latest Download, Search in Haven |
 | Also | Grid/list (⌘1/⌘2), card size (⌘+/⌘−), Quick Look (Space), large preview with ←/→, inspector (⌘I) with camera, duration and source, music player with media keys, multi-file drag out, right-click menu with Open With and Share, folder browsing with pinned folders, Activity page with Undo, launch at login, onboarding tour |

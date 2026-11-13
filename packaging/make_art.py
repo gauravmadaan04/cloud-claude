@@ -307,7 +307,9 @@ def readme_pdf(path):
         ("Images", "Convert between JPEG, PNG, HEIC, TIFF and WebP; resize; rotate; remove location, camera and dates "
          "before you share; cut out the subject with Remove Background."),
         ("PDF", "Merge, split into pages, reorder, rotate or take out pages, pick pages for a new PDF, turn photos into "
-         "a PDF and pages into pictures, add or remove a password, and sign with a signature you draw once."),
+         "a PDF and pages into pictures, and add or remove a password."),
+        ("Fill & Sign", "Fill in any PDF: type anywhere, add your saved details and today's date, fill form fields in one "
+         "click, sign and initial (drawn, typed or from a photo), tick boxes, white out, redact for good, and highlight."),
         ("Video and audio", "Compress, convert to MP4 or MOV, trim, make a GIF, take out the sound or keep only the "
          "sound, merge clips and change speed. Audio converts to M4A, WAV, AIFF or FLAC. No extra software needed."),
         ("Transcribe", "Whisper (OpenAI's open-source speech model) turns what's said in videos and voice memos into "
