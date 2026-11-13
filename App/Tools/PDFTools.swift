@@ -11,7 +11,7 @@ struct PageEdit: Hashable, Identifiable {
     var id: Int { source }
 }
 
-/// Merging, splitting, reordering, passwords and signatures, with PDFKit. Always writes new files.
+/// Merging, splitting, reordering, passwords, and filling in and signing, with PDFKit. Always writes new files.
 enum PDFTools {
     static func open(_ url: URL, password: String? = nil) throws -> PDFDocument {
         guard let doc = PDFDocument(url: url) else { throw ToolError.unreadable(url.lastPathComponent) }
@@ -171,34 +171,107 @@ enum PDFTools {
         try save(out, to: dest)
     }
 
-    /// Places a signature picture on a page. `rect` is in the page's own coordinates (as PDFView reports them).
-    /// Only that page is redrawn with the signature; every other page is kept exactly as it was.
-    static func sign(_ url: URL, page index: Int, rect: CGRect, signature: CGImage, dest: URL) throws {
-        let doc = try open(url)
-        guard let page = doc.page(at: index), let cgPage = page.pageRef else { throw ToolError.failed("That page isn't there") }
+    /// Fill & Sign: draws what was added onto the pages and saves a new PDF. A page with something added (or, when
+    /// the form is locked, a page with form fields) is redrawn with everything on it as plain page content, links
+    /// kept. A page with a redaction becomes a picture, so what was under the black box is gone for good.
+    /// Every other page is kept exactly as it was, form fields and all.
+    static func fill(_ plan: FillPlan, dest: URL) throws {
+        guard let doc = PDFDocument(data: plan.base), !doc.isLocked else { throw ToolError.failed("Couldn't read the document") }
+        let byPage = Dictionary(grouping: plan.items, by: \.page)
+        for index in 0..<doc.pageCount {
+            guard let page = doc.page(at: index) else { continue }
+            let items = byPage[index] ?? []
+            let hasFields = page.annotations.contains { $0.type == "Widget" }
+            let replacement: PDFPage?
+            if items.contains(where: { $0.content.isRedaction }) {
+                replacement = rasterize(page, items: items)
+            } else if !items.isEmpty || (plan.lockForm && hasFields) {
+                replacement = flatten(page, items: items)
+            } else {
+                continue
+            }
+            guard let made = replacement else { throw ToolError.failed("Couldn't write page \(index + 1)") }
+            doc.removePage(at: index)
+            doc.insert(made, at: index)
+        }
+        try save(doc, to: dest)
+    }
+
+    /// The page with its form answers, highlights and notes drawn in as plain content, and the added items on top.
+    static func flatten(_ page: PDFPage, items: [FillItem]) -> PDFPage? {
         let media = page.bounds(for: .mediaBox)
         let data = NSMutableData()
         var box = media
-        guard let consumer = CGDataConsumer(data: data as CFMutableData),
-              let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { throw ToolError.failed("Couldn't sign") }
+        guard let cgPage = page.pageRef, let consumer = CGDataConsumer(data: data as CFMutableData),
+              let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return nil }
         ctx.beginPDFPage(nil)
-        ctx.drawPDFPage(cgPage)
-        // The page may be shown turned: turn the signature the other way so it reads upright.
-        ctx.saveGState()
-        ctx.translateBy(x: rect.midX, y: rect.midY)
-        ctx.rotate(by: CGFloat(page.rotation) * .pi / 180)
-        let turned = page.rotation % 180 != 0
-        let w = turned ? rect.height : rect.width, h = turned ? rect.width : rect.height
-        ctx.interpolationQuality = .high
-        ctx.draw(signature, in: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
-        ctx.restoreGState()
+        drawFilled(page, cgPage: cgPage, items: items, in: ctx)
         ctx.endPDFPage()
         ctx.closePDF()
-        guard let signedDoc = PDFDocument(data: data as Data), let signedPage = signedDoc.page(at: 0) else { throw ToolError.failed("Couldn't sign") }
-        signedPage.rotation = page.rotation
-        doc.removePage(at: index)
-        doc.insert(signedPage, at: index)
-        try save(doc, to: dest)
+        guard let made = PDFDocument(data: data as Data)?.page(at: 0) else { return nil }
+        match(made, to: page)
+        for link in page.annotations where link.type == "Link" {
+            if let copy = link.copy() as? PDFAnnotation { made.addAnnotation(copy) }
+        }
+        return made
+    }
+
+    /// The page as a picture (200 dpi), with the redactions burnt in: no text survives under them.
+    static func rasterize(_ page: PDFPage, items: [FillItem], dpi: CGFloat = 200) -> PDFPage? {
+        let media = page.bounds(for: .mediaBox)
+        let scale = dpi / 72
+        let w = Int((media.width * scale).rounded()), h = Int((media.height * scale).rounded())
+        guard let cgPage = page.pageRef, w > 0, h > 0,
+              let bitmap = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else { return nil }
+        bitmap.setFillColor(CGColor(gray: 1, alpha: 1))
+        bitmap.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        bitmap.scaleBy(x: scale, y: scale)
+        bitmap.translateBy(x: -media.minX, y: -media.minY)
+        drawFilled(page, cgPage: cgPage, items: items, in: bitmap)
+        guard let picture = bitmap.makeImage() else { return nil }
+        let image = jpeg(picture, quality: 0.86) ?? picture
+        let data = NSMutableData()
+        var box = media
+        guard let consumer = CGDataConsumer(data: data as CFMutableData),
+              let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return nil }
+        ctx.beginPDFPage(nil)
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: media)
+        ctx.endPDFPage()
+        ctx.closePDF()
+        guard let made = PDFDocument(data: data as Data)?.page(at: 0) else { return nil }
+        match(made, to: page)
+        return made
+    }
+
+    /// Page content, then every annotation's appearance (form fields with their answers, highlights, notes), then the
+    /// items, all in the page's own coordinates.
+    private static func drawFilled(_ page: PDFPage, cgPage: CGPDFPage, items: [FillItem], in ctx: CGContext) {
+        ctx.drawPDFPage(cgPage)
+        for a in page.annotations where a.type != "Link" && a.type != "Popup" && a.shouldDisplay && !(a is FillAnnotation) {
+            ctx.saveGState()
+            a.draw(with: .mediaBox, in: ctx)
+            ctx.restoreGState()
+        }
+        for item in items { FillDrawing.draw(item, rotation: page.rotation, in: ctx) }
+    }
+
+    /// A new page shows like the old one: same turn, same visible area.
+    private static func match(_ made: PDFPage, to page: PDFPage) {
+        made.rotation = page.rotation
+        let crop = page.bounds(for: .cropBox)
+        if crop != page.bounds(for: .mediaBox) { made.setBounds(crop, for: .cropBox) }
+    }
+
+    /// The picture as JPEG data, so a page that became a picture stays a sensible size.
+    private static func jpeg(_ image: CGImage, quality: Double) -> CGImage? {
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(dest), let src = CGImageSourceCreateWithData(data, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(src, 0, nil)
     }
 
     /// Text a PDF holds, for translating and summarizing.

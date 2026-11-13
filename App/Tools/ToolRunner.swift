@@ -99,6 +99,10 @@ enum ToolActions {
             model.showToast("“\(items[0].name)” doesn't have a password", symbol: "lock.open")
             return
         }
+        if tool == .signPDF {
+            FillSignWindows.shared.open(items[0])
+            return
+        }
         if tool.opensSheet || (choice == .none && !tool.choices(for: items).isEmpty) {
             model.bringMainWindowForward()
             model.toolSheet = ToolSheetRequest(tool: tool, items: items)

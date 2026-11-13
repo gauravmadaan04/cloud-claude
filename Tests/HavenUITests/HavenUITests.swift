@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import PDFKit
 import XCTest
 
 /// Drives the real app like a person would, on a sample home folder, and keeps screenshots of every screen.
@@ -836,6 +837,96 @@ final class HavenUITests: XCTestCase {
         sleep(2)
         snap("99b-summarize")
         app.typeKey(.escape, modifierFlags: [])
+    }
+
+    // MARK: Fill & Sign
+
+    /// A real form, filled in: your details into its fields, text and today's date typed anywhere,
+    /// a signature typed in a handwriting font, a tick, then a signed copy.
+    func test13_FillAndSign() throws {
+        root = Self.toolsRoot
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-HavenFixtureRoot", Self.toolsRoot,
+            "-HavenMakeFixtures", "tools",
+            "-HavenResetState", "YES",
+            "-HavenSkipOnboarding", "YES",
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US",
+        ]
+        app.launch()
+        app.activate()
+        waitFor(el("sidebar.category.documents"), 60)
+        el("sidebar.category.documents").click()
+        let form = file("Application Form.pdf")
+        waitFor(form, 20)
+        form.rightClick()
+        menuItem("Tools").hover()
+        menuItem("Fill & Sign…").click()
+        let page = el("fill.document")
+        waitFor(page, 15, "the Fill & Sign window opens")
+        sleep(1)
+        snapScreen("100-fill-open")
+
+        // My Details once, then the form fills itself.
+        el("fill.details").click()
+        waitFor(el("details.edit"), 5)
+        el("details.edit").click()
+        let name = el("details.name")
+        waitFor(name, 5)
+        name.click()
+        name.typeText("Asha Rao")
+        let email = el("details.email")
+        email.click()
+        email.typeText("asha@example.com")
+        snapScreen("101-fill-details")
+        el("details.save").click()
+        app.typeKey(.escape, modifierFlags: [])
+        waitFor(el("fill.autofill"), 5)
+        el("fill.autofill").click()
+        sleep(1)
+        snapScreen("102-fill-form")
+
+        // Text anywhere: click the page, then type.
+        el("fill.tool.text").click()
+        page.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.62)).click()
+        let text = el("fill.text")
+        waitFor(text, 5, "the text box takes the typing")
+        text.click()
+        text.typeText("Flat 4B, Linden Court")
+
+        // Today's date.
+        el("fill.tool.date").click()
+        page.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.67)).click()
+
+        // A signature, typed in a handwriting font, then placed.
+        el("fill.signature").click()
+        waitFor(el("signature.new"), 5)
+        el("signature.new").click()
+        waitFor(el("signmaker.save"), 5, "the signature maker opens")
+        sleep(1)
+        snapScreen("103-fill-signature-maker")
+        el("signmaker.save").click()
+        page.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.76)).click()
+
+        // A tick in a box.
+        el("fill.tool.check").click()
+        page.coordinate(withNormalizedOffset: CGVector(dx: 0.14, dy: 0.57)).click()
+        app.typeKey(.escape, modifierFlags: [])
+        sleep(1)
+        snapScreen("104-fill-done")
+
+        el("fill.save").click()
+        XCTAssertTrue(waitOnDisk("Documents/Application Form (signed).pdf", 20), "a signed copy is made")
+        XCTAssertTrue(exists("Documents/Application Form.pdf"), "the original stays")
+        sleep(1)
+        let saved = PDFDocument(url: URL(fileURLWithPath: root + "/Documents/Application Form (signed).pdf"))
+        let words = saved?.page(at: 0)?.string ?? ""
+        XCTAssertTrue(words.contains("Flat 4B, Linden Court"), "typed text is in the PDF: \(words)")
+        XCTAssertTrue(words.contains("Asha Rao"), "the form's name field was filled: \(words)")
+        XCTAssertTrue(words.contains("asha@example.com"), "and its email field: \(words)")
+        XCTAssertFalse(saved?.page(at: 0)?.annotations.contains { $0.type == "Widget" } ?? true, "the form is locked")
+        snap("105-fill-saved")
     }
 
     // MARK: Videos

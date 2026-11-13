@@ -16,7 +16,7 @@ struct ToolSheetView: View {
             case .mergePDFs, .mergeVideos: MergeOrderSheet(request: request)
             case .organizePDF, .extractPDFPages: PDFPagesSheet(request: request)
             case .lockPDF, .unlockPDF: PasswordSheet(request: request)
-            case .signPDF: SignSheet(request: request)
+            case .signPDF: FillSignBridge(request: request)
             case .trimVideo, .trimAudio: TrimSheet(request: request)
             case .transcribe: TranscribeSheet(request: request)
             case .translate:

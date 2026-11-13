@@ -16,25 +16,18 @@ enum ToolChoice: Hashable {
     case speed(PlaybackSpeed)
 }
 
-/// Where a signature goes.
-struct SignaturePlacement {
-    var page: Int
-    var rect: CGRect
-    var image: CGImage
-}
-
 enum TranscriptFormat: String, CaseIterable, Identifiable {
     case text, subtitles
     var id: String { rawValue }
     var title: String { self == .text ? "Text (.txt)" : "Subtitles (.srt)" }
 }
 
-/// What the option sheets add: passwords, pages, a time range, a signature, transcription settings.
+/// What the option sheets add: passwords, pages, a time range, what Fill & Sign added, transcription settings.
 struct ToolExtras {
     var password: String?
     var pages: [PageEdit]?
     var timeRange: CMTimeRange?
-    var signature: SignaturePlacement?
+    var fill: FillPlan?
     var model: String?
     var language: String?
     var toEnglish = false
@@ -218,10 +211,10 @@ enum ToolWork {
             try PDFTools.unlock(item.url, password: extras.password ?? "", dest: dest)
             return single(items, dest)
         case .signPDF:
-            guard let placement = extras.signature else { throw ToolError.failed("Place your signature first") }
+            guard let plan = extras.fill else { throw ToolError.failed("Nothing was added to the PDF") }
             let item = items[0]
-            let dest = destination(ToolNaming.tagged(item, "signed", ext: "pdf"), in: item.parentPath)
-            try PDFTools.sign(item.url, page: placement.page, rect: placement.rect, signature: placement.image, dest: dest)
+            let dest = destination(ToolNaming.tagged(item, plan.hasSignature ? "signed" : "filled", ext: "pdf"), in: item.parentPath)
+            try PDFTools.fill(plan, dest: dest)
             return single(items, dest)
 
         // MARK: Video

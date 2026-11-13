@@ -87,6 +87,11 @@ final class Prefs {
     var dismissedTips: Set<String> { didSet { defaults.set(Array(dismissedTips), forKey: "dismissedTips") } }
     var lastRulesRun: Date? { didSet { defaults.set(lastRulesRun, forKey: "lastRulesRun") } }
     var recentSearches: [String] { didSet { defaults.set(recentSearches, forKey: "recentSearches") } }
+    /// Fill & Sign: your details, how dates are written, and the last text size and colour used.
+    var personalDetails: PersonalDetails { didSet { saveJSON(personalDetails, "personalDetails") } }
+    var dateStyle: DateStyle { didSet { defaults.set(dateStyle.rawValue, forKey: "dateStyle") } }
+    var fillFontSize: CGFloat { didSet { defaults.set(Double(fillFontSize), forKey: "fillFontSize") } }
+    var fillInk: FillInk { didSet { defaults.set(fillInk.rawValue, forKey: "fillInk") } }
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
@@ -120,6 +125,11 @@ final class Prefs {
         dismissedTips = Set(defaults.stringArray(forKey: "dismissedTips") ?? [])
         lastRulesRun = defaults.object(forKey: "lastRulesRun") as? Date
         recentSearches = defaults.stringArray(forKey: "recentSearches") ?? []
+        personalDetails = json("personalDetails", PersonalDetails())
+        dateStyle = string("dateStyle").flatMap(DateStyle.init(rawValue:)) ?? .standard(regionCode: Locale.current.region?.identifier)
+        let fontSize = defaults.double(forKey: "fillFontSize")
+        fillFontSize = fontSize == 0 ? 13 : CGFloat(min(72, max(6, fontSize)))
+        fillInk = string("fillInk").flatMap(FillInk.init(rawValue:)) ?? .black
         // Launch overrides (screenshots, demos) apply for this run only.
         let opts = LaunchOptions.current
         if let a = opts.appearance.flatMap(AppearanceMode.init(rawValue:)) { appearance = a }

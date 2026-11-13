@@ -4,6 +4,7 @@ import AVFoundation
 import CoreGraphics
 import Foundation
 import ImageIO
+import PDFKit
 import UniformTypeIdentifiers
 
 /// Sample files for the tools: a photo that says where it was taken, a picture with a clear subject,
@@ -30,6 +31,7 @@ extension FixtureFactory {
         pdf(pages: [["Contract", "Page one: alpha terms"], ["Contract", "Page two: bravo terms"], ["Contract", "Page three: charlie terms"]],
             to: at(documents, "Contract.pdf"))
         pdf(pages: [["Appendix", "Page one: delta"], ["Appendix", "Page two: echo"]], to: at(documents, "Appendix.pdf"))
+        formPDF(to: at(documents, "Application Form.pdf"))
         try? """
         Team update
 
@@ -44,6 +46,7 @@ extension FixtureFactory {
 
         for (i, path) in [at(pictures, "Goa Trip.jpg"), at(pictures, "Red Apple.png"), at(pictures, "Hills.heic"), at(documents, "Contract.pdf"),
                           at(documents, "Appendix.pdf"), at(documents, "Meeting Notes.txt"), at(movies, "Beach Clip.mov"),
+                          at(documents, "Application Form.pdf"),
                           at(movies, "Sunset Clip.mov"), at(music, "Voice Memo.m4a"), at(music, "Chime.wav")].enumerated() {
             mark(path, date: now.addingTimeInterval(-Double(i + 1) * 3600))
         }
@@ -98,6 +101,20 @@ extension FixtureFactory {
         ctx.setFillColor(cg(0x3FA34D))
         ctx.fillEllipse(in: CGRect(x: c.x + 10, y: c.y + r * 0.95, width: 110, height: 50))
         if let img = ctx.makeImage() { save(img, to: path, type: .png) }
+    }
+
+    /// A one-page application with fillable fields (name, email, date), like many real forms, and room to sign.
+    static func formPDF(to path: String) {
+        pdf(pages: [["Application Form", "Full name", "Email", "Date", "I agree to the terms", "", "Signature"]], to: path)
+        guard let doc = PDFDocument(url: URL(fileURLWithPath: path)), let page = doc.page(at: 0) else { return }
+        for (i, name) in ["Full Name", "Email", "Date"].enumerated() {
+            let field = PDFAnnotation(bounds: CGRect(x: 220, y: 640 - CGFloat(i) * 30, width: 300, height: 22), forType: .widget, withProperties: nil)
+            field.widgetFieldType = .text
+            field.fieldName = name
+            field.backgroundColor = NSColor(calibratedRed: 0.9, green: 0.93, blue: 1, alpha: 1)
+            page.addAnnotation(field)
+        }
+        doc.write(to: URL(fileURLWithPath: path))
     }
 
     /// A PDF with a page per entry (title, then lines).

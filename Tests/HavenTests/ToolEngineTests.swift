@@ -233,34 +233,188 @@ final class ToolEngineTests: XCTestCase {
         XCTAssertTrue(open.page(at: 0)!.string!.contains("secret plans"))
     }
 
-    func testSigning() async throws {
-        let p = path("Lease.pdf")
-        FixtureFactory.pdf(pages: [["Lease", "page one"], ["Lease", "sign here"]], to: p)
+    // MARK: Fill & Sign
+
+    /// A two-page application: page one has two form fields, page two is where you sign.
+    func makeForm(_ name: String) throws -> String {
+        let p = path(name)
+        FixtureFactory.pdf(pages: [["Application", "Full name", "Email"], ["Application", "sign here"]], to: p)
+        let doc = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: p)))
+        let page = try XCTUnwrap(doc.page(at: 0))
+        for (i, field) in ["Full Name", "Email"].enumerated() {
+            let w = PDFAnnotation(bounds: CGRect(x: 240, y: 640 - CGFloat(i) * 40, width: 260, height: 22), forType: .widget, withProperties: nil)
+            w.widgetFieldType = .text
+            w.fieldName = field
+            page.addAnnotation(w)
+        }
+        XCTAssertTrue(doc.write(to: URL(fileURLWithPath: p)))
+        return p
+    }
+
+    /// What the Fill & Sign window hands over: the document (with any form answers) and the items to draw.
+    func fillExtras(_ p: String, _ items: [FillItem], lockForm: Bool = true, prepare: (PDFDocument) -> Void = { _ in }) throws -> ToolExtras {
+        let doc = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: p)))
+        prepare(doc)
+        var extras = ToolExtras()
+        extras.fill = FillPlan(base: try XCTUnwrap(doc.dataRepresentation()), items: items, lockForm: lockForm)
+        return extras
+    }
+
+    func inkImage() -> CGImage {
         let ink = FixtureFactory.context(CGSize(width: 300, height: 100))!
         ink.setStrokeColor(CGColor(red: 0, green: 0, blue: 0.6, alpha: 1))
         ink.setLineWidth(8)
         ink.move(to: CGPoint(x: 10, y: 50))
         ink.addCurve(to: CGPoint(x: 290, y: 50), control1: CGPoint(x: 100, y: 120), control2: CGPoint(x: 200, y: -20))
         ink.strokePath()
-        var extras = ToolExtras()
-        let rect = CGRect(x: 300, y: 100, width: 240, height: 80)
-        extras.signature = SignaturePlacement(page: 1, rect: rect, image: ink.makeImage()!)
-        do { let value = try await run(.signPDF, [p], .none, extras); XCTAssertEqual(value, ["Lease (signed).pdf"]) }
-        let signed = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: path("Lease (signed).pdf"))))
-        XCTAssertEqual(signed.pageCount, 2)
-        XCTAssertTrue(signed.page(at: 1)!.string?.contains("sign here") == true, "the page's text is still text")
-        // The signature shows where it was placed.
-        let picture = try XCTUnwrap(PDFTools.render(signed.page(at: 1)!, dpi: 72))
+        return ink.makeImage()!
+    }
+
+    func textItem(_ text: String, page: Int, at point: CGPoint) -> FillItem {
+        let size = FillDrawing.textSize(text, fontSize: 13)
+        return FillItem(page: page, center: CGPoint(x: point.x + size.width / 2, y: point.y), size: size, content: .text(text))
+    }
+
+    /// How many sampled points in a region (page points) of a rendered page pass the test.
+    func pixels(_ page: PDFPage, in rect: CGRect, _ test: (NSColor) -> Bool) throws -> Int {
+        let picture = try XCTUnwrap(PDFTools.render(page, dpi: 72))
         let rep = NSBitmapImageRep(cgImage: picture)
-        var inked = 0
-        for x in stride(from: Int(rect.minX), to: Int(rect.maxX), by: 4) {
-            for y in stride(from: Int(rect.minY), to: Int(rect.maxY), by: 4) {
+        var n = 0
+        for x in stride(from: Int(rect.minX), to: Int(rect.maxX), by: 2) {
+            for y in stride(from: Int(rect.minY), to: Int(rect.maxY), by: 2) {
                 // Bitmap rows run top to bottom; PDF points bottom to top.
-                if let c = rep.colorAt(x: x, y: picture.height - y), c.blueComponent > c.redComponent + 0.2 { inked += 1 }
+                if let c = rep.colorAt(x: x, y: picture.height - y)?.usingColorSpace(.sRGB), test(c) { n += 1 }
             }
         }
-        XCTAssertGreaterThan(inked, 10, "blue ink inside the placed rectangle")
-        XCTAssertEqual(PDFDocument(url: URL(fileURLWithPath: p))?.page(at: 1)?.string?.contains("sign here"), true)
+        return n
+    }
+
+    func testFillAndSign() async throws {
+        let p = try makeForm("Application.pdf")
+        let sig = CGRect(x: 300, y: 100, width: 240, height: 80)
+        let items = [
+            textItem("Flat 4B, Linden Court", page: 1, at: CGPoint(x: 72, y: 300)),
+            textItem("13 November 2026", page: 1, at: CGPoint(x: 72, y: 270)),
+            FillItem(page: 1, center: CGPoint(x: sig.midX, y: sig.midY), size: sig.size, content: .image(inkImage(), initials: false)),
+            FillItem(page: 1, center: CGPoint(x: 80, y: 200), size: CGSize(width: 16, height: 16), content: .mark(.check)),
+        ]
+        let extras = try fillExtras(p, items) { doc in
+            for a in doc.page(at: 0)!.annotations where a.type == "Widget" {
+                a.widgetStringValue = a.fieldName == "Full Name" ? "Asha Rao" : "asha@example.com"
+            }
+        }
+        do { let value = try await run(.signPDF, [p], .none, extras); XCTAssertEqual(value, ["Application (signed).pdf"]) }
+        let done = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: path("Application (signed).pdf"))))
+        XCTAssertEqual(done.pageCount, 2)
+        let signPage = try XCTUnwrap(done.page(at: 1))
+        let text = signPage.string ?? ""
+        XCTAssertTrue(text.contains("sign here"), "the page's own text is still text")
+        XCTAssertTrue(text.contains("Flat 4B, Linden Court"), "typed text is real text: \(text)")
+        XCTAssertTrue(text.contains("13 November 2026"))
+        XCTAssertGreaterThan(try pixels(signPage, in: sig) { $0.blueComponent > $0.redComponent + 0.2 }, 10, "the signature is where it was put")
+        XCTAssertGreaterThan(try pixels(signPage, in: CGRect(x: 70, y: 190, width: 20, height: 20)) { $0.brightnessComponent < 0.5 }, 3, "the tick")
+
+        // The form is locked: its answers are now plain content.
+        let formPage = try XCTUnwrap(done.page(at: 0))
+        XCTAssertFalse(formPage.annotations.contains { $0.type == "Widget" }, "no fields left to change")
+        XCTAssertGreaterThan(try pixels(formPage, in: CGRect(x: 240, y: 640, width: 200, height: 22)) { $0.brightnessComponent < 0.5 }, 3,
+                             "the answer shows where the field was")
+        XCTAssertTrue((formPage.string ?? "").contains("Asha Rao"), "answers stay searchable: \(formPage.string ?? "")")
+
+        // The original is untouched.
+        let original = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: p)))
+        XCTAssertEqual(original.page(at: 0)?.annotations.filter { $0.type == "Widget" }.count, 2)
+        XCTAssertFalse(original.page(at: 1)?.string?.contains("Flat 4B") ?? true)
+    }
+
+    func testFilledFormStaysFillable() async throws {
+        let p = try makeForm("Membership.pdf")
+        let extras = try fillExtras(p, [], lockForm: false) { doc in
+            doc.page(at: 0)!.annotations.first { $0.fieldName == "Full Name" }?.widgetStringValue = "Asha Rao"
+        }
+        do { let value = try await run(.signPDF, [p], .none, extras); XCTAssertEqual(value, ["Membership (filled).pdf"]) }
+        let done = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: path("Membership (filled).pdf"))))
+        let fields = done.page(at: 0)?.annotations.filter { $0.type == "Widget" } ?? []
+        XCTAssertEqual(fields.count, 2, "fields are still fields")
+        XCTAssertEqual(fields.first { $0.fieldName == "Full Name" }?.widgetStringValue, "Asha Rao")
+    }
+
+    func testRedactionRemovesTheText() async throws {
+        let p = path("Statement.pdf")
+        FixtureFactory.pdf(pages: [["Statement", "Account 12345678 belongs to Asha", "Balance 2,10,500"]], to: p)
+        XCTAssertTrue(PDFDocument(url: URL(fileURLWithPath: p))!.page(at: 0)!.string!.contains("12345678"))
+        // The second line sits on a baseline at y 646 (18 pt): cover it.
+        let box = FillItem(page: 0, center: CGPoint(x: 320, y: 652), size: CGSize(width: 520, height: 30), content: .redaction)
+        do { let value = try await run(.signPDF, [p], .none, try fillExtras(p, [box])); XCTAssertEqual(value, ["Statement (filled).pdf"]) }
+        let page = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: path("Statement (filled).pdf")))?.page(at: 0))
+        XCTAssertFalse((page.string ?? "").contains("12345678"), "nothing under a redaction survives")
+        XCTAssertGreaterThan(try pixels(page, in: CGRect(x: 100, y: 642, width: 300, height: 18)) { $0.brightnessComponent < 0.15 }, 50, "a black box")
+        XCTAssertGreaterThan(try pixels(page, in: CGRect(x: 64, y: 616, width: 200, height: 14)) { $0.brightnessComponent < 0.5 }, 3,
+                             "the rest of the page still shows")
+    }
+
+    func testFillingATurnedPage() async throws {
+        let p = path("Turned.pdf")
+        FixtureFactory.pdf(pages: [["Landscape form", "Sign below"]], to: p)
+        let doc = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: p)))
+        doc.page(at: 0)!.rotation = 90
+        XCTAssertTrue(doc.write(to: URL(fileURLWithPath: p)))
+        let item = textItem("Asha Rao", page: 0, at: CGPoint(x: 300, y: 300))
+        do { let value = try await run(.signPDF, [p], .none, try fillExtras(p, [item])); XCTAssertEqual(value, ["Turned (filled).pdf"]) }
+        let page = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: path("Turned (filled).pdf")))?.page(at: 0))
+        XCTAssertEqual(page.rotation, 90, "the page keeps its turn")
+        XCTAssertTrue((page.string ?? "").contains("Asha Rao"))
+        XCTAssertTrue((page.string ?? "").contains("Sign below"))
+    }
+
+    func testHighlightsAreKept() async throws {
+        let p = path("Notes.pdf")
+        FixtureFactory.pdf(pages: [["Notes", "Read this part"], ["Notes", "And this"]], to: p)
+        let band = CGRect(x: 64, y: 644, width: 160, height: 20)
+        let extras = try fillExtras(p, [textItem("Seen", page: 1, at: CGPoint(x: 72, y: 500))], lockForm: false) { doc in
+            for i in 0..<2 {
+                let h = PDFAnnotation(bounds: band, forType: .highlight, withProperties: nil)
+                h.color = NSColor(srgbRed: 1, green: 0.85, blue: 0.1, alpha: 0.45)
+                h.quadrilateralPoints = [NSValue(point: NSPoint(x: 0, y: band.height)), NSValue(point: NSPoint(x: band.width, y: band.height)),
+                                         NSValue(point: .zero), NSValue(point: NSPoint(x: band.width, y: 0))]
+                doc.page(at: i)!.addAnnotation(h)
+            }
+        }
+        _ = try await run(.signPDF, [p], .none, extras)
+        let done = try XCTUnwrap(PDFDocument(url: URL(fileURLWithPath: path("Notes (filled).pdf"))))
+        XCTAssertTrue(done.page(at: 0)!.annotations.contains { $0.type == "Highlight" }, "a page with nothing added keeps its highlight as a highlight")
+        let flat = try XCTUnwrap(done.page(at: 1))
+        XCTAssertFalse(flat.annotations.contains { $0.type == "Highlight" })
+        XCTAssertGreaterThan(try pixels(flat, in: band) { $0.blueComponent < $0.redComponent - 0.25 }, 10, "and on a page with something added, it's drawn in")
+    }
+
+    func testSignatureMaker() throws {
+        if let hand = SignatureMaker.hands.first {
+            let typed = try XCTUnwrap(SignatureMaker.typed("Asha Rao", hand: hand))
+            XCTAssertGreaterThan(typed.width, typed.height, "a name is wider than it is tall")
+        }
+        XCTAssertNil(SignatureMaker.typed("   ", hand: SignatureMaker.Hand(name: "Snell Roundhand", postScript: "SnellRoundhand")))
+
+        // A photo of a signature on slightly grey paper: the paper goes, the ink stays.
+        let photo = path("signature photo.jpg")
+        let ctx = FixtureFactory.context(CGSize(width: 800, height: 400))!
+        ctx.setFillColor(CGColor(gray: 0.88, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 800, height: 400))
+        ctx.setStrokeColor(CGColor(red: 0.05, green: 0.05, blue: 0.2, alpha: 1))
+        ctx.setLineWidth(10)
+        ctx.move(to: CGPoint(x: 200, y: 200))
+        ctx.addCurve(to: CGPoint(x: 600, y: 200), control1: CGPoint(x: 300, y: 320), control2: CGPoint(x: 500, y: 80))
+        ctx.strokePath()
+        FixtureFactory.save(ctx.makeImage()!, to: photo, type: .jpeg)
+        let cut = try XCTUnwrap(SignatureMaker.fromPhoto(URL(fileURLWithPath: photo)))
+        XCTAssertLessThan(cut.width, 500, "cropped to the ink")
+        let rep = NSBitmapImageRep(cgImage: cut)
+        XCTAssertLessThan(rep.colorAt(x: 1, y: 1)?.alphaComponent ?? 1, 0.1, "the paper is see-through")
+        var solid = 0
+        for x in stride(from: 0, to: cut.width, by: 3) {
+            for y in stride(from: 0, to: cut.height, by: 3) where (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.8 { solid += 1 }
+        }
+        XCTAssertGreaterThan(solid, 20, "the ink is kept")
     }
 
     // MARK: Video
