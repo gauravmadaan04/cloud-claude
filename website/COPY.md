@@ -20,7 +20,7 @@ decade, so claims alone don't land. We lead with a mechanism they haven't heard 
 - *Proof:* working demos on the page, measured speed (300,000 files, slowest search 0.09 s), 209 automated
   tests on every build, a privacy design anyone can check (it works with Wi-Fi off), and a 30-day guarantee.
 
-**Second problem, "the Upload Tax":** when you do find the file, small jobs (shrink, sign, merge, convert)
+**Second problem, "the Upload Tax":** when you do find the file, small jobs (shrink, fill in and sign, merge, convert)
 send you to converter sites that take your private files, or to a dozen apps that cost about $540 together.
 
 **Offer.** $49 for 1 Mac, $79 for 3, $99 for 5. One payment, free version 1 updates, no subscription, no account,
@@ -46,7 +46,7 @@ Haven · How it works · Tools · Clean Up · Compare · Pricing · FAQ · **Buy
   (Big promise + mechanism in one line. The earlier "You never remember the file name" line now opens the
   Filename Trap section, where it names the problem instead of the promise.)
 - Sub: No file name needed. Type what you remember, like "the invoice Sam emailed last week", and Haven finds it
-  in under a second. Then sign, shrink, merge, convert or transcribe it with one right-click. 27 tools, all on
+  in under a second. Then fill in and sign, shrink, merge, convert or transcribe it with one right-click. 27 tools, all on
   your Mac. Nothing uploaded.
 - Demo first, then the CTA: the search bar and the file pile sit right under the sub, so the promise is tried before
   the price. CTA: **Get Haven for $49** · secondary: Watch the real app
@@ -102,12 +102,14 @@ Guarantee. [Get Haven]
 ### Toolkit [second promise, demo]
 **Found it? Fix it with one right-click.**
 27 tools for images, PDFs, video, audio and on-device AI live in the menu you already use. Choose a tool and a
-new file appears next to the original. The original is never touched.
+new file appears next to the original. The original is never touched. **Fill & Sign** fills in any form: your
+name, today's date, ticks and your signature.
 
 Forget about: uploading private files to converter sites · file-size limits and watermarks · a different app for
 every job · paying extra to do many files at once.
 
-Demo: a Mac desktop. Right-click a file, open Tools, pick one, watch it work.
+Demo: a Mac desktop. Right-click a file, open Tools, pick one, watch it work. The lease opens in Fill & Sign:
+Fill Form (name and email from My Details), Date, Tick, draw or sample a signature, Save Signed Copy.
 
 **All 27 tools. Try any of them.** A studio with five tabs (Images, PDF, Video, Audio, On-device AI) and a
 working demo for every tool: convert and resize with live sizes, rotate sideways photos, split, organize and

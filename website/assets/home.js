@@ -250,17 +250,33 @@
   var TOOLS = {
     sign: function (stage) {
       var today = now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-      stage.innerHTML = shell("Sign “Lease agreement.pdf”", ["Lease agreement.pdf", "Tools", "Sign PDF…"],
-        '<div class="sign-wrap"><div class="paper"><h5>Residential Lease Agreement</h5><p>This agreement is made between the Landlord and the Tenant for the home at 14 Alder Street, Unit 3.</p><p>The lease begins on November 1, 2026 and runs for twelve months. Rent is due on the first day of each month.</p><p>The Tenant has read and accepts the terms above.</p>' +
-        '<div class="sigline"><span class="sigslot" id="sigslot"></span><span>Tenant signature</span><span>' + today + "</span></div></div>" +
-        '<div class="pad"><canvas id="sigpad" aria-label="Signature pad. Draw with your mouse, trackpad or finger."></canvas><span class="hint">Draw your signature here, or use a sample.</span><div class="tool-row"><button class="wbtn ghost" type="button" id="sig-sample">Use a sample</button><button class="wbtn ghost" type="button" id="sig-clear">Clear</button><button class="wbtn" type="button" id="sig-place" disabled>Place signature</button></div></div></div><div id="sig-made" aria-live="polite"></div>');
+      stage.innerHTML = shell("Fill & Sign “Lease agreement.pdf”", ["Lease agreement.pdf", "Tools", "Fill & Sign…"],
+        '<div class="sign-wrap"><div class="paper"><h5>Residential Lease Agreement</h5><p>Unit 3, 14 Alder Street, for twelve months from November 1, 2026. Rent is due on the first day of each month.</p>' +
+        '<div class="ffield"><span>Tenant name</span><b id="ff-name"></b></div><div class="ffield"><span>Email</span><b id="ff-email"></b></div>' +
+        '<div class="fcheck"><i id="ff-tick"></i>I have read and accept the terms above.</div>' +
+        '<div class="sigline"><span class="sigslot" id="sigslot"></span><span class="sigdate" id="ff-date"></span><span>Tenant signature</span><span>Date</span></div></div>' +
+        '<div class="fsteps"><div class="fbtns"><button class="wbtn ghost" type="button" id="ff-fill">1 · Fill Form</button><button class="wbtn ghost" type="button" id="ff-dt">2 · Date</button><button class="wbtn ghost" type="button" id="ff-ck">3 · ✓ Tick</button></div>' +
+        '<div class="pad"><canvas id="sigpad" aria-label="Signature pad. Draw with your mouse, trackpad or finger."></canvas><span class="hint">4 · Draw your signature, or use a sample. Haven keeps it for every form.</span><div class="tool-row"><button class="wbtn ghost" type="button" id="sig-sample">Use a sample</button><button class="wbtn ghost" type="button" id="sig-clear">Clear</button><button class="wbtn" type="button" id="sig-place" disabled>Place</button></div></div>' +
+        '<button class="wbtn" type="button" id="ff-save" disabled>Save Signed Copy</button></div></div><div id="sig-made" aria-live="polite"></div>');
+      var typeIn = async function (el, text) {
+        el.textContent = "";
+        for (var k = 1; k <= text.length; k++) { el.textContent = text.slice(0, k); if (!reduce) await wait(22); }
+      };
+      var done = function (btn) { btn.classList.add("on"); btn.disabled = true; };
+      $("ff-fill").addEventListener("click", async function () {
+        done(this);
+        await typeIn($("ff-name"), "Asha Rao");
+        await typeIn($("ff-email"), "asha@example.com");
+      });
+      $("ff-dt").addEventListener("click", function () { done(this); typeIn($("ff-date"), today); });
+      $("ff-ck").addEventListener("click", function () { done(this); $("ff-tick").classList.add("on"); });
       var canvas = $("sigpad"), ctx = canvas.getContext("2d"), dpr = Math.min(2, window.devicePixelRatio || 1);
       var w = canvas.clientWidth, h = canvas.clientHeight;
       canvas.width = w * dpr; canvas.height = h * dpr;
       ctx.scale(dpr, dpr);
       ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 2.4; ctx.strokeStyle = "#1f3a93";
       var drawn = false, drawing = false, last = null, mid = null, animating = 0;
-      var placeBtn = $("sig-place");
+      var placeBtn = $("sig-place"), saveBtn = $("ff-save");
       var mark = function () { drawn = true; placeBtn.disabled = false; };
       var pt = function (e) { var r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
       canvas.addEventListener("pointerdown", function (e) { animating++; drawing = true; last = pt(e); mid = last; canvas.setPointerCapture(e.pointerId); });
@@ -292,7 +308,10 @@
       placeBtn.addEventListener("click", function () {
         if (!drawn) return;
         $("sigslot").innerHTML = '<img alt="Your signature" src="' + trimCanvas(canvas) + '">';
-        $("sig-made").innerHTML = made("Lease agreement (signed).pdf", "Saved next to the original · 1 page");
+        saveBtn.disabled = false;
+      });
+      saveBtn.addEventListener("click", function () {
+        $("sig-made").innerHTML = made("Lease agreement (signed).pdf", "Answers locked in · saved next to the original");
       });
     },
 
@@ -928,7 +947,7 @@
     PH.product = "radial-gradient(ellipse at 50% 88%, #c2603a 0 17%, transparent 17.5%), radial-gradient(ellipse at 50% 46%, #3f8c4f 0 20%, transparent 20.5%), radial-gradient(ellipse at 40% 40%, #5aa864 0 12%, transparent 12.5%), linear-gradient(180deg, #ecdfcf, #d6c2aa)";
     PH.cut = "radial-gradient(ellipse at 50% 88%, #c2603a 0 17%, transparent 17.5%), radial-gradient(ellipse at 50% 46%, #3f8c4f 0 20%, transparent 20.5%), radial-gradient(ellipse at 40% 40%, #5aa864 0 12%, transparent 12.5%), repeating-conic-gradient(#e6e6ea 0 25%, #fff 0 50%) 0 0 / 10px 10px";
     var items = [
-      { id: "lease", name: "Lease agreement.pdf", f: { k: "pdf" }, tools: [["Sign PDF…", "sign"], ["Add Password…", " (locked).pdf"], ["Split PDF", " (pages)"], ["Extract Pages…", " (pages 2-3).pdf"], ["Organize Pages…", " (edited).pdf"], ["PDF to Images", " (images)"], null, ["Summarize", " (summary).txt"], ["Translate…", " (Spanish).txt"]] },
+      { id: "lease", name: "Lease agreement.pdf", f: { k: "pdf" }, tools: [["Fill & Sign…", "sign"], ["Add Password…", " (locked).pdf"], ["Split PDF", " (pages)"], ["Extract Pages…", " (pages 2-3).pdf"], ["Organize Pages…", " (edited).pdf"], ["PDF to Images", " (images)"], null, ["Summarize", " (summary).txt"], ["Translate…", " (Spanish).txt"]] },
       { id: "shot", name: "Product shot.heic", f: { k: "photo", ph: "product" }, tools: [["Remove Background", "cutout"], ["Convert to PNG", ".png"], ["Resize Images", " (1600 px).heic"], ["Rotate Images", " (rotated).heic"], ["Remove Private Details", " (clean).heic"], ["Images to PDF", ".pdf"]] },
       { id: "call", name: "Team call.mov", f: { k: "video", ph: "call", dur: "32:14" }, tools: [["Compress Video", "compress"], ["Transcribe…", "transcribe"], ["Trim Video…", " (trimmed).mov"], ["Make a GIF", ".gif"], ["Extract Audio", ".m4a"], ["Mute Video", " (muted).mov"], ["Change Speed", " (2x).mov"]] },
       { id: "img", name: "IMG_4021.HEIC", f: { k: "photo", ph: "sunset" }, tools: [["Remove Private Details", "clean"], ["Remove Background", " (cut out).png"], ["Convert to JPEG", ".jpg"], ["Resize Images", " (1600 px).HEIC"], ["Rotate Images", " (rotated).HEIC"]] },
@@ -1070,7 +1089,7 @@
       if (!menu.hidden) closeMenus(); else if (!win.hidden) closeWin();
     });
 
-    // Shows the way once: the menu opens on the lease with Tools and Sign PDF highlighted.
+    // Shows the way once: the menu opens on the lease with Tools and Fill & Sign highlighted.
     var autoShown = false;
     onView(deskEl, function () {
       setTimeout(function () {
@@ -1292,7 +1311,7 @@
     var catsEl = $("studio-cats"), chipsEl = $("studio-chips"), stage = $("studio-stage");
     var CATS = [
       { id: "images", name: "Images", icon: "i-photo", tools: [["Convert Images", "convertImg"], ["Resize Images", "resizeImg"], ["Rotate Images", "rotateImg"], ["Remove Private Details", "clean"], ["Remove Background", "cutout"]] },
-      { id: "pdf", name: "PDF", icon: "i-doc", tools: [["Merge PDFs", "merge"], ["Split PDF", "split"], ["Organize Pages", "organize"], ["Extract Pages", "extract"], ["Images to PDF", "img2pdf"], ["PDF to Images", "pdf2img"], ["Add Password", "lock"], ["Remove Password", "unlock"], ["Sign PDF", "sign"]] },
+      { id: "pdf", name: "PDF", icon: "i-doc", tools: [["Merge PDFs", "merge"], ["Split PDF", "split"], ["Organize Pages", "organize"], ["Extract Pages", "extract"], ["Images to PDF", "img2pdf"], ["PDF to Images", "pdf2img"], ["Add Password", "lock"], ["Remove Password", "unlock"], ["Fill & Sign", "sign"]] },
       { id: "video", name: "Video", icon: "i-film", tools: [["Compress Video", "compress"], ["Convert Video", "convertVid"], ["Trim Video", "trimVid"], ["Make a GIF", "gif"], ["Extract Audio", "extractAudio"], ["Mute Video", "mute"], ["Merge Videos", "mergeVid"], ["Change Speed", "speed"]] },
       { id: "audio", name: "Audio", icon: "i-wave", tools: [["Convert Audio", "convertAud"], ["Trim Audio", "trimAud"]] },
       { id: "ai", name: "On-device AI", icon: "i-sparkle", tools: [["Transcribe", "transcribe"], ["Translate", "translate"], ["Summarize", "summarize"]] },
@@ -1351,7 +1370,8 @@
       el.firstElementChild.style.width = "0";
       return progress(el.firstElementChild, reduce ? 10 : ms).then(function () { el.hidden = true; });
     }
-    function out(st, html) { st.querySelector(".sout").innerHTML = html; }
+    // A demo can finish after you've moved on to another tool: then there's nothing left to write into.
+    function out(st, html) { var o = st.querySelector(".sout"); if (o) o.innerHTML = html; }
     function photo(ph, extra) { return '<div class="th th-photo" style="--ph:' + PH[ph] + '">' + (extra || "") + "</div>"; }
     function card(th, name, meta, cls) { return '<div class="fcard ' + (cls || "") + '">' + th + "<b>" + esc(name) + "</b><small>" + meta + "</small></div>"; }
     function fmt(label, color) { return '<span class="fmt" style="--c:' + color + '">' + label + "</span>"; }

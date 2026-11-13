@@ -147,7 +147,7 @@ finder_rows = "\n".join([
     row("Clear out old installers and forgotten downloads", "Storage settings lists big files", "Grouped, reviewed first, moved to the Trash, with Undo"),
     row("See the size of every folder", "“Calculate all sizes”, slow on big folders", "All at once, in a fraction of a second"),
     row("Rename many files using dates and the title inside them", "Text and counters only", "Dates, titles from the text, sources and counters, with Undo"),
-    row("Compress video, merge or sign PDFs, cut out a subject", "Some, spread across Preview and Quick Actions", "27 tools in one right-click menu, with progress and Undo"),
+    row("Compress video, merge or fill in and sign PDFs, cut out a subject", "Some, spread across Preview and Quick Actions", "27 tools in one right-click menu, with progress and Undo"),
     row("Turn a recording into text or subtitles", "Only in Voice Memos and Notes, for their own recordings", "Any recording or video, with Whisper, in 20+ languages"),
     row("Search from any app", "⌘Space", "⇧⌘Space, with plain English and Show in Finder", "yes"),
     row("Price", "Included with macOS", "$49 once", None, None),
@@ -164,7 +164,7 @@ online_rows = "\n".join([
 ])
 
 cost = [
-    ("Merge, split, organize and sign PDFs", "PDF Expert", "$139.99 lifetime", "PDF tools"),
+    ("Merge, split, organize, fill in and sign PDFs", "PDF Expert", "$139.99 lifetime", "PDF tools"),
     ("Clean up disk space", "CleanMyMac", "$119.95 once, or $39.95 a year", "Clean Up"),
     ("Transcribe recordings", "MacWhisper Pro", "€59 (about $69)", "Transcribe"),
     ("Find duplicates", "Gemini 2", "$44.95 once, or $19.95 a year", "Duplicates"),
@@ -308,6 +308,7 @@ groups = [
         ("How does plain-English search work?", ["Type what you remember, like “screenshots over 5 MB” or “photos from whatsapp last month”. Haven picks out the kind of file, the dates, sizes, sources and folders, and shows each one as a chip. Remove a chip to widen the search. Anything left over is matched against file names and the text inside files."]),
         ("Can Haven really read the text in my screenshots?", ["Yes. Haven uses Apple's on-device text recognition to read screenshots, photos and scanned PDFs in the background, newest first. The first pass takes a little while after you install Haven; after that, new files are read as they arrive."]),
         ("How does transcription work?", ["Haven runs Whisper, an open-source speech recognition model, on your Mac. The first time you transcribe, you choose Faster (190 MB) or Best Quality (574 MB, recommended on Apple silicon), and Haven downloads it once. It can detect the language or you can pick one of 20+, and it can translate the speech into English. You get a text file, subtitles (.srt), or both."]),
+        ("Can Haven fill in PDF forms?", ["Yes. Right-click a PDF and choose Tools › Fill & Sign. Type anywhere on the page, add your saved details and today's date, tick boxes, and sign or initial with a signature you draw, type in a handwriting font or take from a photo of one on paper. Real form fields can be typed in, or filled from your details in one click. White-out covers mistakes, and Redact removes text for good. You get a new copy, “(signed)” or “(filled)”; the original never changes."]),
         ("Do the file tools change my originals?", ["Never. Every tool makes a new file next to the original, with a clear name like “Team call (720p).mp4” or “Lease agreement (signed).pdf”. Undo moves what a tool made to the Trash."]),
         ("What is Dialog Jump?", ["When an Open or Save dialog is on screen in any app, Haven can send it to the folder you're looking at in Haven, so you don't click through folders again. It needs Accessibility permission, because it types the folder's path into the dialog for you."]),
         ("Does it work with iCloud Drive?", ["Yes, add your iCloud Drive folders like any others. Files that are only in iCloud and not downloaded to this Mac are skipped when Haven looks for duplicates."]),
