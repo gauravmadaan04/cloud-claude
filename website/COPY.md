@@ -17,7 +17,7 @@ decade, so claims alone don't land. We lead with a mechanism they haven't heard 
 - *Mechanism of the solution, "the Recall Index":* Haven builds a private index, on your Mac, of the five
   things memory actually keeps: what it was, when, where it came from, what's inside (even inside pictures),
   and what was said.
-- *Proof:* working demos on the page, measured speed (300,000 files, slowest search 0.09 s), 209 automated
+- *Proof:* working demos on the page, measured speed (300,000 files, slowest search 0.09 s), 219 automated
   tests on every build, a privacy design anyone can check (it works with Wi-Fi off), and a 30-day guarantee.
 
 **Second problem, "the Upload Tax":** when you do find the file, small jobs (shrink, fill in and sign, merge, convert)
@@ -139,7 +139,7 @@ else: nothing. Proof: the network log from the film recording.
 
 ### Proof stack [credibility without testimonials]
 - 300,000 files searched in at most 0.09 s, measured
-- 209 automated tests run on a real Mac for every build
+- 219 automated tests run on a real Mac for every build
 - Native SwiftUI, one app for Apple silicon and Intel
 - Speech recognition by Whisper, running locally
 
